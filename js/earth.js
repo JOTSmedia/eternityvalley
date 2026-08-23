@@ -15,6 +15,26 @@ import { RBV } from './social.js';
 import { icon as uiIcon, speciesIcon, speciesKey, rainbowMark } from './icons.js';
 
 /**
+ * The view of the whole planet from space.
+ *
+ * `range` is metres from the camera to the centre point; 17,500km puts
+ * the full disc in frame with space around it. Centred over the
+ * Americas rather than mid-ocean, so the opening frame reads as Earth
+ * immediately.
+ *
+ * SATELLITE, not HYBRID: at planetary range the hybrid layer serves a
+ * featureless blue base with no continents at all. Labels are only
+ * useful once you are close to the ground anyway, so the mode is
+ * switched on descent.
+ */
+export const GLOBE = {
+  lat: 15, lng: -60,
+  range: 17_500_000,   // the framing we want to end on
+};
+const ORBIT_MODE = 'SATELLITE';
+const GROUND_MODE = 'HYBRID';
+
+/**
  * PinElement takes a DOM node for its glyph, so our SVG icons can be
  * dropped straight in — no emoji glyph, and no dependence on whatever
  * emoji font the visitor's platform happens to ship.
@@ -34,7 +54,9 @@ export class EarthView {
     this.mode = HAS_MAPS3D ? 'google3d' : 'satellite';
     this.placement = false;
     this.markers = new Map(); // memorial.id -> marker
+    this.charityMarkers = new Map(); // charity.id -> marker
     this.onMemorialClick = null;
+    this.onCharityClick = null;
     this.onPlaceAt = null;
     this.onRBVClick = null;
     this._ready = null;
@@ -62,15 +84,27 @@ export class EarthView {
   async _initGoogle() {
     await this._loadMapsAPI();
     const { Map3DElement } = await google.maps.importLibrary('maps3d');
+    // Open on the whole planet hanging in space, not already zoomed
+    // into one valley: the globe is the map of every place a companion
+    // ever loved, and choosing one should be a descent from orbit.
+    // Initialised at ground range over Rainbow Bridge Valley, NOT at
+    // orbit. Cold-starting this element at any planetary range leaves
+    // Google's tile pipeline with nothing to stream: the planet comes
+    // up as a featureless blue disc, or the loader stalls on its
+    // spinner and never resolves. A close seed always streams, so the
+    // camera is pulled back to orbit once tiles are up — which also
+    // makes a better opening than starting wide: the bridge, then the
+    // whole world it sits on.
     const map = new Map3DElement({
       center: { lat: RBV.lat, lng: RBV.lng, altitude: 1250 },
-      range: 2800, tilt: 66, heading: 25,
-      mode: 'HYBRID',
+      range: 2800, tilt: 60, heading: 25,
+      mode: GROUND_MODE,
     });
     map.style.width = '100%';
     map.style.height = '100%';
     this.container.appendChild(map);
     this.map3d = map;
+    this.atOrbit = true;
 
     // Terrain clicks (for placement mode)
     map.addEventListener('gmp-click', (e) => {
@@ -128,7 +162,7 @@ export class EarthView {
       [D, D], [D, -D], [-D, D], [-D, -D],
       [2 * D, 0], [-2 * D, 0],
     ];
-    for (const [dLat, dLng] of offsets) {
+    for (const [i, [dLat, dLng]] of offsets.entries()) {
       const pos = { lat: center.lat + dLat, lng: center.lng + dLng };
       if (this.mode === 'google3d') {
         const { Marker3DInteractiveElement } = await google.maps.importLibrary('maps3d');
@@ -136,7 +170,10 @@ export class EarthView {
         const pin = new PinElement({ glyph: glyphNode(uiIcon('paw', { size: 12 }), '#14260f'), scale: 1.05, background: '#79c164', borderColor: '#2f5c28', glyphColor: '#14260f' });
         const m = new Marker3DInteractiveElement({
           position: { ...pos, altitude: 3 }, altitudeMode: 'RELATIVE_TO_GROUND', extruded: true,
-          label: 'Available — place here',
+          // Only the centre spot is labelled. These sit ~15m apart, so
+          // eleven copies of the same caption pile into an illegible
+          // stack — the pin already says what it is.
+          label: i === 0 ? 'Available — place here' : undefined,
         });
         m.append(pin);
         m.addEventListener('gmp-click', () => this.onPlaceAt?.(pos));
@@ -258,6 +295,50 @@ export class EarthView {
     return marker;
   }
 
+  // ---------------- Charity Sanctuaries ----------------
+  async _addCharityMarkerGoogle(ch) {
+    if (!ch.lat || !ch.lng) return null;
+    const { Marker3DInteractiveElement } = await google.maps.importLibrary('maps3d');
+    const { PinElement } = await google.maps.importLibrary('marker');
+    const pin = new PinElement({
+      glyph: glyphNode(uiIcon('heart', { size: 16 }), '#ffffff'),
+      glyphColor: '#ffffff',
+      scale: 1.5,
+      background: '#2ecc71',
+      borderColor: '#27ae60',
+    });
+    const marker = new Marker3DInteractiveElement({
+      position: { lat: ch.lat, lng: ch.lng, altitude: 25 },
+      altitudeMode: 'RELATIVE_TO_GROUND', extruded: true,
+      label: `Rescue: ${ch.name}`,
+    });
+    marker.append(pin);
+    marker.addEventListener('gmp-click', () => this.onCharityClick?.(ch));
+    this.map3d.append(marker);
+    return marker;
+  }
+
+  _addCharityMarkerLeaflet(ch) {
+    if (!ch.lat || !ch.lng) return null;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="em-marker em-charity-pin" title="${ch.name}">${uiIcon('heart', { size: 18 })}</div>`,
+      iconSize: [36, 36], iconAnchor: [18, 32],
+    });
+    const marker = L.marker([ch.lat, ch.lng], { icon }).addTo(this.leaflet);
+    marker.bindTooltip(`<b>${ch.name}</b><br><span style="font-size:11px;color:#ffd700">${ch.cat}</span>`, { direction: 'top' });
+    marker.on('click', () => this.onCharityClick?.(ch));
+    return marker;
+  }
+
+  async addCharityMarker(ch) {
+    if (!ch.lat || !ch.lng || this.charityMarkers.has(ch.id)) return;
+    const marker = this.mode === 'google3d'
+      ? await this._addCharityMarkerGoogle(ch)
+      : this._addCharityMarkerLeaflet(ch);
+    if (marker) this.charityMarkers.set(ch.id, marker);
+  }
+
   // ---------------- Shared API ----------------
   async addMemorialMarker(mem) {
     if (this.markers.has(mem.id)) return;
@@ -267,15 +348,77 @@ export class EarthView {
     this.markers.set(mem.id, marker);
   }
 
-  flyTo({ lat, lng, range = 320, zoom = 18 }) {
+  /**
+   * Descend from orbit to a place on Earth.
+   *
+   * The descent is deliberately longer when starting from the globe:
+   * a 2.6s move from 20,000km reads as a cut, while ~5s reads as
+   * travelling. Tilt is introduced on the way down so the camera
+   * arrives looking across the place rather than straight at it.
+   */
+  flyTo({ lat, lng, range = 320, zoom = 18, tilt = 62, heading = 0, duration } = {}) {
     if (this.mode === 'google3d' && this.map3d) {
+      const fromOrbit = this.atOrbit;
+      this.atOrbit = false;
+      // Labels and roads are worth having on the ground, and actively
+      // harmful from orbit (see GLOBE).
+      this.map3d.mode = GROUND_MODE;
       this.map3d.flyCameraTo({
-        endCamera: { center: { lat, lng, altitude: 120 }, range, tilt: 62, heading: 0 },
-        durationMillis: 2600,
+        endCamera: {
+          center: { lat, lng, altitude: 120 },
+          range, tilt, heading,
+        },
+        durationMillis: duration ?? (fromOrbit ? 5200 : 2600),
       });
     } else if (this.leaflet) {
       this.leaflet.flyTo([lat, lng], zoom, { duration: 2.2 });
     }
+    return this;
+  }
+
+  /** Pull back out until the whole planet is in frame again. */
+  flyToOrbit({ lat = GLOBE.lat, lng = GLOBE.lng, duration = 3400 } = {}) {
+    if (this.mode === 'google3d' && this.map3d) {
+      this.atOrbit = true;
+      this.map3d.flyCameraTo({
+        endCamera: { center: { lat, lng, altitude: 0 }, range: GLOBE.range, tilt: 0, heading: 0 },
+        durationMillis: duration,
+      });
+      // Drop the label layer only once the ascent is under way, so the
+      // switch is hidden by the movement rather than popping in frame.
+      setTimeout(() => { if (this.atOrbit) this.map3d.mode = ORBIT_MODE; }, duration * 0.55);
+    } else if (this.leaflet) {
+      this.leaflet.flyTo([lat, lng], 3, { duration: 2.6 });
+    }
+    return this;
+  }
+
+  /**
+   * Settle the camera into the orbit framing and let imagery stream.
+   *
+   * There is no auto-rotation, deliberately. Driving the globe with a
+   * repeating flyCameraTo corrupts the camera — overlapping animations
+   * leave `range` at 0 and the planet renders as a featureless blue
+   * disc — as well as preventing tiles from ever resolving and burning
+   * Maps quota on every idle second. A still Earth loads sharp; a
+   * spinning one never finishes loading.
+   */
+  settleOrbit({ delay = 2600, duration = 5200 } = {}) {
+    if (this.mode !== 'google3d' || !this.map3d) return this;
+    this.atOrbit = true;
+    // Let the seed framing stream in first, then rise to the full
+    // disc. Animating (rather than assigning `range`) keeps the loaded
+    // tiles on screen for the whole climb.
+    clearTimeout(this._settle);
+    this._settle = setTimeout(() => {
+      if (!this.atOrbit) return;          // someone already flew somewhere
+      this.map3d.mode = ORBIT_MODE;
+      this.map3d.flyCameraTo({
+        endCamera: { center: { lat: GLOBE.lat, lng: GLOBE.lng, altitude: 0 }, range: GLOBE.range, tilt: 0, heading: 0 },
+        durationMillis: duration,
+      });
+    }, delay);
+    return this;
   }
 
   flyHome() { this.flyTo({ lat: RBV.lat, lng: RBV.lng, range: 2800, zoom: 15 }); }

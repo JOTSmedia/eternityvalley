@@ -22,20 +22,30 @@ export const Auth = {
       return;
     }
     if (IS_DEMO) {
-      const saved = localStorage.getItem('ev_user');
-      this.user = saved ? JSON.parse(saved) : null;
+      try {
+        const saved = localStorage.getItem('ev_user');
+        this.user = saved ? JSON.parse(saved) : null;
+      } catch {
+        this.user = null;
+      }
       this._emit();
       return;
     }
     // Real Firebase (loaded lazily from CDN so demo mode needs no network)
-    const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-    fbFns = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-    fbApp = appMod.initializeApp(FIREBASE_CONFIG);
-    fbAuth = fbFns.getAuth(fbApp);
-    fbFns.onAuthStateChanged(fbAuth, (u) => {
-      this.user = u ? { uid: u.uid, name: u.displayName || u.email?.split('@')[0], email: u.email, provider: u.providerData[0]?.providerId || 'password', isGuest: false } : null;
+    try {
+      const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+      fbFns = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+      fbApp = appMod.initializeApp(FIREBASE_CONFIG);
+      fbAuth = fbFns.getAuth(fbApp);
+      fbFns.onAuthStateChanged(fbAuth, (u) => {
+        this.user = u ? { uid: u.uid, name: u.displayName || u.email?.split('@')[0], email: u.email, provider: u.providerData[0]?.providerId || 'password', isGuest: false } : null;
+        this._emit();
+      });
+    } catch (e) {
+      console.warn('[auth] firebase init failed', e);
+      this.user = null;
       this._emit();
-    });
+    }
   },
 
   async signUpEmail(name, email, password) {

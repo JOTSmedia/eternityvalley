@@ -26,6 +26,29 @@ let loadingLibs = null;
 const SIZE = 256;
 const CACHE_KEY = 'rbv_thumbs_v1';
 
+// Photographs, where we have one AND hold its attribution. The
+// manifest lists only credited files: shipping a CC-BY image without a
+// visible credit is a licence breach, so an uncredited download is
+// treated as though it does not exist.
+const PHOTO_DIR = 'images/catalog/';
+let photoSet = null;
+export const photosReady = Promise.race([
+  fetch(PHOTO_DIR + 'manifest.json')
+    .then(r => (r.ok ? r.json() : []))
+    .then(list => { photoSet = new Set(list); return photoSet; })
+    .catch(() => { photoSet = new Set(); return photoSet; }),
+  new Promise(resolve => setTimeout(() => {
+    if (!photoSet) photoSet = new Set();
+    resolve(photoSet);
+  }, 1000)),
+]);
+
+/** Path to a real photograph for this id, or null. */
+export function photoFor(id) {
+  const key = ALIASES[id] || id;
+  return photoSet?.has(key) ? PHOTO_DIR + key + '.jpg' : null;
+}
+
 const mem = new Map();
 let store = null;
 try { store = JSON.parse(sessionStorage.getItem(CACHE_KEY) || '{}'); } catch { store = {}; }
@@ -871,6 +894,12 @@ export function persist() {
  * the id has no 3D build.
  */
 export function thumbImg(id, { size = 56, alt = '', cls = '' } = {}) {
+  // A photograph beats a render whenever we have one.
+  const photo = photoFor(id);
+  if (photo) {
+    return `<img class="thumb thumb-photo ${cls}" src="${photo}" width="${size}" height="${size}" `
+         + `alt="${alt}" loading="lazy" decoding="async">`;
+  }
   if (!canRender(id)) return '';
   const url = renderThumb(id);
   const key = ALIASES[id] || id;

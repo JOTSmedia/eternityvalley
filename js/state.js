@@ -22,15 +22,35 @@ export const State = {
 
   async init(user) {
     if (IS_DEMO || !user || user.isGuest) {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) this.data = JSON.parse(raw);
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            this.data = {
+              membership: parsed.membership || null,
+              ownedPlots: parsed.ownedPlots || {},
+              gifts: parsed.gifts || {},
+              earth: parsed.earth || { memorials: [], activity: [] },
+              memories: parsed.memories || {},
+              profile: parsed.profile || {},
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('[state] load failed', e);
+      }
       return;
     }
-    const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-    fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    db = fs.getFirestore(appMod.getApp());
-    const snap = await fs.getDoc(fs.doc(db, 'users', user.uid));
-    if (snap.exists()) this.data = { ...this.data, ...snap.data() };
+    try {
+      const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+      fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      db = fs.getFirestore(appMod.getApp());
+      const snap = await fs.getDoc(fs.doc(db, 'users', user.uid));
+      if (snap.exists()) this.data = { ...this.data, ...snap.data() };
+    } catch (e) {
+      console.warn('[state] firebase init failed', e);
+    }
   },
 
   async save(user) {

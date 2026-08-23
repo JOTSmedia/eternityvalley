@@ -17,6 +17,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WORLD, DISTRICTS, ROADS, RIVER, terrainHeight, distToRoads, distToRiver, fbm, mulberry32, SIZE_DIMS } from './terrain.js';
 import { getSeason, SEASON_STYLE, getDayPhase, PHASES, MOODS, fetchWeather } from './ambience.js';
 import { Surfaces, waterNormalTexture, textures, material } from './materials.js';
+import { icon, speciesIcon, speciesKey } from './icons.js';
+import { charityName } from './catalog.js';
 
 const V3 = THREE.Vector3;
 
@@ -77,22 +79,28 @@ export class World3D {
     this._sky();
     this._stars();
     this._horizon();
+    const safe = (name, fn) => { try { fn(); } catch (e) { console.warn(`[world3d] ${name} skipped:`, e); } };
     this._terrain();
     this._water();
     this._river();
     this._roads();
-    this._gate();
-    this._plaza();
-    this._rainbowBridge();
-    this._pawprints();
-    this._vegetation();
-    this._blooms();
+    safe('gate', () => this._gate());
+    safe('plaza', () => this._plaza());
+    safe('rainbowBridge', () => this._rainbowBridge());
+    safe('pawprints', () => this._pawprints());
+    safe('vegetation', () => this._vegetation());
+    safe('blooms', () => this._blooms());
+    safe('districtFeatures', () => this._districtFeatures());
+    safe('sanctuaryTree', () => this._sanctuaryTree());
+    safe('riverLanterns', () => this._riverLanterns3D());
+    safe('celestialMotes', () => this._celestialMotes());
     this._plots();
     this._picking();
     this._composer();
+    this._initAmbienceControls();
 
     this.applyAmbience();
-    setInterval(() => this.applyAmbience(), 60000);         // follow real time
+    this._ambienceTimer = setInterval(() => this.applyAmbience(), 60000);  // follow real time
     fetchWeather().then(w => { this.mood = w.mood; this.applyAmbience(); this.onAmbience?.(w, this.season); });
 
     addEventListener('resize', () => this._resize());
@@ -101,8 +109,8 @@ export class World3D {
   }
 
   _resize() {
-    const w = this.canvas.clientWidth || this.canvas.parentElement.clientWidth;
-    const h = this.canvas.clientHeight || this.canvas.parentElement.clientHeight;
+    const w = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || window.innerWidth;
+    const h = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || window.innerHeight;
     if (w < 1 || h < 1) return;         // hidden view — keep the last good size
     this.renderer.setSize(w, h, false);
     this.composer?.setSize(w, h);
@@ -117,7 +125,7 @@ export class World3D {
     const sun = new THREE.DirectionalLight(0xffe3b0, 2.1);
     sun.position.set(-700, 800, 500);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(4096, 4096);
+    sun.shadow.mapSize.set(2048, 2048);
     const s = 1400;
     Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 500, far: 6000 });
     // The sun sits 3000 units out, so the shadow frustum has to reach
@@ -211,7 +219,7 @@ export class World3D {
     // Bloom is what sells the rainbow, the lanterns and the candles as
     // light sources rather than bright-coloured plastic.
     const bloom = new UnrealBloomPass(
-      new THREE.Vector2(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1),
+      new THREE.Vector2(Math.ceil((this.canvas.clientWidth || 1) / 2), Math.ceil((this.canvas.clientHeight || 1) / 2)),
       0.42,   // strength — raised after dark in applyAmbience()
       0.85,   // radius
       0.82,   // threshold: only genuinely bright pixels bloom
@@ -415,8 +423,8 @@ export class World3D {
     normals.wrapS = normals.wrapT = THREE.RepeatWrapping;
 
     const water = new Water(geo, {
-      textureWidth: 512,
-      textureHeight: 512,
+      textureWidth: 256,
+      textureHeight: 256,
       waterNormals: normals,
       sunDirection: new V3(0, 1, 0),
       sunColor: 0xffe3b0,
@@ -433,20 +441,45 @@ export class World3D {
     // The river shares the lake's look but not its reflection buffer —
     // a second full planar reflection is not worth the frame time, so
     // it uses a matched PBR material instead.
-    this.waterMat = new THREE.MeshPhysicalMaterial({
+    this.waterMat = new THREE.MeshStandardMaterial({
       color: 0x2e6d90,
       roughness: 0.08,
-      metalness: 0.02,
-      transmission: 0.55,
-      thickness: 3,
-      ior: 1.333,
+      metalness: 0.15,
       transparent: true,
-      opacity: 0.94,
+      opacity: 0.85,
       normalMap: normals.clone(),
       normalScale: new THREE.Vector2(0.35, 0.35),
     });
     this.waterMat.normalMap.wrapS = this.waterMat.normalMap.wrapT = THREE.RepeatWrapping;
     this.waterMat.normalMap.repeat.set(14, 14);
+
+    // Floating water lilies and lily pads across Mirror Lake
+    const padMat = Surfaces.foliage(1, 0x3d7045);
+    const flowerMat = new THREE.MeshStandardMaterial({ color: 0xffeef5, roughness: 0.4, emissive: 0xffd1dc, emissiveIntensity: 0.2 });
+    const padGeo = new THREE.CylinderGeometry(2.2, 2.2, 0.08, 12, 1, false, 0, Math.PI * 1.85);
+    const flowerGeo = new THREE.ConeGeometry(0.8, 1.1, 7);
+
+    const lilyGroup = new THREE.Group();
+    const rng = mulberry32(119933);
+    for (let i = 0; i < 36; i++) {
+      const a = rng() * Math.PI * 2;
+      const r = 40 + rng() * (WORLD.lake.r - 50);
+      const lx = WORLD.lake.x + Math.cos(a) * r;
+      const lz = WORLD.lake.z + Math.sin(a) * r;
+      
+      const pad = new THREE.Mesh(padGeo, padMat);
+      pad.position.set(lx, WORLD.waterLevel + 0.12, lz);
+      pad.rotation.y = rng() * Math.PI * 2;
+      lilyGroup.add(pad);
+
+      if (rng() < 0.6) {
+        const flower = new THREE.Mesh(flowerGeo, flowerMat);
+        flower.position.set(lx + (rng() - 0.5) * 0.8, WORLD.waterLevel + 0.55, lz + (rng() - 0.5) * 0.8);
+        flower.rotation.y = rng() * Math.PI * 2;
+        lilyGroup.add(flower);
+      }
+    }
+    this.scene.add(lilyGroup);
   }
 
   // The Rainbow River — a gentle ribbon from Mirror Lake to the SW meadows
@@ -751,19 +784,48 @@ export class World3D {
       g.add(arch);
     }
 
-    // The Rainbow — one continuous spectral arc (soft-edged shader),
-    // feet on either bank, visible face-on from the Grand Boulevard.
-    // Narrower and taller than a real 42° bow, because it has to frame
-    // the bridge rather than fill the sky, but kept thin: the earlier
-    // wide band read as a lens smear across the whole valley.
-    const arc = this._makeRainbowArc(104, 126, 0.5);
+    // 4 Ornate Classical Lampposts at the bridge entrances
+    const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffe89e });
+    const lampPlinthMat = Surfaces.limestoneDark(1.8);
+    const lampPositions = [
+      [bx - 14, bz - 50], [bx + 14, bz - 50],
+      [bx - 14, bz + 50], [bx + 14, bz + 50]
+    ];
+    for (const [lx, lz] of lampPositions) {
+      const ly = this._deckY(lz) || 2;
+      const post = new THREE.Group();
+      post.position.set(lx, ly + 2.5, lz);
+      
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.3, 2.2, 8), lampPlinthMat);
+      base.position.y = 1.1; post.add(base);
+      
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4.5, 8), lampPlinthMat);
+      shaft.position.y = 4.2; post.add(shaft);
+      
+      const head = new THREE.Mesh(new THREE.DodecahedronGeometry(1.2, 0), lanternMat);
+      head.position.y = 7.0; post.add(head);
+      
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(1.4, 1.2, 6), lampPlinthMat);
+      cap.position.y = 8.0; post.add(cap);
+      
+      g.add(post);
+    }
+
+    // The Rainbow — double spectral arcs with atmospheric humidity halo
+    const arc = this._makeRainbowArc(104, 126, 0.55);
     arc.position.set(bx, 2, bz);
     g.add(arc);
-    // faint wide glow around it — humid-air halo
-    const glow = this._makeRainbowArc(96, 134, 0.10);
+
+    // Ethereal secondary outer rainbow arc
+    const arc2 = this._makeRainbowArc(140, 156, 0.22);
+    arc2.position.set(bx, 2, bz - 8);
+    g.add(arc2);
+
+    // Faint wide atmospheric halo
+    const glow = this._makeRainbowArc(96, 134, 0.12);
     glow.position.set(bx, 2, bz - 0.5);
     g.add(glow);
-    this._rainbowShaders = [arc.material, glow.material];
+    this._rainbowShaders = [arc.material, arc2.material, glow.material];
 
     this.scene.add(g);
   }
@@ -866,6 +928,436 @@ export class World3D {
     });
     mesh.instanceColor.needsUpdate = true;
     this.scene.add(mesh);
+  }
+
+  // ============================================================
+  //  DISTRICT-SPECIFIC FEATURES — what makes each area feel unique
+  //  Willow trees, sea grass, ferns, desert flora, cairns, hedges
+  // ============================================================
+  _districtFeatures() {
+    const rng = mulberry32(88442);
+    const tmp = new THREE.Object3D();
+
+    const place = (x, z, clearRoads = 14) => {
+      const h = terrainHeight(x, z);
+      if (h < WORLD.waterLevel + 1 || h > 170) return null;
+      if (distToRoads(x, z) < clearRoads) return null;
+      if (Math.hypot(x - WORLD.plaza.x, z - WORLD.plaza.z) < WORLD.plaza.r + 26) return null;
+      for (const p of this.plots) if (Math.hypot(x - p.x, z - p.z) < 14) return null;
+      return h;
+    };
+
+    // ─── Lakefront: Weeping Willows ───
+    const willowTrunks = [], willowCrowns = [], willowDrapes = [];
+    for (let i = 0; i < 400; i++) {
+      const a = rng() * Math.PI * 2;
+      const r = WORLD.lake.r + 8 + rng() * 48;
+      const x = WORLD.lake.x + Math.cos(a) * r;
+      const z = WORLD.lake.z + Math.sin(a) * r;
+      const h = place(x, z, 16);
+      if (h === null || rng() > 0.15) continue;
+      const s = 0.8 + rng() * 0.5;
+      tmp.position.set(x, h, z);
+      tmp.rotation.set(0, rng() * Math.PI * 2, 0);
+      tmp.scale.setScalar(s);
+      tmp.updateMatrix();
+      willowTrunks.push(tmp.matrix.clone());
+      willowCrowns.push(tmp.matrix.clone());
+      willowDrapes.push(tmp.matrix.clone());
+    }
+
+    // ─── Beach / Golden Shores: Sea Grass Tufts & Driftwood ───
+    const seaGrass = [], driftwood = [];
+    for (let i = 0; i < 600; i++) {
+      const x = 500 + rng() * 300, z = -200 + rng() * 400;
+      const dLake = Math.hypot(x - WORLD.lake.x, z - WORLD.lake.z) - WORLD.lake.r;
+      if (dLake < 2 || dLake > 80) continue;
+      const h = place(x, z, 10);
+      if (h === null) continue;
+      tmp.position.set(x, h, z);
+      tmp.rotation.set(0, rng() * Math.PI * 2, 0);
+      tmp.scale.setScalar(0.6 + rng() * 0.6);
+      tmp.updateMatrix();
+      if (rng() < 0.85) seaGrass.push(tmp.matrix.clone());
+      else driftwood.push(tmp.matrix.clone());
+    }
+
+    // ─── Whispering Pines: Ferns & Mushrooms ───
+    const ferns = [], mushrooms = [];
+    for (let i = 0; i < 800; i++) {
+      const x = -200 + rng() * 400, z = -650 + rng() * 320;
+      const h = place(x, z, 8);
+      if (h === null) continue;
+      tmp.position.set(x, h, z);
+      tmp.rotation.set(0, rng() * Math.PI * 2, 0);
+      tmp.scale.setScalar(0.5 + rng() * 0.6);
+      tmp.updateMatrix();
+      if (rng() < 0.8) ferns.push(tmp.matrix.clone());
+      else mushrooms.push(tmp.matrix.clone());
+    }
+
+    // ─── Desert Bloom: Flowering Cacti & Tumbleweeds ───
+    const desertFlowers = [], tumbleweeds = [];
+    for (let i = 0; i < 500; i++) {
+      const x = -650 + rng() * 350, z = 200 + rng() * 350;
+      const h = place(x, z, 10);
+      if (h === null || h > 70) continue;
+      tmp.position.set(x, h, z);
+      tmp.rotation.set(0, rng() * Math.PI * 2, 0);
+      tmp.scale.setScalar(0.5 + rng() * 0.7);
+      tmp.updateMatrix();
+      if (rng() < 0.7) desertFlowers.push(tmp.matrix.clone());
+      else tumbleweeds.push(tmp.matrix.clone());
+    }
+
+    // ─── Summit Rest: Cairns & Wind-Twisted Shrubs ───
+    const cairns = [], alpineShrubs = [];
+    for (let i = 0; i < 400; i++) {
+      const x = -700 + rng() * 350, z = -600 + rng() * 400;
+      const h = place(x, z, 12);
+      if (h === null || h < 45) continue;
+      tmp.position.set(x, h, z);
+      tmp.rotation.set(0, rng() * Math.PI * 2, 0);
+      tmp.scale.setScalar(0.6 + rng() * 0.5);
+      tmp.updateMatrix();
+      if (rng() < 0.35) cairns.push(tmp.matrix.clone());
+      else alpineShrubs.push(tmp.matrix.clone());
+    }
+
+    // ─── Memorial Meadows: Garden Hedges & Rose Bushes ───
+    const hedges = [], roseBushes = [];
+    for (let i = 0; i < 500; i++) {
+      const x = -300 + rng() * 600, z = 240 + rng() * 450;
+      const h = place(x, z, 12);
+      if (h === null || h > 60) continue;
+      tmp.position.set(x, h, z);
+      tmp.rotation.set(0, rng() * Math.PI * 2, 0);
+      tmp.scale.setScalar(0.7 + rng() * 0.5);
+      tmp.updateMatrix();
+      if (rng() < 0.4) hedges.push(tmp.matrix.clone());
+      else roseBushes.push(tmp.matrix.clone());
+    }
+
+    // ─── Instantiate everything ───
+    const inst = (geo, mat, mats, yOff = 0) => {
+      if (!mats.length) return;
+      const m = new THREE.InstancedMesh(geo, mat, mats.length);
+      const t = new THREE.Matrix4(), off = new THREE.Matrix4().makeTranslation(0, yOff, 0);
+      mats.forEach((mx, i) => { t.copy(mx).multiply(off); m.setMatrixAt(i, t); });
+      m.castShadow = true;
+      this.scene.add(m);
+    };
+
+    const instColored = (geo, mat, mats, yOff, colorFn) => {
+      if (!mats.length) return;
+      const m = new THREE.InstancedMesh(geo, mat, mats.length);
+      const t = new THREE.Matrix4(), off = new THREE.Matrix4().makeTranslation(0, yOff, 0);
+      const col = new THREE.Color();
+      mats.forEach((mx, i) => {
+        t.copy(mx).multiply(off); m.setMatrixAt(i, t);
+        m.setColorAt(i, col.setHex(colorFn(i)));
+      });
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+      m.castShadow = true;
+      this.scene.add(m);
+    };
+
+    // Willow trunk: taller, leaning, pale bark
+    const willowBark = Surfaces.bark(1.5).clone();
+    willowBark.color.setHex(0x9c8a6e);
+    inst(new THREE.CylinderGeometry(0.7, 1.4, 14, 10), willowBark, willowTrunks, 7);
+
+    // Willow canopy: wide, flat, drooping
+    const willowCrownGeo = (() => {
+      const parts = [];
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const s = new THREE.SphereGeometry(3.5, 8, 6);
+        s.scale(1, 0.5, 1);
+        s.translate(Math.cos(a) * 5, 0, Math.sin(a) * 5);
+        parts.push(s);
+      }
+      parts.push(new THREE.SphereGeometry(4, 8, 6));
+      return mergeGeometries(parts, false) || parts[0];
+    })();
+    const willowFoliage = Surfaces.foliage(2, 0x6daa58).clone();
+    willowFoliage.transparent = true;
+    willowFoliage.opacity = 0.88;
+    inst(willowCrownGeo, willowFoliage, willowCrowns, 12);
+
+    // Willow draping vines (cylinders hanging down)
+    const drapeGeo = (() => {
+      const parts = [];
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const c = new THREE.CylinderGeometry(0.04, 0.03, 6 + (i % 3) * 2, 4);
+        c.translate(Math.cos(a) * 5.5, -3 + (i % 3), Math.sin(a) * 5.5);
+        parts.push(c);
+      }
+      return mergeGeometries(parts, false) || parts[0];
+    })();
+    inst(drapeGeo, Surfaces.foliage(1.5, 0x7cba65), willowDrapes, 12);
+
+    // Sea grass: tall, thin green tufts
+    const grassTuftGeo = (() => {
+      const parts = [];
+      for (let i = 0; i < 5; i++) {
+        const g = new THREE.ConeGeometry(0.08, 1.6 + (i % 3) * 0.4, 4);
+        g.translate((i - 2) * 0.2, 0.8 + (i % 2) * 0.2, (i % 3 - 1) * 0.15);
+        parts.push(g);
+      }
+      return mergeGeometries(parts, false) || parts[0];
+    })();
+    inst(grassTuftGeo, Surfaces.foliage(1, 0x8aad5e), seaGrass, 0);
+
+    // Driftwood: pale, weathered logs
+    const driftwoodMat = Surfaces.bark(1).clone();
+    driftwoodMat.color.setHex(0xc8baa8);
+    inst(new THREE.CapsuleGeometry(0.3, 3.2, 4, 8), driftwoodMat, driftwood, 0.2);
+
+    // Ferns: low, spreading fronds
+    const fernGeo = (() => {
+      const parts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const f = new THREE.ConeGeometry(0.5, 1.4, 4);
+        f.rotateZ(0.6);
+        f.translate(Math.cos(a) * 0.6, 0.5, Math.sin(a) * 0.6);
+        parts.push(f);
+      }
+      return mergeGeometries(parts, false) || parts[0];
+    })();
+    inst(fernGeo, Surfaces.foliage(1, 0x3d6b48), ferns, 0);
+
+    // Mushrooms: small, pale, woodland floor
+    const mushroomGeo = (() => {
+      const stem = new THREE.CylinderGeometry(0.1, 0.12, 0.5, 8);
+      stem.translate(0, 0.25, 0);
+      const cap = new THREE.SphereGeometry(0.28, 8, 6);
+      cap.scale(1.3, 0.55, 1.3);
+      cap.translate(0, 0.5, 0);
+      return mergeGeometries([stem, cap], false) || cap;
+    })();
+    inst(mushroomGeo, new THREE.MeshStandardMaterial({
+      color: 0xf0e6d2, roughness: 0.9, metalness: 0
+    }), mushrooms, 0);
+
+    // Desert flowers: bright low blooms
+    const style = SEASON_STYLE[this.season];
+    const desertBloomGeo = new THREE.IcosahedronGeometry(0.5, 1);
+    const desertBloomMat = new THREE.MeshStandardMaterial({ roughness: 0.7, metalness: 0 });
+    const desertColors = [0xff6b4a, 0xffb347, 0xff85a2, 0xf7d84a, 0xd966ff];
+    instColored(desertBloomGeo, desertBloomMat, desertFlowers, 0.3, (i) => desertColors[i % desertColors.length]);
+
+    // Tumbleweeds: dry, round, pale
+    inst(new THREE.IcosahedronGeometry(0.9, 1),
+      new THREE.MeshStandardMaterial({ color: 0xc8b088, roughness: 1, metalness: 0, wireframe: true, fog: false }),
+      tumbleweeds, 0.9);
+
+    // Cairns: stacked stones
+    const cairnGeo = (() => {
+      const parts = [];
+      for (let i = 0; i < 4; i++) {
+        const s = 1.1 - i * 0.2;
+        const stone = new THREE.DodecahedronGeometry(s, 0);
+        stone.translate(0, i * 1.5 + s, (i % 2 - 0.5) * 0.3);
+        parts.push(stone);
+      }
+      return mergeGeometries(parts, false) || parts[0];
+    })();
+    inst(cairnGeo, Surfaces.limestone(0.8), cairns, 0);
+
+    // Alpine shrubs: wind-twisted, low, tough
+    const alpineGeo = (() => {
+      const parts = [];
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const b = new THREE.SphereGeometry(1.2, 6, 4);
+        b.scale(1, 0.5, 1);
+        b.translate(Math.cos(a) * 1.5, 0.5, Math.sin(a) * 1.5);
+        parts.push(b);
+      }
+      return mergeGeometries(parts, false) || parts[0];
+    })();
+    inst(alpineGeo, Surfaces.foliage(1.5, 0x5a7a52), alpineShrubs, 0);
+
+    // Garden hedges: trimmed box shapes
+    inst(new THREE.BoxGeometry(4, 2.2, 1.4),
+      Surfaces.foliage(2, 0x4a7a3d), hedges, 1.1);
+
+    // Rose bushes: bright clustered blooms
+    const roseGeo = (() => {
+      const parts = [];
+      const stem = new THREE.CylinderGeometry(0.15, 0.2, 2, 6);
+      stem.translate(0, 1, 0);
+      parts.push(stem);
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2;
+        const r = 0.5 + (i % 3) * 0.3;
+        const bloom = new THREE.SphereGeometry(0.35, 8, 6);
+        bloom.translate(Math.cos(a) * r, 1.6 + (i % 2) * 0.4, Math.sin(a) * r);
+        parts.push(bloom);
+      }
+      return mergeGeometries(parts, false) || parts[0];
+    })();
+    const roseColors = [0xd64a5f, 0xf7a8c4, 0xff6b8a, 0xffd1e0, 0xc93c5e];
+    instColored(roseGeo, new THREE.MeshStandardMaterial({ roughness: 0.65, metalness: 0 }),
+      roseBushes, 0, (i) => roseColors[i % roseColors.length]);
+  }
+
+  // ---------------- Celestial light motes ----------------
+  // Ethereal golden embers and spirit particles drifting across the
+  // sanctuary meadows, catching the light and shimmering softly.
+  _celestialMotes() {
+    const COUNT = 320;
+    const pos = new Float32Array(COUNT * 3);
+    const col = new Float32Array(COUNT * 3);
+    const siz = new Float32Array(COUNT);
+    const rng = mulberry32(777123);
+    const c = new THREE.Color();
+
+    for (let i = 0; i < COUNT; i++) {
+      const x = (rng() - 0.5) * 1500;
+      const z = (rng() - 0.5) * 1500;
+      const h = Math.max(terrainHeight(x, z), WORLD.waterLevel) + 2.5 + rng() * 16;
+      pos[i * 3] = x;
+      pos[i * 3 + 1] = h;
+      pos[i * 3 + 2] = z;
+
+      // Golden champagne and celestial rose tints
+      c.setHSL(0.11 + rng() * 0.10, 0.85, 0.78 + rng() * 0.22);
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+
+      siz[i] = (0.75 + rng() * 1.5) * 34;
+    }
+
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('size', new THREE.BufferAttribute(siz, 1));
+
+    this.moteMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, fog: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uTex: { value: this._starSprite() },
+        uTime: { value: 0 },
+        uOpacity: { value: 0.85 },
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vColor;
+        varying float vAlpha;
+        uniform float uTime;
+        void main(){
+          vColor = color;
+          vec3 p = position;
+          p.y += sin(uTime * 1.1 + position.x * 0.03 + position.z * 0.02) * 2.0;
+          p.x += cos(uTime * 0.8 + position.z * 0.02) * 1.2;
+          p.z += sin(uTime * 0.7 + position.x * 0.02) * 1.2;
+          vAlpha = 0.55 + 0.45 * sin(uTime * 2.2 + position.x * 0.08 + position.z * 0.06);
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_PointSize = size * (240.0 / -mv.z);
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTex;
+        uniform float uOpacity;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main(){
+          vec4 t = texture2D(uTex, gl_PointCoord);
+          gl_FragColor = vec4(vColor * 1.35, t.a * uOpacity * vAlpha);
+        }
+      `,
+      vertexColors: true,
+    });
+
+    this.motes = new THREE.Points(g, this.moteMat);
+    this.scene.add(this.motes);
+  }
+
+  // ---------------- The Great Sanctuary Tree of Life ----------------
+  _sanctuaryTree() {
+    const tx = 0, tz = -140;
+    const th = terrainHeight(tx, tz);
+    const g = new THREE.Group();
+    g.position.set(tx, th, tz);
+
+    // Ancient Trunk
+    const trunkMat = Surfaces.bark(0.9);
+    const trunkGeo = new THREE.CylinderGeometry(4.2, 7.8, 24, 12);
+    trunkGeo.translate(0, 12, 0);
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    g.add(trunk);
+
+    // Root buttresses
+    for (let i = 0; i < 5; i++) {
+      const ang = (i / 5) * Math.PI * 2;
+      const rootGeo = new THREE.ConeGeometry(2.4, 10, 6);
+      rootGeo.rotateX(Math.PI * 0.35);
+      rootGeo.translate(0, 2, 4);
+      const root = new THREE.Mesh(rootGeo, trunkMat);
+      root.rotation.y = ang;
+      g.add(root);
+    }
+
+    // Great Canopy
+    const foliageMat = Surfaces.foliage(0.85);
+    foliageMat.color.setHex(0x7da86a);
+    const tiers = [
+      { y: 22, r: 16, h: 10 },
+      { y: 28, r: 22, h: 12 },
+      { y: 36, r: 18, h: 10 },
+      { y: 43, r: 12, h: 8 },
+    ];
+    tiers.forEach((t) => {
+      const folGeo = new THREE.DodecahedronGeometry(t.r, 1);
+      folGeo.scale(1.2, 0.65, 1.2);
+      folGeo.translate(0, t.y, 0);
+      const m = new THREE.Mesh(folGeo, foliageMat);
+      m.castShadow = true;
+      g.add(m);
+    });
+
+    // Hanging Lanterns on Tree
+    const lanternMat = new THREE.MeshBasicMaterial({
+      color: 0xffe28a,
+    });
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2;
+      const dist = 14 + (i % 2) * 4;
+      const ly = 18 - (i % 3) * 2;
+      const lGeo = new THREE.CylinderGeometry(0.8, 0.8, 2.2, 8);
+      const lm = new THREE.Mesh(lGeo, lanternMat);
+      lm.position.set(Math.cos(ang) * dist, ly, Math.sin(ang) * dist);
+      g.add(lm);
+    }
+
+    this.scene.add(g);
+  }
+
+  // ---------------- Floating River Lanterns ----------------
+  _riverLanterns3D() {
+    this._lanterns = [];
+    const lanternMat = new THREE.MeshBasicMaterial({
+      color: 0xffd166,
+    });
+    const geo = new THREE.CylinderGeometry(1.6, 1.2, 1.6, 6);
+
+    const N = 28;
+    for (let i = 0; i < N; i++) {
+      const mesh = new THREE.Mesh(geo, lanternMat);
+      const progress = i / N;
+      mesh.userData = { progress, speed: 0.008 + (i % 5) * 0.002, bobPhase: i * 0.7 };
+      this.scene.add(mesh);
+      this._lanterns.push(mesh);
+    }
   }
 
   // ---------------- Living ambience ----------------
@@ -1185,13 +1677,91 @@ export class World3D {
     };
     this._decorMeshes = this._decorMeshes || [];
 
-    // headstones — polished granite and marble, both with real
-    // veining, clearcoat and beveled edges
-    inst('hs_classic', new THREE.BoxGeometry(4.4, 5.4, 1), graniteMat, 2);
-    inst('hs_obelisk', new THREE.ConeGeometry(1.5, 8, 4), marbleMat, 3.4);
-    inst('hs_heart',   new THREE.SphereGeometry(2.4, 24, 18), marbleMat, 2.2);
-    inst('hs_slab',    new THREE.BoxGeometry(6, 1, 4), graniteMat, 0.2);
-    inst('hs_statue',  new THREE.CylinderGeometry(1.4, 1.8, 5, 20), marbleMat, 2.4);
+    // Sculpted architectural headstones — polished granite, marble, and sculpted reliefs
+    const geoClassic = (() => {
+      const plinth = new THREE.BoxGeometry(4.8, 0.8, 1.8);
+      plinth.translate(0, 0.4, 0);
+      const tablet = new THREE.BoxGeometry(4.0, 3.8, 1.0);
+      tablet.translate(0, 2.7, 0);
+      const arch = new THREE.CylinderGeometry(2.0, 2.0, 1.0, 24, 1, false, 0, Math.PI);
+      arch.rotateZ(Math.PI / 2);
+      arch.rotateY(Math.PI / 2);
+      arch.translate(0, 4.6, 0);
+      return mergeGeometries([plinth, tablet, arch], false) || tablet;
+    })();
+
+    const geoGothic = (() => {
+      const plinth = new THREE.BoxGeometry(4.6, 0.8, 1.8);
+      plinth.translate(0, 0.4, 0);
+      const tablet = new THREE.BoxGeometry(3.8, 4.2, 1.0);
+      tablet.translate(0, 2.9, 0);
+      const cone = new THREE.ConeGeometry(2.0, 2.2, 4);
+      cone.rotateY(Math.PI / 4);
+      cone.translate(0, 5.5, 0);
+      return mergeGeometries([plinth, tablet, cone], false) || tablet;
+    })();
+
+    const geoHeart = (() => {
+      const plinth = new THREE.BoxGeometry(4.4, 0.8, 1.8);
+      plinth.translate(0, 0.4, 0);
+      const base = new THREE.ConeGeometry(2.2, 2.6, 16);
+      base.rotateZ(Math.PI);
+      base.scale(1, 1, 0.45);
+      base.translate(0, 2.4, 0);
+      const lobe1 = new THREE.SphereGeometry(1.2, 16, 12);
+      lobe1.scale(1, 1, 0.45);
+      lobe1.translate(-0.9, 3.4, 0);
+      const lobe2 = new THREE.SphereGeometry(1.2, 16, 12);
+      lobe2.scale(1, 1, 0.45);
+      lobe2.translate(0.9, 3.4, 0);
+      return mergeGeometries([plinth, base, lobe1, lobe2], false) || plinth;
+    })();
+
+    const geoObelisk = (() => {
+      const p1 = new THREE.BoxGeometry(4.0, 0.6, 4.0);
+      p1.translate(0, 0.3, 0);
+      const p2 = new THREE.BoxGeometry(3.0, 0.6, 3.0);
+      p2.translate(0, 0.9, 0);
+      const shaft = new THREE.CylinderGeometry(1.2, 1.9, 6.5, 4);
+      shaft.rotateY(Math.PI / 4);
+      shaft.translate(0, 4.4, 0);
+      const cap = new THREE.ConeGeometry(1.2, 1.4, 4);
+      cap.rotateY(Math.PI / 4);
+      cap.translate(0, 8.2, 0);
+      return mergeGeometries([p1, p2, shaft, cap], false) || p1;
+    })();
+
+    const geoSlab = (() => {
+      const kerb = new THREE.BoxGeometry(6.4, 0.5, 4.4);
+      kerb.translate(0, 0.25, 0);
+      const slab = new THREE.BoxGeometry(5.6, 0.4, 3.6);
+      slab.translate(0, 0.55, 0);
+      return mergeGeometries([kerb, slab], false) || kerb;
+    })();
+
+    const geoStatue = (() => {
+      const plinth = new THREE.CylinderGeometry(2.4, 2.8, 1.2, 20);
+      plinth.translate(0, 0.6, 0);
+      const body = new THREE.CapsuleGeometry(0.9, 2.4, 8, 16);
+      body.rotateZ(0.2);
+      body.translate(0, 2.6, 0);
+      const wingL = new THREE.ConeGeometry(0.8, 3.2, 8);
+      wingL.rotateZ(0.6);
+      wingL.scale(1, 1, 0.3);
+      wingL.translate(-1.1, 3.4, -0.3);
+      const wingR = new THREE.ConeGeometry(0.8, 3.2, 8);
+      wingR.rotateZ(-0.6);
+      wingR.scale(1, 1, 0.3);
+      wingR.translate(1.1, 3.4, -0.3);
+      return mergeGeometries([plinth, body, wingL, wingR], false) || plinth;
+    })();
+
+    inst('hs_classic', geoClassic, graniteMat, 0);
+    inst('hs_gothic',  geoGothic,  graniteMat, 0);
+    inst('hs_obelisk', geoObelisk, marbleMat,  0);
+    inst('hs_heart',   geoHeart,   marbleMat,  0);
+    inst('hs_slab',    geoSlab,    graniteMat, 0);
+    inst('hs_statue',  geoStatue,  marbleMat,  0);
     // nature & furnishings
     inst('flowers', new THREE.IcosahedronGeometry(1.5, 2),
       Surfaces.petal(1, 0xffffff), 0.8, true);
@@ -1249,11 +1819,19 @@ export class World3D {
     this._plots();
   }
 
-  // ---------------- Picking & camera ----------------
+  // ---------------- Picking, hover tooltip & ambience ----------------
   _picking() {
     const ray = new THREE.Raycaster();
     const ptr = new THREE.Vector2();
     let downAt = null;
+    const tt = document.getElementById('plotHoverTooltip');
+    const phtIcon = document.getElementById('phtIcon');
+    const phtName = document.getElementById('phtName');
+    const phtSub = document.getElementById('phtSub');
+    const phtEpitaph = document.getElementById('phtEpitaph');
+    const phtBadge = document.getElementById('phtBadge');
+    const phtAction = document.getElementById('phtAction');
+
     this.canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
     this.canvas.addEventListener('pointerup', e => {
       if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
@@ -1266,8 +1844,105 @@ export class World3D {
         const hit = hits[0];
         const list = this.plotMeshIndex.get(hit.object);
         const plot = list?.[hit.instanceId];
-        if (plot) { this.selectPlot(plot); this.onPlotClick?.(plot); return; }
+        if (plot) {
+          if (tt) tt.classList.add('hidden');
+          this.selectPlot(plot);
+          this.onPlotClick?.(plot);
+          return;
+        }
       }
+    });
+
+    this.canvas.addEventListener('pointermove', e => {
+      const r = this.canvas.getBoundingClientRect();
+      ptr.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      ptr.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      ray.setFromCamera(ptr, this.camera);
+      const hits = ray.intersectObjects(this.pickables);
+      if (hits.length && tt) {
+        const hit = hits[0];
+        const list = this.plotMeshIndex.get(hit.object);
+        const plot = list?.[hit.instanceId];
+        if (plot) {
+          this.canvas.style.cursor = 'pointer';
+          const d = DISTRICTS[plot.district];
+          const m = plot.memorial || {};
+          
+          if (plot.status === 'occupied') {
+            const spKey = speciesKey(m.species || 'dog');
+            if (phtIcon) phtIcon.innerHTML = speciesIcon(spKey, { size: 20 });
+            if (phtName) phtName.textContent = m.petName || 'Beloved Friend';
+            if (phtSub) phtSub.textContent = `${m.species || 'Companion'} · Plot ${plot.id} (${d?.name || 'Sanctuary'})`;
+            if (phtEpitaph) {
+              phtEpitaph.textContent = m.epitaph ? `“${m.epitaph}”` : '“Forever loved and remembered.”';
+              phtEpitaph.style.display = '';
+            }
+            if (phtBadge) {
+              const cName = charityName(m.charity) || 'Animal Rescue Fund';
+              phtBadge.innerHTML = `${icon('heart', { size: 12 })} ${cName}`;
+            }
+            if (phtAction) phtAction.textContent = 'View Memorial →';
+          } else {
+            if (phtIcon) phtIcon.innerHTML = icon('grave', { size: 18 });
+            if (phtName) phtName.textContent = `Available Plot ${plot.id}`;
+            if (phtSub) phtSub.textContent = `${d?.name || 'Sanctuary'} · ${SIZE_DIMS[plot.size] ? SIZE_DIMS[plot.size].join('×') + 'm' : 'Standard'}`;
+            if (phtEpitaph) {
+              phtEpitaph.textContent = d?.blurb || 'A peaceful resting place surrounded by nature and gentle music.';
+              phtEpitaph.style.display = '';
+            }
+            if (phtBadge) phtBadge.innerHTML = `${icon('sparkle', { size: 12 })} $${plot.price} (one-time)`;
+            if (phtAction) phtAction.textContent = 'Reserve Plot →';
+          }
+
+          const ttWidth = 290, ttHeight = 150;
+          let posX = e.clientX + 16;
+          let posY = e.clientY + 16;
+          if (posX + ttWidth > window.innerWidth - 20) posX = e.clientX - ttWidth - 16;
+          if (posY + ttHeight > window.innerHeight - 20) posY = e.clientY - ttHeight - 16;
+
+          tt.style.left = `${posX}px`;
+          tt.style.top = `${posY}px`;
+          tt.style.transform = 'none';
+          tt.classList.remove('hidden');
+          return;
+        }
+      }
+      this.canvas.style.cursor = 'default';
+      if (tt) tt.classList.add('hidden');
+    });
+
+    this.canvas.addEventListener('pointerleave', () => {
+      this.canvas.style.cursor = 'default';
+      if (tt) tt.classList.add('hidden');
+    });
+  }
+
+  _initAmbienceControls() {
+    const pill = document.getElementById('sanctuaryAmbiencePill');
+    if (!pill) return;
+    pill.querySelectorAll('button[data-phase]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        pill.querySelectorAll('.sap-btn[data-phase]').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const phase = btn.dataset.phase;
+        this.forcePhase(phase);
+        if (window.Theme) window.Theme.forcePhase?.(phase);
+      };
+    });
+    pill.querySelectorAll('button[data-mood]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const mood = btn.dataset.mood;
+        if (this.mood === mood) {
+          this.mood = 'clear';
+          btn.classList.remove('is-active');
+        } else {
+          this.mood = mood;
+          btn.classList.add('is-active');
+        }
+        this.applyAmbience();
+      };
     });
   }
 
@@ -1276,6 +1951,10 @@ export class World3D {
     this.selRing.visible = true;
     this.selRing.position.set(plot.x, plot.h + 1.2, plot.z);
     this.flyTo(new V3(plot.x, plot.h, plot.z), 120, 0.9);
+  }
+
+  flyToPlot(plot) {
+    this.selectPlot(plot);
   }
 
   flyToDistrict(key) {
@@ -1322,12 +2001,25 @@ export class World3D {
       this.waterMat.normalMap.offset.set(t * 0.012, t * 0.008);
     }
     if (this._rainbowShaders) {
-      const base = this._rainbowBase || 0.5;
-      this._rainbowShaders[0].uniforms.uTime.value = t;
-      this._rainbowShaders[0].uniforms.uOpacity.value = base;
-      this._rainbowShaders[1].uniforms.uTime.value = t;
-      this._rainbowShaders[1].uniforms.uOpacity.value = base * 0.22;
+      const base = this._rainbowBase || 0.55;
+      if (this._rainbowShaders[0]?.uniforms?.uTime) this._rainbowShaders[0].uniforms.uTime.value = t;
+      if (this._rainbowShaders[0]?.uniforms?.uOpacity) this._rainbowShaders[0].uniforms.uOpacity.value = base;
+      if (this._rainbowShaders[1]?.uniforms?.uTime) this._rainbowShaders[1].uniforms.uTime.value = t * 0.9;
+      if (this._rainbowShaders[1]?.uniforms?.uOpacity) this._rainbowShaders[1].uniforms.uOpacity.value = base * 0.26;
+      if (this._rainbowShaders[2]?.uniforms?.uTime) this._rainbowShaders[2].uniforms.uTime.value = t;
+      if (this._rainbowShaders[2]?.uniforms?.uOpacity) this._rainbowShaders[2].uniforms.uOpacity.value = base * 0.14;
     }
+    if (this._lanterns) {
+      this._lanterns.forEach((l) => {
+        l.userData.progress = (l.userData.progress + l.userData.speed * 0.005) % 1;
+        const z = 800 - l.userData.progress * 1600;
+        const x = Math.sin(z * 0.005) * 75;
+        const y = WORLD.waterLevel + 0.4 + Math.sin(t * 1.8 + l.userData.bobPhase) * 0.18;
+        l.position.set(x, y, z);
+        l.rotation.y = t * 0.3 + l.userData.bobPhase;
+      });
+    }
+    if (this.moteMat) this.moteMat.uniforms.uTime.value = t;
     if (this.pawMat) this.pawMat.opacity = (this._pawBase || 0.45) * (0.72 + 0.28 * Math.sin(t * 2.1));
     if (this.stars.visible) this.starMat.uniforms.uTime.value = t;
     if (this.selRing.visible) {

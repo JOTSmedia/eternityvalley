@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sympathy Card Insert — Care Partner Materials</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Pinyon+Script&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body {
+    background: radial-gradient(circle at 50% 10%, #171d18 0%, #0d110e 60%, #050806 100%);
+    color: #dedad0;
+    font-family: var(--ui);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 24px;
+  }
+  
+  .controls {
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  
+  .controls a {
+    color: var(--accent-hi-c);
+    text-decoration: none;
+    margin-right: 20px;
+    font-size: 14px;
+  }
+  
+  .controls a:hover {
+    text-decoration: underline;
+  }
+  
+  .card-container {
+    width: 5in;
+    height: 3.5in;
+    background: #090e0b;
+    border: 2px solid var(--accent-hi-c);
+    position: relative;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    background-image: radial-gradient(circle at 50% 30%, rgba(26, 40, 32, 0.4) 0%, rgba(10, 16, 12, 0.8) 85%);
+  }
+  
+  .crest {
+    width: 60px;
+    height: 34px;
+    margin: 0 auto 10px;
+  }
+  
+  .crest svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 8px rgba(242, 208, 74, 0.6));
+  }
+  
+  .card-title {
+    font-family: var(--script);
+    font-size: 38px;
+    color: var(--accent-hi-c);
+    margin-bottom: 15px;
+  }
+  
+  .pet-name-line {
+    border-bottom: 1px solid rgba(212, 175, 55, 0.5);
+    width: 65%;
+    margin: 0 auto 20px;
+    height: 30px;
+  }
+  
+  .card-text {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.4;
+    color: #f7eed8;
+    margin: 0 auto 20px;
+    font-style: italic;
+    max-width: 85%;
+  }
+  
+  .qr-placeholder {
+    width: 70px;
+    height: 70px;
+    background: #fff;
+    margin: 0 auto;
+    padding: 4px;
+    border-radius: 4px;
+  }
+  
+  .qr-placeholder img {
+    width: 100%;
+    height: 100%;
+  }
+  
+  @media print {
+    body {
+      background: none;
+      padding: 0;
+    }
+    .controls {
+      display: none;
+    }
+    .card-container {
+      box-shadow: none;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <div class="controls">
+    <a href="partners.html">← Back to Partners</a>
+    <button class="btn btn-gold" onclick="window.print()">Print Card</button>
+  </div>
+
+  <div class="card-container">
+    <div class="crest">
+      <svg class="mark" viewBox="0 0 100 56" aria-hidden="true">
+        <g fill="none" stroke-linecap="round">
+          <path d="M12 52a38 38 0 0 1 76 0" stroke="#e05a4f" stroke-width="6"/>
+          <path d="M18 52a32 32 0 0 1 64 0" stroke="#ee9740" stroke-width="6"/>
+          <path d="M24 52a26 26 0 0 1 52 0" stroke="#f2d04a" stroke-width="6"/>
+          <path d="M30 52a20 20 0 0 1 40 0" stroke="#63c268" stroke-width="6"/>
+          <path d="M36 52a14 14 0 0 1 28 0" stroke="#4a9fd8" stroke-width="6"/>
+          <path d="M42 52a8 8 0 0 1 16 0" stroke="#5566c4" stroke-width="5"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-title">In Loving Memory</div>
+    <div class="pet-name-line"></div>
+    <div class="card-text">
+      Create a free memorial at Eternity Valley — a peaceful digital sanctuary where memories live forever and every tribute helps a living animal.
+    </div>
+    <div class="qr-placeholder">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://eternityvalley.com/" alt="QR Code">
+    </div>
+  </div>
+
+</body>
+</html>

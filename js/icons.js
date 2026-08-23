@@ -293,40 +293,45 @@ export function speciesIcon(key, opts = {}) {
  */
 export function rainbowMark(opts = {}) {
   const { size = 64, cls = '', secondary = true, id = 'rb' + Math.random().toString(36).slice(2, 8) } = opts;
-  const bands = ['#e05a4f', '#ee9740', '#f2d04a', '#63c268', '#4a9fd8', '#5566c4', '#8f57b8'];
-  const R = 38, W = 4.6;
-  const arcs = bands.map((c, i) => {
-    const r = R - i * W;
-    return `<path d="M ${50 - r} 52 A ${r} ${r} 0 0 1 ${50 + r} 52"
-      stroke="${c}" stroke-width="${W + 1.4}" fill="none" stroke-linecap="round"/>`;
-  }).join('');
-  // The secondary bow is dimmer, wider and colour-reversed, which is
-  // the detail that makes a drawn rainbow read as observed rather than
-  // decorative.
-  const outer = secondary ? `<g opacity="0.22" filter="url(#${id}b)">${
-    [...bands].reverse().map((c, i) => {
-      const r = 47 - i * 2.6;
-      return `<path d="M ${50 - r} 52 A ${r} ${r} 0 0 1 ${50 + r} 52"
-        stroke="${c}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
-    }).join('')}</g>` : '';
-
-  return `<svg class="rainbow-mark ${cls}" viewBox="0 0 100 56" width="${size}" height="${size * 0.56}"
+  // Not seven stripes. A real bow is one continuous spectrum with soft
+  // edges, a dimmer colour-reversed secondary outside it, and darker
+  // sky between the two (Alexander's band). Each bow is a single arc
+  // stroked with a radial gradient centred on that bow's own centre,
+  // so colour ramps across the stroke instead of banding.
+  const CX = 50, CY = 54;
+  return `<svg class="rainbow-mark ${cls}" viewBox="0 0 100 58" width="${size}" height="${size * 0.58}"
     aria-hidden="true" focusable="false">
     <defs>
-      <filter id="${id}a" x="-25%" y="-25%" width="150%" height="160%">
-        <feGaussianBlur stdDeviation="1.7"/>
-      </filter>
-      <filter id="${id}b" x="-25%" y="-25%" width="150%" height="160%">
-        <feGaussianBlur stdDeviation="2.6"/>
-      </filter>
-      <radialGradient id="${id}g" cx="50%" cy="100%" r="80%">
-        <stop offset="55%" stop-color="#fff" stop-opacity="0.16"/>
-        <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+      <radialGradient id="${id}p" gradientUnits="userSpaceOnUse" cx="${CX}" cy="${CY}" r="46">
+        <stop offset="0.58" stop-color="#7a4bd0" stop-opacity="0"/>
+        <stop offset="0.645" stop-color="#7a4bd0" stop-opacity="0.60"/>
+        <stop offset="0.700" stop-color="#4661d8" stop-opacity="0.85"/>
+        <stop offset="0.752" stop-color="#3fa9e0" stop-opacity="0.92"/>
+        <stop offset="0.804" stop-color="#5ec96a" stop-opacity="0.96"/>
+        <stop offset="0.856" stop-color="#e8d84a" stop-opacity="0.98"/>
+        <stop offset="0.904" stop-color="#ef9138" stop-opacity="0.94"/>
+        <stop offset="0.947" stop-color="#e0503c" stop-opacity="0.74"/>
+        <stop offset="1.00" stop-color="#e0503c" stop-opacity="0"/>
       </radialGradient>
+      <radialGradient id="${id}s" gradientUnits="userSpaceOnUse" cx="${CX}" cy="${CY}" r="58">
+        <stop offset="0.74" stop-color="#e0503c" stop-opacity="0"/>
+        <stop offset="0.808" stop-color="#e0503c" stop-opacity="0.22"/>
+        <stop offset="0.858" stop-color="#e8c04a" stop-opacity="0.24"/>
+        <stop offset="0.908" stop-color="#5ec96a" stop-opacity="0.21"/>
+        <stop offset="0.950" stop-color="#4661d8" stop-opacity="0.18"/>
+        <stop offset="1.00" stop-color="#7a4bd0" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="${id}a" x="-30%" y="-30%" width="160%" height="170%">
+        <feGaussianBlur stdDeviation="0.9"/>
+      </filter>
+      <filter id="${id}b" x="-30%" y="-30%" width="160%" height="170%">
+        <feGaussianBlur stdDeviation="1.8"/>
+      </filter>
     </defs>
-    ${outer}
-    <ellipse cx="50" cy="52" rx="44" ry="30" fill="url(#${id}g)"/>
-    <g filter="url(#${id}a)">${arcs}</g>
+    ${secondary ? `<path d="M 3 ${CY} A 47 47 0 0 1 97 ${CY}" fill="none"
+      stroke="url(#${id}s)" stroke-width="12" stroke-linecap="round" filter="url(#${id}b)"/>` : ''}
+    <path d="M 16 ${CY} A 34 34 0 0 1 84 ${CY}" fill="none"
+      stroke="url(#${id}p)" stroke-width="15" stroke-linecap="round" filter="url(#${id}a)"/>
   </svg>`;
 }
 

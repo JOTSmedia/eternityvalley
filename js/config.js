@@ -15,8 +15,28 @@ export const FIREBASE_CONFIG = {
   appId: 'PASTE_YOUR_APP_ID',
 };
 
-// The Node payment server from /server (Stripe test mode)
-export const API_BASE = 'http://localhost:4242';
+// The Node payment server from /server (Stripe test mode).
+// Leave as-is for local development. When the site is published as a
+// static build (GitHub Pages and friends) there is no server to talk
+// to, and a page served over HTTPS cannot call http://localhost at all
+// — the browser blocks it as mixed content. So the base is resolved at
+// runtime: on a real host it becomes empty, and every caller checks
+// HAS_API first rather than firing requests that are certain to fail.
+const CONFIGURED_API_BASE = 'http://localhost:4242';
+
+const isLoopback = (host) =>
+  host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '' || host.endsWith('.local');
+
+// A loopback server is only reachable from a loopback page. Point
+// CONFIGURED_API_BASE at a real deployed server and it is always used.
+export const API_BASE = (() => {
+  let configuredHost = '';
+  try { configuredHost = new URL(CONFIGURED_API_BASE).hostname; } catch { return ''; }
+  if (!isLoopback(configuredHost)) return CONFIGURED_API_BASE;
+  return isLoopback(location.hostname) ? CONFIGURED_API_BASE : '';
+})();
+
+export const HAS_API = API_BASE !== '';
 
 // Google Maps Platform key → unlocks PHOTOREALISTIC 3D Earth mode
 // (Maps JavaScript API, "3D Maps" — free during Preview).
@@ -24,6 +44,25 @@ export const API_BASE = 'http://localhost:4242';
 //   1. Paste it in the app: the Enable 3D button (saved in your browser), or
 //   2. Hardcode it here, replacing 'PASTE_YOUR_MAPS_KEY'.
 // Without it, Earth mode uses keyless satellite imagery (still works!).
+// ⚠️  THIS KEY IS PUBLIC THE MOMENT THIS FILE IS.
+//
+// That is normal for a Maps *browser* key — it has to reach the
+// visitor's browser to work, so it cannot be kept secret, and Google
+// designs for that. What protects it is not secrecy but an HTTP
+// referrer restriction, and an unrestricted key in a public repo WILL
+// be found by scrapers and billed to you.
+//
+// Before (or immediately after) publishing this repo:
+//   Google Cloud Console → APIs & Services → Credentials → this key
+//   • Application restrictions → Websites
+//   • Add:  https://<your-github-username>.github.io/*
+//           (and your custom domain, plus http://localhost:*/* for dev)
+//   • API restrictions → only "Maps JavaScript API" + "Places API"
+//   • Billing → set a budget alert, and a quota cap on the Maps API
+//
+// To ship without a key at all, set this back to 'PASTE_YOUR_MAPS_KEY'.
+// The site still works: Earth mode falls back to keyless satellite
+// imagery, and the "Enable 3D" button lets any visitor paste their own.
 const HARDCODED_MAPS_KEY = 'AIzaSyAXXrmLNJI_x9AjrNrVkGDHzTAQCrhEVTA';
 const savedMapsKey = (() => { try { return localStorage.getItem('ev_maps_key') || ''; } catch { return ''; } })();
 // Hardcoded key wins (so an old key pasted via the Enable 3D button can't shadow it)

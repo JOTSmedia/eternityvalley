@@ -2,7 +2,7 @@
   "name": "Somewhere Over the Rainbow Bridge",
   "short_name": "Rainbow Bridge",
   "description": "A virtual pet memorial paradise on the real Earth.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#171d18",
   "theme_color": "#171d18",
@@ -12,5 +12,6 @@
       "sizes": "any",
       "type": "image/svg+xml"
     }
-  ]
+  ],
+  "scope": "./"
 }

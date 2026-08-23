@@ -1,111 +1,170 @@
-# 🌈 SOMEWHERE OVER THE RAINBOW BRIDGE
+# Somewhere Over the Rainbow Bridge
 
-A social memorial network where **the whole real Earth is the cemetery**. Families place photorealistic memorials anywhere on the planet — their actual backyard, the beach where she chased the tide, the trail you walked every morning — using Google's Photorealistic 3D Maps (the Google Earth engine) with a keyless satellite fallback.
+A pet memorial on the real Earth — and one that gives back to living animals.
 
-It all begins at **Rainbow Bridge Valley (RBV)** — anchored at the real *Rainbow Bridge National Monument, Utah*: the world's largest natural bridge, a sandstone rainbow arched over a canyon at Lake Powell. RBV is the center point on load and the entrance to the entire cemetery. From its 🌈 marker you can **Enter the Sanctuary** — the stylized valley world with the glowing Rainbow Bridge, seasonal blooms and living skies.
+Place a memorial anywhere on the planet (their backyard, their beach, the trail
+you walked every evening) or in the Rainbow Bridge Valley sanctuary. A share of
+every plot, membership and gift goes to an animal charity **the memorial's owner
+chooses**. Anyone who never buys anything at all can still start a free
+fundraising campaign in their companion's name. Every cent that moves through the
+site is published in a public, hash-chained ledger.
 
-## ▶ How to access the demo (step by step)
+This folder is the complete site, ready to upload. It is entirely static — no
+build step, no bundler, no server required.
 
-The demo runs entirely on your computer — no accounts, no keys, nothing to sign up for.
+---
 
-**Option A — one command (recommended):**
+## ⚠️ Do this first: restrict the Google Maps key
 
-1. Open Terminal.
-2. Run:
-   ```bash
-   cd ~/Desktop/JULY6/"ETERNITY VALLEY"/server
-   npm install
-   npm start
-   ```
-3. Open your browser to **http://localhost:4242**
-4. Click **Cross the Bridge**. You're in.
+`js/config.js` contains a live Google Maps API key. Publishing this repo makes it
+public.
 
-**Option B — no Node installed:**
+That is *expected* for a Maps browser key — it has to reach the visitor's browser
+to work at all, so it can never be secret. What protects it is an **HTTP referrer
+restriction**, not secrecy. An unrestricted key in a public repo will be found by
+scrapers within days and billed to your account.
+
+**In the Google Cloud Console → APIs & Services → Credentials → your key:**
+
+1. **Application restrictions → Websites.** Add:
+   - `https://<your-username>.github.io/*`
+   - your custom domain, if you have one
+   - `http://localhost:*/*` for local development
+2. **API restrictions →** allow only *Maps JavaScript API* and *Places API*.
+3. **Billing →** set a budget alert and a daily quota cap on the Maps API.
+
+**Don't want to publish a key at all?** Set `HARDCODED_MAPS_KEY` back to
+`'PASTE_YOUR_MAPS_KEY'` in `js/config.js`. The site still works: Earth mode falls
+back to keyless satellite imagery, and the "Enable 3D" button lets any visitor
+paste their own key, stored only in their browser.
+
+---
+
+## Publishing to GitHub Pages
+
+1. Create a new repository on GitHub.
+2. Upload **the entire contents of this folder** to the repository root — so that
+   `index.html` sits at the top level, not inside a subfolder.
+3. Repository **Settings → Pages**.
+4. **Source:** *Deploy from a branch*. **Branch:** `main`, folder `/ (root)`.
+5. Save. The site appears at `https://<your-username>.github.io/<repo-name>/`
+   within a minute or two.
+
+Every path in the site is relative, so it works both at a domain root and in a
+`/<repo-name>/` subfolder. `.nojekyll` is included so GitHub serves the files
+as-is rather than running them through Jekyll.
+
+### Running it locally
+
+Open a terminal in this folder:
 
 ```bash
-cd ~/Desktop/JULY6/"ETERNITY VALLEY"
 python3 -m http.server 8000
 ```
-Then open **http://localhost:8000**.
 
-**What to try in the demo:**
+Then visit `http://localhost:8000`.
 
-- You land in **🌍 Earth mode over Rainbow Bridge Valley, Utah** (satellite imagery keyless; photorealistic 3D with a Google Maps key — SETUP.md §3).
-- Click the pulsing 🌈 **RAINBOW BRIDGE VALLEY** marker → **Enter the Sanctuary** — the stylized valley with the glowing bridge, pawprints and living skies.
-- **Search any place on Earth** in the top bar (try your own home address) → Fly → **🐾 Place a memorial** → click the exact spot in your yard → memorial form → simulated payment → their marker is on the real world map.
-- Click any pet marker (Max in Central Park, Pepper in Malibu, Ranger at RBV…) → read their memorial → **leave a gift** or **sign the guestbook free** (anonymous guests welcome).
-- **💬 Community** shows the live feed — gifts, letters, new memorials across the country. Click any entry to fly there.
-- In the Sanctuary: district chips fly you around; green plots are buyable; skies follow **your real local time**, blooms follow **the season**, and with location allowed, **your live weather** — rain makes the rainbow glow brightest.
+Opening `index.html` directly as a `file://` URL will **not** work — ES modules
+and `fetch()` are blocked on that protocol by every modern browser. You need a
+server, even locally.
 
-Demo progress is saved in your browser. To go live with real Firebase accounts and Stripe payments, follow **SETUP.md**.
+---
 
-## The world
-
-- **Grand Gate** — wrought-iron gates ajar between fluted stone columns, "THE RAINBOW BRIDGE" arched overhead in gold.
-- **The Rainbow Bridge** — heart of the valley. The Grand Boulevard crosses the Rainbow River on an arched stone bridge beneath seven translucent rainbow bands that shimmer day and night.
-- **Rainbow River** — flows out of Mirror Lake, under the Bridge, to the southwest meadows. Blooms crowd its banks.
-- **Six districts**, priced by desirability:
-
-| District | Setting | Base price |
-|---|---|---|
-| Desert Bloom | High-desert garden (rain shadow) | $199 |
-| Memorial Meadows | Classic garden cemetery | $249 |
-| Whispering Pines | Northern pine forest | $299 |
-| Lakeside Rest | Grassy west shore of Mirror Lake | $449 |
-| Golden Shores | Sandy eastern beach | $499 |
-| Summit Rest | Terraced NW mountain slopes | $599 |
-
-Standard / Premium / Estate sizes with waterfront, plaza and view premiums ($199–$2,009). About a third of plots hold memorials already.
-
-## Living paradise features
-
-- **Time of day** — dawn, golden day, dusk, starry night follow your clock (updates every minute).
-- **Seasons** — spring cherry-blossom, summer wildflower, autumn gold, winter snowdrop palettes for ~1,100 blooms and every tree crown, from today's real date.
-- **Live weather** — optional; rain becomes a "blessing" (silver mist, most vivid rainbow), snow a "crystal hush". Never storms — always paradise.
-- **Glowing pawprints** — a pulsing gold trail padding from the gate over the Bridge.
-- **Customizable memorials** — name, species, years, epitaph; headstones, statues, trees, benches, fountains, lanterns.
-
-## Business model
-
-- **Memberships** (required to create memorials): Guardian $4.99/mo · Legacy $9.99/mo · Eternal $199/yr
-- **Anywhere on Earth memorial**: $149 one-time — any lat/lng on the planet
-- **Sanctuary plots**: one-time, $199–$2,009 by district/size/location
-- **Plot items**: $9.99–$149.99, premium items tier-gated
-- **Gifts** (anyone, incl. anonymous guests): flowers, candles, toys, letters, shelter donations $0.99–$5; guestbook always free
-- **Social loop**: community feed of gifts/letters/new memorials keeps visitors returning
-- **Charity**: 10% of every gift goes to a charity chosen by the memorial's family (or by the giver); the Shelter Donation gift is 100% pass-through; totals per charity in the admin dashboard
-- **Partners**: vets, cremators, shelters and pet businesses get referral links (`/?ref=code`, tracked in admin) and a pitch page at `partners.html`
-- **Sign-up**: one tap with Google, Apple or Facebook; profiles can attach Instagram/X/TikTok/Facebook handles (shown on memorials) and share campaigns to X, Facebook, WhatsApp and email
-
-## 🚀 Go-live checklist
-
-1. **Keys**: Firebase config in `js/config.js` (SETUP §1) · Stripe **live** keys in `server/.env` after testing (SETUP §2) · Maps key restricted to your domain (SETUP §3).
-2. **Server-side entitlements**: before charging real money, verify membership/ownership in the webhook + Firestore (rails already in place) — never trust the client.
-3. **Legal**: have a lawyer review `terms.html` & `privacy.html` (they are marked templates); set real support/privacy email addresses.
-4. **Admin**: set a strong `ADMIN_PASSWORD` in `.env`; serve over HTTPS only.
-5. **Deploy**: `docker build -t rainbow-bridge . && docker run -p 4242:4242 --env-file server/.env rainbow-bridge` — works on Fly.io, Railway, Render, Cloud Run. Put it behind HTTPS (the server sends HSTS when `NODE_ENV=production`).
-6. **Hardening already in**: rate limiting (5 login attempts/min, 30 tracks/min per IP), security headers, 60 KB body limit, profanity softening on all user text, photo downsizing client-side.
-7. **Moderation**: watch the admin activity log daily at launch; add takedown handling per the terms.
-8. **Data**: demo state lives in each browser's localStorage — real launch moves memorials/gifts to Firestore (schema mirrors `State.data`), photos to Firebase Storage.
-
-## Admin
-
-- **Dashboard**: http://localhost:4242/admin.html — password `rainbowadmin` (change via `ADMIN_PASSWORD` in `server/.env`). Shows total/7-day revenue, counts and revenue split by memberships/plots/items/gifts, and a full purchase & activity log (demo checkouts, real Stripe payments via webhook, admin comps).
-- **View site as Admin**: one click from the dashboard opens the site with all paywalls off — auto signed-in as Admin, unlimited plots, every tier unlocked, all checkouts instantly comped ($0, logged as ADMIN COMP). A green 🛡 badge shows on-site; click it to exit.
-- Prototype note: the bypass is client-side for demo convenience; production must enforce entitlements server-side (webhook + Firestore already provide the rails).
-
-## Tech: how "your actual backyard" works
-
-Earth mode uses **Google Photorealistic 3D Maps** (Maps JavaScript API `maps3d`, the same engine as Google Earth) when a key is present in `js/config.js` — real 3D terrain, buildings and trees for the whole planet, with 3D memorial markers at exact lat/lng and cinematic `flyCameraTo` transitions. Without a key it falls back to keyless Esri satellite imagery via Leaflet, so the demo always works. Geocoding: Google (with key) or Nominatim (without).
-
-## Code map
+## What's in here
 
 | Path | What it is |
 |---|---|
-| `js/terrain.js` | World geometry: terrain, river, districts, roads, plot database |
-| `js/world3d.js` | 3D engine: bridge, rainbow, gate, pawprints, blooms, ambience |
-| `js/ambience.js` | Season / time-of-day / live-weather logic |
-| `js/map2d.js` | 2D overview map |
-| `js/ui.js`, `js/auth.js`, `js/state.js`, `js/checkout.js`, `js/catalog.js` | Flows, Firebase auth, persistence, Stripe, catalog |
-| `server/` | Node/Express: Stripe checkout + webhook, serves the site |
-| `firestore.rules` | Only the server may write plot ownership |
+| `index.html` | The whole app — entrance, globe, valley, panels |
+| `js/` | ES modules, loaded natively; no build step |
+| `css/style.css` | One stylesheet; a time-reactive design system |
+| `images/planet/` | NASA Blue Marble imagery (public domain) |
+| `images/catalog/` | Sourced photographs, with their credits files |
+| `credits.html` | Per-image attribution — **required**, see below |
+| `server/` | Optional Node payment server (ignored by GitHub Pages) |
+| `admin.html` | Dashboard for the Node server; non-functional without it |
+
+Three.js is loaded at runtime from the jsDelivr CDN via an import map in
+`index.html`. Nothing else is fetched from a third party.
+
+---
+
+## Photo attribution is a licence condition, not a courtesy
+
+26 of the 34 photographs are CC-BY or CC-BY-SA. Visible credit is a **condition**
+of those licences. `credits.html` carries the author, licence and source link for
+every image, and is linked from the entrance and all three legal pages.
+
+**Do not remove `credits.html` or the links to it.** Doing so puts the site in
+breach of the licences on most of its photography.
+
+`images/catalog/manifest.json` is generated *from* the credits files, so an image
+with no recorded attribution is treated as absent rather than shown. The failure
+mode is a missing photo, not a licence breach. If you add photographs, add their
+credits too.
+
+---
+
+## Demo mode
+
+Out of the box the site runs in **demo mode**: everything works, data is stored in
+the visitor's own browser (`localStorage`), and checkout is simulated. Nothing is
+charged and no money moves. This is the correct state for a public GitHub Pages
+deployment, which cannot keep secrets or run a backend.
+
+The charities named in the app are real, and are listed with their EIN so anyone
+can verify them independently — but none of them has any relationship with this
+site, and the app says so wherever money is discussed.
+
+### Going live
+
+Real payments need a server; GitHub Pages cannot host one. See `SETUP.md`. In
+short:
+
+1. Create a Firebase project, paste its web config into `js/config.js`.
+2. Deploy `server/` somewhere that runs Node (Railway, Render, Fly.io, a VPS),
+   with your Stripe keys in a `.env` — see `server/.env.example`.
+3. Point `CONFIGURED_API_BASE` in `js/config.js` at that deployed server.
+
+`API_BASE` resolves to nothing when the configured server is a `localhost`
+address and the page is not itself on localhost — otherwise a published HTTPS
+site fires blocked mixed-content requests at `http://localhost:4242` on every
+visit. Set it to a real HTTPS URL and it is used everywhere.
+
+---
+
+## The ledger
+
+`js/charity.js` is the money layer, and it is deliberately the thing everything
+else routes through:
+
+- Amounts are **integer cents** throughout — splitting `$4.99` in floating point
+  loses fractions of a cent, and a ledger that doesn't add up is worse than none.
+- One `SPLITS` table decides where each kind of payment goes. The module throws
+  on load if any split fails to sum to 1.
+- Shares are calculated on the amount left **after** the card processor's cut, so
+  "100% to charity" means the amount that actually arrives. Rounding remainders
+  always go to the charity.
+- `checkout()` is the single chokepoint. A feature added later cannot forget to
+  account for itself, because taking money means going through it.
+- Entries are hash-chained with SHA-256 (with a clearly-labelled fallback in
+  non-secure contexts, where `crypto.subtle` is unavailable). Editing an old row
+  breaks every row after it, and the ledger view says so.
+
+In this static build the ledger lives in `localStorage`, which means it is
+per-visitor and provable only against casual editing — someone who controls the
+storage can recompute the chain. The structure is correct now so that moving it
+server-side is a change of storage, not a change of design. **That is the point:**
+a ledger retrofitted onto months of existing transactions is a forensic
+accounting project; built as the layer money moves through, publishing it is just
+reading the table back out.
+
+---
+
+## Browser support
+
+Needs a browser with ES modules, WebGL2 and `import maps` — Chrome/Edge 89+,
+Firefox 108+, Safari 16.4+. The valley and globe need WebGL; if it's unavailable
+the site says so rather than showing a black screen.
+
+Tested down to 375 × 812 (iPhone SE / mini). Respects `prefers-reduced-motion`
+throughout — including the guided tour, which stops advancing on its own.

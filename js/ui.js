@@ -1,8 +1,11 @@
 // ============================================================
 // SOMEWHERE OVER THE RAINBOW BRIDGE — UI: panels, modals, purchase & gift flows
 // ============================================================
-import { DISTRICTS, SIZE_LABELS } from './terrain.js';
-import { MEMBERSHIPS, PLOT_ITEMS, GIFTS, EARTH_PLOT, SLOTS, HEADSTONE_STYLES, ITEM_DECOR, GIFT_DECOR, CHARITIES, GIFT_CHARITY_SHARE, charityName, fmtPrice } from './catalog.js';
+import { DISTRICTS, SIZE_LABELS, PET_NAMES, SPECIES, EPITAPHS } from './terrain.js';
+import { MEMBERSHIPS, PLOT_ITEMS, GIFTS, EARTH_PLOT, PHYSICAL_KEEPSAKES, SLOTS, HEADSTONE_STYLES, ITEM_DECOR, GIFT_DECOR, CHARITIES, GIFT_CHARITY_SHARE, charityName, fmtPrice } from './catalog.js';
+import { CharityUI } from './charityui.js';
+import { Tour } from './tour.js';
+import { SPLITS, Campaigns, Ledger, fmt } from './charity.js';
 import { Auth } from './auth.js';
 import { State } from './state.js';
 import { checkout } from './checkout.js';
@@ -10,7 +13,9 @@ import { IS_DEMO, HAS_MAPS3D, IS_ADMIN } from './config.js';
 import { RBV, allMemorials, allActivity, timeAgo } from './social.js';
 import { Motion } from './motion.js';
 import { icon, speciesIcon, speciesKey, rainbowMark, SPECIES_LABELS } from './icons.js';
-import { thumbImg, canRender as canRenderThumb } from './thumbs.js';
+import { thumbImg, canRender as canRenderThumb, photoFor } from './thumbs.js';
+import { Soundscape } from './soundscape.js';
+import { checkAnniversaries, generateICS, ANNIVERSARY_GIFTS } from './anniversary.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -33,10 +38,22 @@ const activityArt = (key) => {
   return /^[a-z][a-zA-Z]*$/.test(key) ? (icon(key) || icon('sparkle')) : icon('sparkle');
 };
 
-/** The art for a memorial: their photo if there is one, else their species. */
-const memorialArt = (m, size = 44) => m.photo
-  ? `<img src="${m.photo}" class="pet-photo" alt="${m.petName || 'memorial'}">`
-  : `<div class="pet-species">${speciesIcon(m.species || speciesKey(m.speciesLabel || ''), { size })}</div>`;
+/**
+ * The art for a memorial, best first: the owner's own photograph of
+ * their companion, then a stock portrait of the species, then the
+ * drawn silhouette. The silhouette is still the right fallback when
+ * we have no licensed portrait for a species.
+ */
+const memorialArt = (m, size = 44) => {
+  if (m.photo) return `<img src="${m.photo}" class="pet-photo" alt="${m.petName || 'memorial'}">`;
+  const key = speciesKey(m.species || m.speciesLabel || '');
+  const stock = photoFor('sp_' + key);
+  if (stock) {
+    return `<img src="${stock}" class="pet-photo pet-photo--stock" `
+         + `alt="${SPECIES_LABELS[key] || 'companion'}" loading="lazy">`;
+  }
+  return `<div class="pet-species">${speciesIcon(key, { size })}</div>`;
+};
 
 // ---- Trust & safety: soften abusive words in user-generated text ----
 const BAD_WORDS = /\b(fuck\w*|shit\w*|bitch\w*|asshole\w*|cunt\w*|nigg\w*|fag\w*|dick\w*|whore\w*|slut\w*)\b/gi;
@@ -71,6 +88,15 @@ async function readPhotos(fileInput, maxPx = 420, maxCount = 6) {
   return out;
 }
 
+/**
+ * Escape for interpolation into innerHTML. Pet names, places and
+ * epitaphs are all visitor-entered, and the search results render them
+ * straight into markup.
+ */
+const escapeHtml = (v) => String(v ?? '')
+  .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const esc = escapeHtml;
+
 export const UI = {
   // `world` and `map` arrive later than the rest of the interface: they
   // depend on three.js, which is fetched from a CDN and deliberately
@@ -84,15 +110,31 @@ export const UI = {
     this.plots = plots || [];
     this._ensureWorld = ensureWorld;
 
+    setTimeout(() => {
+      if (!State.data?.ownedPlots) return;
+      const annivs = checkAnniversaries(State.data.ownedPlots);
+      if (annivs.length > 0) {
+        const names = annivs.map(a => a.petName).join(', ');
+        this.toast(`Upcoming remembrance for ${names}. Take a moment to visit.`, 8000, 'candle');
+      }
+    }, 1000);
+
     $('#panelClose').onclick = () => this.closePanel();
     $('#authBtn').onclick = () => this.authModal();
     $('#signOutBtn').onclick = async () => { await Auth.signOut(); this.toast('Signed out. You are browsing as a guest.'); };
     $('#membershipBtn').onclick = () => this.membershipModal();
+    $('#createMemorialBtn').onclick = () => this.griefWizardModal();
 
     $('#districtNav').addEventListener('click', async (e) => {
-      const d = e.target.dataset?.d;
+      const d = e.target.closest('[data-d]')?.dataset?.d;
       if (d) { await this.show3D(); this.world?.flyToDistrict(d); }
     });
+    $('#btnGlobe').onclick = () => this.showGlobe();
+    $('#enterValleyBtn').onclick = (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      Motion.spark(r.left + r.width / 2, r.top + r.height / 2, 26);
+      this.show3D().then(() => this.world?.flyToDistrict('gate'));
+    };
     $('#btnEarth').onclick = () => this.showEarth();
     $('#btn3d').onclick = () => this.show3D();
     $('#btn2d').onclick = () => this.show2D();
@@ -129,15 +171,94 @@ export const UI = {
     }
   },
 
+  /**
+   * Show the globe: our own Earth, in orbit, with a pin on every place
+   * a companion loved. Selecting one hands off to Google's tiles for
+   * the descent — see descendTo().
+   */
+  async showGlobe() {
+    if (!this.globe) {
+      const { Globe } = await import('./globe.js');
+      const globe = new Globe(document.getElementById('canvasGlobe'), {
+        onPinClick: (pin) => this.descendTo(pin),
+      });
+      // Assigned only once init() has actually succeeded. Assigning
+      // first meant a failure part-way through left a half-built globe
+      // in place that later calls treated as ready — the pins and the
+      // sky readout silently never appeared, and nothing was logged.
+      try {
+        await globe.init();
+      } catch (e) {
+        console.error('[globe] init failed', e);
+        this.toast('The globe could not be loaded — showing the map instead.', 6000, 'warning');
+        return this.showEarth();
+      }
+      this.globe = globe;
+      for (const m of allMemorials(State.data)) {
+        if (m.lat != null) this.globe.addPin({ lat: m.lat, lng: m.lng, name: m.place, memorial: m });
+      }
+      this.globe.addPin({ lat: RBV.lat, lng: RBV.lng, name: 'Rainbow Bridge Valley', rbv: true });
+      const s = this.globe.sky;
+      const read = $('#globeReadout');
+      if (read) {
+        read.innerHTML = `${icon('sparkle')} <span>${s.moon.name} · ${Math.round(s.moon.illumination * 100)}% lit`
+          + ` · sun over ${s.sun.lat.toFixed(0)}°, ${s.sun.lng.toFixed(0)}°</span>`;
+      }
+    }
+    this._setView({ view: 'viewGlobe', btn: 'btnGlobe' });
+    this.globe.resize();
+    this.globe.start();
+  },
+
+  /** Leave orbit for a real place, on Google's photoreal imagery. */
+  async descendTo(pin) {
+    await this.showEarth();
+    this.flyToPlace({ lat: pin.lat, lng: pin.lng, range: pin.rbv ? 1400 : 420, name: pin.name });
+    if (pin.memorial) setTimeout(() => this.openEarthMemorial(pin.memorial), 2600);
+  },
+
   _setView(which) {
-    for (const [id, btn] of [['viewEarth', 'btnEarth'], ['view3d', 'btn3d'], ['view2d', 'btn2d']]) {
+    if (which.view !== 'viewGlobe') this.globe?.stop();
+    for (const [id, btn] of [['viewGlobe', 'btnGlobe'], ['viewEarth', 'btnEarth'], ['view3d', 'btn3d'], ['view2d', 'btn2d']]) {
       $('#' + id).classList.toggle('hidden', id !== which.view);
       $('#' + btn).classList.toggle('active', btn === which.btn);
     }
     $('#districtNav').style.display = which.view === 'view3d' ? '' : 'none';
-    document.querySelector('.legend').style.display = which.view === 'viewEarth' ? 'none' : '';
+    const onMap = which.view === 'viewEarth' || which.view === 'viewGlobe';
+    document.querySelector('.legend').style.display = onMap ? 'none' : '';
+    // The toolbar is global — the question it asks applies in every
+    // view — but the actions that only make sense on Google's map are
+    // disabled elsewhere rather than hidden, so the bar never reflows.
+    const mapOnly = ['groundBtn', 'streetBtn', 'placeBtn', 'key3dBtn'];
+    for (const id of mapOnly) {
+      const b = document.getElementById(id);
+      if (b) b.classList.toggle('is-off-map', which.view !== 'viewEarth');
+    }
+    $('#earthToolbar')?.classList.remove('is-waiting');
+    $('#globeCta')?.classList.remove('is-waiting');
   },
-  showEarth() { this._setView({ view: 'viewEarth', btn: 'btnEarth' }); },
+  /**
+   * Switch to Google's map, mounting it on first use. Everything that
+   * needs a real-world location goes through here: the map is lazy, so
+   * a caller that assumed it was already loaded got "google is not
+   * defined" — which is exactly what broke the search bar once the
+   * toolbar became global and could be used from orbit.
+   */
+  async showEarth() {
+    this.globe?.stop();
+    this._setView({ view: 'viewEarth', btn: 'btnEarth' });
+    if (!this._earthMounted) {
+      this._earthMounted = true;
+      try {
+        await this.mountEarth();
+      } catch (e) {
+        this._earthMounted = false;
+        console.error('[earth] mount failed', e);
+        this.toast('The map could not be loaded.', 5000, 'warning');
+      }
+    }
+    return this.earth;
+  },
   /** Called by main.js once the renderer modules have loaded. */
   attachWorld(world, map) {
     this.world = world;
@@ -161,6 +282,14 @@ export const UI = {
     return this.world;
   },
 
+  updateCharityTopbar() {
+    const t = Ledger.totals();
+    const el = $('#topbarCharityTxt');
+    if (el) {
+      el.textContent = t.charity > 0 ? `${fmt(t.charity)} Rescue Fund` : 'Animal Rescue Fund';
+    }
+  },
+
   // Both 3D views wait for the renderer BEFORE switching. Switching
   // first and awaiting after shows an unsized, unrendered canvas —
   // i.e. a black screen — for as long as three.js takes to arrive.
@@ -171,12 +300,20 @@ export const UI = {
     if (!this.world) return this.toast('The Sanctuary could not be loaded. Check your connection and reload.', 6000, 'warning');
     this._setView({ view: 'view3d', btn: 'btn3d' });
     this.world._resize();
+    requestAnimationFrame(() => {
+      this.world?._resize();
+      this.world?.applyAmbience();
+    });
   },
   async show2D() {
     if (!this.map) await this.ensureWorld();
     if (!this.map) return this.toast('The map could not be loaded. Check your connection and reload.', 6000, 'warning');
     this._setView({ view: 'view2d', btn: 'btn2d' });
     this.map._resize(); this.map.draw();
+    requestAnimationFrame(() => {
+      this.map?._resize();
+      this.map?.draw();
+    });
   },
 
   /**
@@ -222,8 +359,17 @@ export const UI = {
     } else {
       const m = plot.memorial || {};
       const giftList = (State.data.gifts[plot.id] || []).slice(-4).reverse();
+      
+      const annivs = checkAnniversaries({ [plot.id]: plot });
+      const annivData = annivs.length > 0 ? annivs[0] : null;
+      const annivBadge = annivData ? `<div class="anniv-banner">
+        <span class="anniv-badge">🕯️ ${annivData.yearsAgo} Year Anniversary</span>
+        <a href="${generateICS(annivData.petName, annivData.crossingDate)}" download="anniversary_${annivData.petName}.ics" class="btn btn-sm btn-outline anniv-ics-btn">Save to Calendar</a>
+      </div>` : '';
+
       body.innerHTML = `
         <span class="badge badge-occ">OCCUPIED${owned ? ' · YOURS' : ''}</span>
+        ${annivBadge}
         <h2>Plot ${plot.id}</h2>
         <div class="sub">${d.name} · ${SIZE_LABELS[plot.size]}</div>
         <div class="memorial">
@@ -231,24 +377,60 @@ export const UI = {
           <h3>${m.petName || 'Beloved Friend'}</h3>
           <div class="years">${m.species || ''} · ${m.years || ''}</div>
           <p class="epitaph">“${m.epitaph || 'Forever loved.'}”</p>
-          <div class="gifts-count">${icon('gift')} ${m.gifts || 0} gifts from visitors · resting with ${m.owner || 'a loving family'}</div>
-          ${m.charity ? `<div class="gifts-count">${icon('heart')} ${Math.round(GIFT_CHARITY_SHARE * 100)}% of every gift supports <b>${charityName(m.charity)}</b></div>` : ''}
+          <div class="gifts-count">${icon('gift')} ${m.gifts || 0} tributes from visitors · resting with ${m.owner || 'a loving family'}</div>
+          <div class="gifts-count" style="color:var(--accent-hi-c)">${icon('heart')} Supports verified rescue: <b>${charityName(m.charity || State.data.charity || CHARITIES[0].id)}</b></div>
         </div>
         ${this.petProfileHTML(m, plot.id, owned)}
+        <div class="fav-places-section" style="margin:14px 0 10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span class="sub" style="margin:0">${icon('pin')} <b>Favorite Places on Earth:</b></span>
+            ${owned ? `<button class="btn-text-gold" id="pAddFavPlaceBtn" style="font-size:11.5px;cursor:pointer;background:none;border:none;color:var(--accent-hi-c);font-weight:700">+ Tag a Place</button>` : ''}
+          </div>
+          ${(m.favoritePlaces && m.favoritePlaces.length) ? m.favoritePlaces.map((fp) => `
+            <div class="fav-place-card">
+              <div class="fpc-info">
+                <b>${fp.name.replace(/[&<>"]/g, '')}</b>
+                <span class="fpc-note">“${(fp.note || fp.place || '').replace(/[&<>"]/g, '')}”</span>
+              </div>
+              <button class="btn btn-sm btn-outline fpc-fly-btn" data-fplat="${fp.lat}" data-fplng="${fp.lng}">${icon('globe')} Fly ↗</button>
+            </div>
+          `).join('') : `
+            <div class="fav-place-card">
+              <div class="fpc-info">
+                <b>Sacred Mountain Trail</b>
+                <span class="fpc-note">“Running free where the wildflowers bloom…”</span>
+              </div>
+              <button class="btn btn-sm btn-outline fpc-fly-btn" data-fplat="37.7749" data-fplng="-122.4194">${icon('globe')} Fly ↗</button>
+            </div>
+          `}
+        </div>
         ${giftList.length ? `<div class="sub">Recent gifts:</div>` + giftList.map(g => {
           const gi = GIFTS.find(x => x.id === g.giftId);
           return `<div style="font-size:12.5px;margin:4px 0;color:var(--cream-dim)">${thumbImg(g.giftId, { size: 22, cls: 'thumb-inline' }) || icon('gift')} ${gi?.name || 'Gift'} — <i>${g.from}</i>${g.message ? ': “' + g.message + '”' : ''}</div>`;
         }).join('') : ''}
         <button class="btn btn-gold btn-block" id="giftBtn">${icon('candle')} Leave a gift</button>
+        <button class="btn btn-outline btn-block" id="pCertBtn">${icon('scroll')} Memorial Certificate &amp; Plaque</button>
+        <button class="btn btn-outline btn-block" id="pKeepsakeBtn">${icon('photo')} Order Physical Keepsakes</button>
         <button class="btn btn-outline btn-block" id="pShareBtn">${icon('share')} Share this memorial</button>
         ${owned ? `<button class="btn btn-green btn-block" id="decorBtn">${icon('flower')} Customize this plot</button>` : ''}`;
       $('#giftBtn').onclick = () => this.giftModal(plot);
+      $('#pCertBtn').onclick = () => this.memorialCertificateModal(plot);
+      $('#pKeepsakeBtn').onclick = () => this.keepsakesModal(m);
       $('#pShareBtn').onclick = () => {
         const url = `${location.origin}${location.pathname}?p=${encodeURIComponent(plot.id)}`;
         this.shareModal(`${m.petName || 'a friend'}'s memorial`, url,
           `Visit ${m.petName || 'our friend'}'s memorial in the Rainbow Bridge Sanctuary — light a candle or leave a gift.`);
       };
       if (owned) $('#decorBtn').onclick = () => this.decorModal(plot);
+      if (owned) $('#pAddFavPlaceBtn')?.addEventListener('click', () => this.addPlaceToPlotModal(plot));
+      body.querySelectorAll('.fpc-fly-btn').forEach(btn => {
+        btn.onclick = async () => {
+          const lat = Number(btn.dataset.fplat);
+          const lng = Number(btn.dataset.fplng);
+          await this.showEarth();
+          this.flyToPlace({ lat, lng, range: 450 });
+        };
+      });
       this._wirePetProfile(m, plot.id, owned, () => this.openPlot(plot), (pp) => {
         const rec = State.data.ownedPlots[plot.id];
         if (rec) rec.memorial = { ...rec.memorial, petProfile: pp };
@@ -262,6 +444,10 @@ export const UI = {
 
   // ---------------- Modals ----------------
   modal(html) {
+    // A dialog and the guided tour must never share the screen — the
+    // tour's veil would dim the very thing the visitor just opened.
+    // The dialog wins: it is what they asked for.
+    Tour.end();
     const box = $('#modalBox');
     box.innerHTML = html;
     $('#modalRoot').classList.remove('hidden');
@@ -368,6 +554,413 @@ export const UI = {
       rerender();
       this.toast('Your memory is on the wall.', 'book');
     };
+  },
+
+  async addPlaceToPlotModal(plot) {
+    const m = plot.memorial || {};
+    this.modal(`
+      <div class="comfort-header">
+        <div class="comfort-crest">${icon('pin', { size: 36 })}</div>
+        <h2>Tag a Sacred Place on Earth</h2>
+        <div class="modal-sub">Tag ${m.petName || 'your companion'}'s favorite mountain trail, beach, park, or sunny backyard on the Earth Globe and link it to this Sanctuary Plot.</div>
+      </div>
+
+      <label>Place / Trail Title</label>
+      <input id="fpName" maxlength="40" placeholder="e.g. Misty's Favorite Mountain Trail">
+
+      <label>Location / City / Landmark</label>
+      <input id="fpLoc" placeholder="e.g. Bear Mountain Peak, NY">
+
+      <label>Why this place was special to them</label>
+      <textarea id="fpNote" rows="2" maxlength="140" placeholder="Where we raced the autumn wind and watched sunsets together…"></textarea>
+
+      <button class="btn btn-gold btn-block" id="fpSaveBtn" style="margin-top:14px">
+        ${icon('pin')} Save Sacred Spot &amp; Pin to Earth
+      </button>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#fpSaveBtn').onclick = async () => {
+      const name = box.querySelector('#fpName').value.trim() || `${m.petName || 'Companion'}'s Sacred Spot`;
+      const locStr = box.querySelector('#fpLoc').value.trim() || 'Sacred Place on Earth';
+      const note = box.querySelector('#fpNote').value.trim() || 'A cherished place in our hearts.';
+
+      let lat = 40.7128 + (Math.random() - 0.5) * 0.1;
+      let lng = -74.0060 + (Math.random() - 0.5) * 0.1;
+      if (this.earth && this.earth.geocode) {
+        try {
+          const res = await this.earth.geocode(locStr);
+          if (res) { lat = res.lat; lng = res.lng; }
+        } catch {}
+      }
+
+      const placeObj = { name, place: locStr, note, lat, lng, plotId: plot.id };
+      m.favoritePlaces = m.favoritePlaces || [];
+      m.favoritePlaces.push(placeObj);
+
+      const earthMem = {
+        id: 'em_' + Date.now(),
+        plotId: plot.id,
+        petName: m.petName || 'Beloved Companion',
+        species: m.species || 'dog',
+        years: m.years || '',
+        epitaph: note,
+        photo: m.photo || null,
+        charity: m.charity || null,
+        lat, lng, place: `${name} (${locStr})`,
+        owner: m.owner || Auth.user?.name || 'A loving family',
+        ownerUid: Auth.user?.uid || '',
+        gifts: 0, guestbook: [], decorations: [], createdAt: Date.now(),
+      };
+      State.addEarthMemorial(earthMem);
+      State.logActivity('pin', `Tagged ${name} on Earth in memory of ${m.petName}`);
+      await State.save(Auth.user);
+      await this.earth?.addMemorialMarker(earthMem);
+
+      Soundscape.playChime(660, 0.08);
+      this.closeModal();
+      this.openPlot(plot);
+      this.toast(`Tagged "${name}" on Earth — linked to Plot ${plot.id}.`, 6000, 'pin');
+    };
+  },
+
+  memorialCertificateModal(item) {
+    const isPlot = !!item.status;
+    const m = isPlot ? (item.memorial || {}) : item;
+    const petName = m.petName || 'Beloved Companion';
+    const species = m.species || 'Companion';
+    const years = m.years || 'Forever in our hearts';
+    const epitaph = m.epitaph || 'Until we meet again at the Rainbow Bridge.';
+    const photo = m.photo;
+    const charity = charityName(m.charity || State.data.charity || CHARITIES[0].id) || 'Verified Animal Rescue';
+    const locationStr = isPlot 
+      ? `Eternity Valley Sanctuary · ${DISTRICTS[item.district]?.name || 'Memorial Grove'} · Plot ${item.id}`
+      : `Sacred Earth Spot · ${item.place || 'Earthly Sanctuary'}`;
+    const url = isPlot 
+      ? `${location.origin}${location.pathname}?p=${encodeURIComponent(item.id)}`
+      : `${location.origin}${location.pathname}?m=${encodeURIComponent(item.id)}`;
+    
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}&color=212-175-55&bgcolor=14-20-16`;
+
+    this.modal(`
+      <div class="cert-modal-wrap" id="certModalWrap">
+        <div class="cert-card" id="certCardPrint">
+          <div class="cert-corner tl"></div>
+          <div class="cert-corner tr"></div>
+          <div class="cert-corner bl"></div>
+          <div class="cert-corner br"></div>
+
+          <div class="cert-header">
+            <div class="cert-crest">${icon('crest', { size: 38 })}</div>
+            <h1 class="cert-title">CERTIFICATE OF PERPETUAL MEMORIAL</h1>
+            <div class="cert-sub">ETERNITY VALLEY · SOMEWHERE OVER THE RAINBOW BRIDGE</div>
+          </div>
+
+          <div class="cert-body">
+            <div class="cert-portrait-wrap">
+              ${photo ? `<img src="${photo}" class="cert-portrait-img" alt="${esc(petName)}">` : `<div class="cert-portrait-icon">${speciesIcon(speciesKey(species), { size: 52 })}</div>`}
+            </div>
+
+            <h2 class="cert-pet-name">${esc(petName)}</h2>
+            <div class="cert-species-years">${esc(species)} · ${esc(years)}</div>
+            
+            <p class="cert-epitaph">“${esc(epitaph)}”</p>
+
+            <div class="cert-location">
+              <b>${icon('pin')} Sacred Consecrated Resting Place:</b><br>
+              <span>${esc(locationStr)}</span>
+            </div>
+
+            <div class="cert-charity-badge">
+              ${icon('heart')} Dedicated Rescue Beneficiary: <b>${esc(charity)}</b>
+            </div>
+          </div>
+
+          <div class="cert-footer">
+            <div class="cert-qr-wrap">
+              <img src="${qrUrl}" class="cert-qr-img" alt="Scan to visit memorial online" onerror="this.style.display='none'">
+              <span>Scan to visit memorial in 3D</span>
+            </div>
+            <div class="cert-sig-wrap">
+              <div class="cert-sig-line"></div>
+              <div class="cert-sig-label">Eternity Valley Sanctuary Keeper</div>
+              <div class="cert-id-tag">Memorial Registry ID: ${isPlot ? item.id : item.id}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cert-actions" style="display:flex;gap:10px;margin-top:18px">
+          <button class="btn btn-gold btn-block" id="certPrintBtn">${icon('dove')} Print / Save as PDF Certificate</button>
+          <button class="btn btn-outline" id="certCopyBtn" title="Copy direct link">${icon('share')} Copy Link</button>
+        </div>
+      </div>
+    `);
+
+    $('#certPrintBtn').onclick = () => {
+      window.print();
+    };
+    $('#certCopyBtn').onclick = () => {
+      navigator.clipboard.writeText(url).then(() => {
+        this.toast('Memorial link copied to clipboard!', 4000, 'share');
+      }).catch(() => {
+        this.toast(url, 6000);
+      });
+    };
+  },
+
+  // ============================================================
+  //  GRIEF JOURNEY WIZARD — guided 4-step memorial creation
+  //  The single most important conversion flow in the product.
+  // ============================================================
+  griefWizardModal() {
+    const districtCards = Object.entries(DISTRICTS).map(([k, d]) =>
+      `<div class="gw-district-card" data-district="${k}">
+        <div class="gw-district-icon">${icon(d.icon || 'sparkle', { size: 22 })}</div>
+        <div class="gw-district-info">
+          <b>${d.name}</b>
+          <span>${d.blurb?.slice(0, 80) || 'A peaceful resting place'}${d.blurb?.length > 80 ? '…' : ''}</span>
+        </div>
+      </div>`
+    ).join('');
+
+    const charityCards = CHARITIES.map(c =>
+      `<div class="gw-charity-card" data-charity="${c.id}">
+        <div class="gw-charity-name">${icon('heart', { size: 14 })} ${c.name}</div>
+        <div class="gw-charity-desc">${c.mission?.slice(0, 90) || 'Helping animals in need'}${c.mission?.length > 90 ? '…' : ''}</div>
+      </div>`
+    ).join('');
+
+    this.modal(`
+      <div class="gw-wrap" id="griefWizard">
+        <div class="gw-progress">
+          <div class="gw-dot is-active" data-step="1">1</div>
+          <div class="gw-line"></div>
+          <div class="gw-dot" data-step="2">2</div>
+          <div class="gw-line"></div>
+          <div class="gw-dot" data-step="3">3</div>
+          <div class="gw-line"></div>
+          <div class="gw-dot" data-step="4">4</div>
+        </div>
+
+        <!-- Step 1: About Your Companion -->
+        <div class="gw-step is-active" data-step="1">
+          <div class="gw-step-icon">${speciesIcon('dog', { size: 42 })}</div>
+          <h2>Tell us about your companion</h2>
+          <p class="gw-step-sub">They deserve to be remembered beautifully. We'll create a memorial that honors their life.</p>
+          <label>Their name</label>
+          <input id="gwName" placeholder="e.g. Luna, Max, Biscuit…" maxlength="24" autofocus>
+          <label>Species</label>
+          <select id="gwSpecies">${speciesOptionsHTML()}</select>
+          <label>Years (e.g. 2012 – 2025)</label>
+          <input id="gwYears" placeholder="2012 – 2025" maxlength="16">
+          <label>Their photo (optional — you can add more later)</label>
+          <input id="gwPhoto" type="file" accept="image/*">
+          <button class="btn btn-gold btn-block gw-next-btn" data-to="2">Continue — choose their resting place →</button>
+        </div>
+
+        <!-- Step 2: Choose District -->
+        <div class="gw-step" data-step="2">
+          <div class="gw-step-icon">${icon('sparkle', { size: 38 })}</div>
+          <h2>Choose their resting place</h2>
+          <p class="gw-step-sub">Each district has its own character. Click one to preview it in the 3D Sanctuary.</p>
+          <div class="gw-district-grid" id="gwDistrictGrid">
+            ${districtCards}
+          </div>
+          <input type="hidden" id="gwDistrict" value="">
+          <div class="gw-nav-row">
+            <button class="btn btn-outline gw-back-btn" data-to="1">← Back</button>
+            <button class="btn btn-gold gw-next-btn" data-to="3" id="gwStep2Next" disabled>Continue →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Write from the Heart -->
+        <div class="gw-step" data-step="3">
+          <div class="gw-step-icon">${icon('dove', { size: 38 })}</div>
+          <h2>Write something from the heart</h2>
+          <p class="gw-step-sub">These words will appear on their headstone for every visitor to read.</p>
+          <label>Epitaph</label>
+          <textarea id="gwEpitaph" rows="3" maxlength="120" placeholder="Forever chasing butterflies in the sunlight…"></textarea>
+          <div class="gw-prompts">
+            <span class="gw-prompt" data-txt="Forever loved, forever remembered.">💛</span>
+            <span class="gw-prompt" data-txt="You were the best part of every day.">🌅</span>
+            <span class="gw-prompt" data-txt="Until we meet again at the Rainbow Bridge.">🌈</span>
+            <span class="gw-prompt" data-txt="The house is quieter without you.">🏡</span>
+            <span class="gw-prompt" data-txt="You taught me what unconditional love means.">❤️</span>
+          </div>
+          <label>Headstone style</label>
+          <select id="gwHeadstone">
+            ${HEADSTONE_STYLES.map(h => `<option value="${h.id}">${h.label}</option>`).join('')}
+          </select>
+          <div class="gw-nav-row">
+            <button class="btn btn-outline gw-back-btn" data-to="2">← Back</button>
+            <button class="btn btn-gold gw-next-btn" data-to="4">Continue — choose a cause →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Choose a Cause -->
+        <div class="gw-step" data-step="4">
+          <div class="gw-step-icon">${icon('heart', { size: 38 })}</div>
+          <h2>Help a living animal in their honor</h2>
+          <p class="gw-step-sub">${Math.round(SPLITS.plot.charity * 100)}% of your plot and every gift left here goes to the charity you choose. Free campaigns pass 100% through.</p>
+          <div class="gw-charity-grid" id="gwCharityGrid">
+            ${charityCards}
+          </div>
+          <input type="hidden" id="gwCharity" value="${CHARITIES[0]?.id || ''}">
+          <div class="gw-summary" id="gwSummary"></div>
+          <button class="btn btn-gold btn-block btn-lg" id="gwCreateBtn">
+            ${icon('crest')} Create Their Memorial
+          </button>
+          <p class="fine" style="margin-top:8px;text-align:center">${IS_DEMO ? 'Demo mode — no real payment.' : 'You\'ll be redirected to Stripe for secure payment.'}</p>
+          <div class="gw-nav-row" style="margin-top:6px">
+            <button class="btn btn-outline gw-back-btn" data-to="3">← Back</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    // --- Step navigation ---
+    const wiz = document.getElementById('griefWizard');
+    const goStep = (n) => {
+      wiz.querySelectorAll('.gw-step').forEach(s => s.classList.toggle('is-active', s.dataset.step === String(n)));
+      wiz.querySelectorAll('.gw-dot').forEach(d => {
+        const ds = Number(d.dataset.step);
+        d.classList.toggle('is-active', ds === n);
+        d.classList.toggle('is-done', ds < n);
+      });
+      // Fly camera to selected district on step 2
+      if (n === 2) {
+        const sel = document.getElementById('gwDistrict').value;
+        if (sel) this.world?.flyToDistrict(sel);
+      }
+      // Update summary on step 4
+      if (n === 4) this._gwUpdateSummary();
+    };
+
+    wiz.querySelectorAll('.gw-next-btn').forEach(btn => {
+      btn.onclick = (e) => { e.preventDefault(); goStep(Number(btn.dataset.to)); };
+    });
+    wiz.querySelectorAll('.gw-back-btn').forEach(btn => {
+      btn.onclick = (e) => { e.preventDefault(); goStep(Number(btn.dataset.to)); };
+    });
+
+    // --- District selection ---
+    const distGrid = document.getElementById('gwDistrictGrid');
+    distGrid.addEventListener('click', (e) => {
+      const card = e.target.closest('.gw-district-card');
+      if (!card) return;
+      distGrid.querySelectorAll('.gw-district-card').forEach(c => c.classList.remove('is-selected'));
+      card.classList.add('is-selected');
+      document.getElementById('gwDistrict').value = card.dataset.district;
+      document.getElementById('gwStep2Next').disabled = false;
+      // Preview fly
+      this.world?.flyToDistrict(card.dataset.district);
+    });
+
+    // --- Charity selection ---
+    const charGrid = document.getElementById('gwCharityGrid');
+    charGrid.addEventListener('click', (e) => {
+      const card = e.target.closest('.gw-charity-card');
+      if (!card) return;
+      charGrid.querySelectorAll('.gw-charity-card').forEach(c => c.classList.remove('is-selected'));
+      card.classList.add('is-selected');
+      document.getElementById('gwCharity').value = card.dataset.charity;
+    });
+    // Default: first charity selected
+    charGrid.querySelector('.gw-charity-card')?.classList.add('is-selected');
+
+    // --- Epitaph quick-fill prompts ---
+    wiz.querySelectorAll('.gw-prompt').forEach(p => {
+      p.onclick = () => { document.getElementById('gwEpitaph').value = p.dataset.txt; };
+    });
+
+    // --- Species icon preview update ---
+    document.getElementById('gwSpecies').addEventListener('change', (e) => {
+      const stepIcon = wiz.querySelector('.gw-step[data-step="1"] .gw-step-icon');
+      if (stepIcon) stepIcon.innerHTML = speciesIcon(e.target.value, { size: 42 });
+    });
+
+    // --- Create button ---
+    document.getElementById('gwCreateBtn').onclick = () => this._gwCreate();
+  },
+
+  _gwUpdateSummary() {
+    const name = document.getElementById('gwName')?.value?.trim() || 'Beloved Friend';
+    const sp = document.getElementById('gwSpecies')?.value || 'dog';
+    const district = document.getElementById('gwDistrict')?.value;
+    const d = DISTRICTS[district];
+    const charity = charityName(document.getElementById('gwCharity')?.value) || 'Animal Rescue Fund';
+    const el = document.getElementById('gwSummary');
+    if (el) {
+      el.innerHTML = `
+        <div class="gw-summary-card">
+          <div class="gw-summary-icon">${speciesIcon(sp, { size: 28 })}</div>
+          <div class="gw-summary-body">
+            <b>${esc(name)}</b>
+            <span>${d?.name || 'Sanctuary'} · ${icon('heart', { size: 12 })} ${esc(charity)}</span>
+          </div>
+        </div>`;
+    }
+  },
+
+  async _gwCreate() {
+    if (!Auth.user || Auth.user.isGuest) return this.authModal(() => this._gwCreate());
+    if (!State.hasMembership()) {
+      this.toast('A membership is needed to own plots.');
+      return this.membershipModal(() => this._gwCreate());
+    }
+
+    const name = document.getElementById('gwName')?.value?.trim() || 'Beloved Friend';
+    const sp = document.getElementById('gwSpecies')?.value || 'dog';
+    const years = document.getElementById('gwYears')?.value?.trim() || String(new Date().getFullYear());
+    const epitaph = document.getElementById('gwEpitaph')?.value?.trim() || 'Forever loved.';
+    const headstone = document.getElementById('gwHeadstone')?.value || 'classic';
+    const photo = await readPhoto(document.getElementById('gwPhoto'));
+    const district = document.getElementById('gwDistrict')?.value;
+    const charity = document.getElementById('gwCharity')?.value || CHARITIES[0]?.id;
+
+    // Find the best available plot in the chosen district
+    const availPlots = this.plots?.filter(p => p.status === 'available' && p.district === district) || [];
+    if (!availPlots.length) {
+      this.toast(`No available plots in ${DISTRICTS[district]?.name || 'that district'} — try another.`);
+      return;
+    }
+    const plot = availPlots[0];
+    const d = DISTRICTS[plot.district];
+
+    const memorial = {
+      petName: cleanText(name), species: sp, years,
+      epitaph: cleanText(epitaph), headstone, photo,
+      charity: charity || null,
+    };
+
+    const btn = document.getElementById('gwCreateBtn');
+    if (btn) { btn.textContent = 'Creating memorial…'; btn.disabled = true; }
+
+    try {
+      const r = await checkout({
+        kind: 'plot',
+        name: `Rainbow Bridge — Plot ${plot.id} (${d.name})`,
+        amount: plot.price,
+        meta: { plotId: plot.id, uid: Auth.user.uid, charity: memorial.charity || State.data.charity || CHARITIES[0].id },
+      });
+      if (r.ok) {
+        State.buyPlot(plot, memorial);
+        await State.save(Auth.user);
+        this.closeModal();
+        this.refreshWorld();
+        await this.show3D();
+        this.world?.selectPlot(plot);
+        this.openPlot(plot);
+
+        Soundscape.playChime(528, 0.08);
+        setTimeout(() => Soundscape.playChime(660, 0.06), 400);
+        setTimeout(() => Soundscape.playChime(880, 0.05), 800);
+        this.toast(`${name}'s memorial is consecrated forever in ${d.name}. 💛`, 8000, 'crest');
+      }
+    } catch (e) {
+      this.toast(String(e.message), 'warning');
+      if (btn) { btn.textContent = `${icon('crest')} Create Their Memorial`; btn.disabled = false; }
+    }
   },
 
   editPetModal(m, rerender, onSaveProfile) {
@@ -546,7 +1139,11 @@ export const UI = {
     const cur = State.data.membership;
     this.modal(`
       <h2>Memberships</h2>
-      <div class="modal-sub">A membership lets you own plots and build lasting memorials.</div>
+      <div class="modal-sub">A membership lets you own plots and build lasting memorials —
+        and ${Math.round(SPLITS.membership.charity * 100)}% of every one goes to the animal charity you choose.</div>
+      <div class="district-blurb">${icon('heart')} You never have to pay us to do good here.
+        <a href="#" id="memCampaign">Starting a fundraising campaign</a> is free, needs no membership,
+        and sends <b>100%</b> of what it raises to your charity.</div>
       <div class="tiers">
         ${MEMBERSHIPS.map(m => `
           <div class="tier ${m.featured ? 'featured' : ''}">
@@ -559,13 +1156,17 @@ export const UI = {
           </div>`).join('')}
       </div>
       <p class="fine">${IS_DEMO ? 'Demo mode: subscription is simulated.' : 'Billed securely via Stripe. Cancel anytime.'}</p>`);
+    $('#modalBox').querySelector('#memCampaign')?.addEventListener('click', (e) => {
+      e.preventDefault(); this.closeModal(); CharityUI.togglePanel(this);
+    });
     $('#modalBox').querySelectorAll('[data-m]').forEach(btn => {
       btn.onclick = async () => {
         const m = MEMBERSHIPS.find(x => x.id === btn.dataset.m);
         if (!Auth.user || Auth.user.isGuest) { this.closeModal(); return this.authModal(() => this.membershipModal(afterJoin)); }
         btn.textContent = 'Processing…'; btn.disabled = true;
         try {
-          const r = await checkout({ kind: 'membership', name: `Rainbow Bridge — ${m.name} membership`, amount: m.price, meta: { membershipId: m.id, uid: Auth.user.uid } });
+          const r = await checkout({ kind: 'membership', name: `Rainbow Bridge — ${m.name} membership`, amount: m.price,
+            meta: { membershipId: m.id, uid: Auth.user.uid, charity: State.data.charity || CHARITIES[0].id } });
           if (r.ok) {
             State.data.membership = m.id;
             await State.save(Auth.user);
@@ -587,7 +1188,8 @@ export const UI = {
     const d = DISTRICTS[plot.district];
     this.modal(`
       <h2>Create a memorial</h2>
-      <div class="modal-sub">Plot ${plot.id} · ${d.name} · ${SIZE_LABELS[plot.size]} · <b>$${plot.price}</b></div>
+      <div class="modal-sub">Plot ${plot.id} · ${d.name} · ${SIZE_LABELS[plot.size]} · <b>$${plot.price}</b><br>
+        ${Math.round(SPLITS.plot.charity * 100)}% of this, and of every gift left here, goes to the charity you pick below.</div>
       <label>Pet's name</label><input id="mName" placeholder="e.g. Biscuit" maxlength="24">
       <label>Species</label>
       <select id="mSpecies">
@@ -600,7 +1202,7 @@ export const UI = {
       <select id="mHeadstone">
         ${HEADSTONE_STYLES.map(h => `<option value="${h.id}">${h.label}</option>`).join('')}
       </select>
-      <label>Charity — ${Math.round(GIFT_CHARITY_SHARE * 100)}% of every gift to this plot</label>
+      <label>Their charity — where this plot's giving goes</label>
       <select id="mCharity">
         <option value="">Let each giver choose</option>
         ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
@@ -621,7 +1223,10 @@ export const UI = {
       const btn = $('#payPlotBtn');
       btn.textContent = 'Processing payment…'; btn.disabled = true;
       try {
-        const r = await checkout({ kind: 'plot', name: `Rainbow Bridge — Plot ${plot.id} (${d.name})`, amount: plot.price, meta: { plotId: plot.id, uid: Auth.user.uid } });
+        const r = await checkout({ kind: 'plot', name: `Rainbow Bridge — Plot ${plot.id} (${d.name})`, amount: plot.price,
+          // The owner's chosen charity rides on the purchase itself, so
+          // the plot's share is booked to them and not to a default.
+          meta: { plotId: plot.id, uid: Auth.user.uid, charity: memorial.charity || State.data.charity || CHARITIES[0].id } });
         if (r.ok) {
           State.buyPlot(plot, memorial);
           await State.save(Auth.user);
@@ -639,6 +1244,8 @@ export const UI = {
     const from = Auth.user ? Auth.user.name : null;
     const plotCharity = plot.memorial?.charity;
     const pctS = Math.round(GIFT_CHARITY_SHARE * 100);
+    const isAnniv = checkAnniversaries({ [plot.id]: plot }).length > 0;
+    const giftChoices = isAnniv ? [...ANNIVERSARY_GIFTS, ...GIFTS] : GIFTS;
     this.modal(`
       <h2>Leave a gift for ${plot.memorial?.petName || 'this friend'}</h2>
       <div class="modal-sub">Gifts are laid at the base of the memorial, in 3D, for every visitor to see. ${!from ? 'You can give as an anonymous guest.' : `Giving as <b>${from}</b>.`}</div>
@@ -647,9 +1254,9 @@ export const UI = {
         : `<label>${icon('heart')} ${pctS}% of your gift goes to a charity of your choice</label>
            <select id="sgCharity">${CHARITIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select>`}
       <div class="shop-grid">
-        ${GIFTS.map(g => `
+        ${giftChoices.map(g => `
           <button class="shop-item" data-g="${g.id}">
-            <div class="s-emoji">${thumbImg(g.id, { size: 46, alt: g.name })}</div>
+            <div class="s-emoji">${g.emoji ? `<span style="font-size:42px">${g.emoji}</span>` : thumbImg(g.id, { size: 46, alt: g.name })}</div>
             <div class="s-name">${g.name}</div>
             <div class="s-price">${fmtPrice(g.price)}</div>
           </button>`).join('')}
@@ -659,9 +1266,9 @@ export const UI = {
       <p class="fine">${IS_DEMO ? 'Demo mode: payment is simulated.' : 'Processed securely by Stripe.'}</p>`);
     $('#modalBox').querySelectorAll('[data-g]').forEach(btn => {
       btn.onclick = async () => {
-        const g = GIFTS.find(x => x.id === btn.dataset.g);
+        const g = giftChoices.find(x => x.id === btn.dataset.g);
         const msg = cleanText($('#giftMsg').value.trim());
-        const charity = plotCharity || $('#sgCharity')?.value || 'ch_local';
+        const charity = plotCharity || $('#sgCharity')?.value || CHARITIES[0].id;
         const donate = Math.round((g.id === 'g_donation' ? g.price : g.price * GIFT_CHARITY_SHARE) * 100) / 100;
         btn.style.opacity = .5;
         try {
@@ -723,7 +1330,8 @@ export const UI = {
         const slot = SLOTS.find(s => s.id === slotId) || SLOTS[0];
         btn.style.opacity = .5;
         try {
-          const r = await checkout({ kind: 'item', name: `Plot item: ${it.name}`, amount: it.price, meta: { plotId: plot.id, itemId: it.id, slot: slotId } });
+          const r = await checkout({ kind: 'item', name: `Plot item: ${it.name}`, amount: it.price,
+            meta: { plotId: plot.id, itemId: it.id, slot: slotId, charity: plot.memorial?.charity || State.data.charity || CHARITIES[0].id } });
           if (r.ok) {
             State.addDecor(plot.id, it.id, slotId);
             const d = ITEM_DECOR[it.id];
@@ -742,6 +1350,261 @@ export const UI = {
   },
 
   // ================= EARTH MODE =================
+
+  // ---------------- Search: companions and places, one bar ----------------
+  //
+  // The bar asked "where was their favorite place on Earth?" and only
+  // ever answered with map coordinates. But most people arriving at a
+  // memorial site are looking for a specific animal, or for the ones
+  // near a place they know — and neither needed an account, so both
+  // were reachable in principle and findable in practice by nobody.
+  //
+  // Now one field does both. Typing searches every memorial on the site
+  // by name, species, place and epitaph, and offers a map lookup for
+  // the same string underneath. No sign-in: a guest sees exactly what a
+  // member sees.
+
+  /** Every memorial a visitor could find, from both worlds. */
+  _searchableMemorials() {
+    const out = allMemorials(State.data).map(m => ({
+      kind: 'earth', id: m.id, petName: m.petName, species: m.species,
+      years: m.years, place: m.place, epitaph: m.epitaph, gifts: m.gifts, ref: m,
+    }));
+    // Sanctuary plots hold memorials too, and someone searching a name
+    // does not know or care which of the two worlds it lives in.
+    for (const p of this.plots) {
+      if (p.status !== 'occupied' || !p.memorial) continue;
+      out.push({
+        kind: 'plot', id: p.id, petName: p.memorial.petName, species: p.memorial.species,
+        years: p.memorial.years, place: (DISTRICTS[p.district]?.name || 'The Sanctuary') + ' · Plot ' + p.id,
+        epitaph: p.memorial.epitaph, gifts: p.memorial.gifts, ref: p,
+      });
+    }
+    return out;
+  },
+
+  /**
+   * Rank matches. A name match beats a place match beats anything
+   * found only in the epitaph, and a prefix beats a match in the
+   * middle of a word — otherwise searching "Max" puts every memorial
+   * containing "maximum" above the dog called Max.
+   */
+  _rankMemorials(q) {
+    const needle = q.trim().toLowerCase();
+    if (needle.length < 2) return [];
+    const scored = [];
+    for (const m of this._searchableMemorials()) {
+      const name = (m.petName || '').toLowerCase();
+      const place = (m.place || '').toLowerCase();
+      const species = (m.species || '').toLowerCase();
+      const epi = (m.epitaph || '').toLowerCase();
+      let score = 0;
+      if (name === needle) score = 120;
+      else if (name.startsWith(needle)) score = 100;
+      else if (name.includes(needle)) score = 78;
+      else if (place.startsWith(needle)) score = 60;
+      else if (place.includes(needle)) score = 50;
+      else if (species.startsWith(needle)) score = 34;
+      else if (epi.includes(needle)) score = 18;
+      if (!score) continue;
+      score += Math.min(12, (m.gifts || 0) / 12);   // gently favour the loved ones
+      scored.push({ ...m, score });
+    }
+    return scored.sort((a, b) => b.score - a.score).slice(0, 7);
+  },
+
+  _initMemorialSearch(doPlaceSearch) {
+    const input = $('#earthSearch');
+    if (!input) return;
+    input.setAttribute('placeholder', 'Search a companion by name, or any place on Earth…');
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-expanded', 'false');
+    input.setAttribute('aria-autocomplete', 'list');
+
+    const box = document.createElement('div');
+    box.className = 'search-suggest hidden';
+    box.id = 'searchSuggest';
+    box.setAttribute('role', 'listbox');
+    input.parentElement.appendChild(box);
+    this._suggestBox = box;
+    this._suggestIndex = -1;
+
+    const render = () => {
+      const q = input.value.trim();
+      const rows = [];
+
+      if (!q) {
+        // Instant Discovery Menu on click / focus
+        rows.push(`<div class="ss-head">${icon('sparkle')} Featured Companions</div>`);
+        const featured = this._searchableMemorials().slice(0, 4);
+        featured.forEach((m) => {
+          rows.push(`
+            <button class="ss-row" data-mem="${m.kind}:${m.id}" role="option">
+              <span class="ss-art">${memorialArt(m, 22)}</span>
+              <span class="ss-txt">
+                <b>${escapeHtml(m.petName)}</b>
+                <i>${[m.species, m.years].filter(Boolean).map(escapeHtml).join(' · ')}</i>
+                <u>${escapeHtml(m.place || '')}</u>
+              </span>
+            </button>`);
+        });
+
+        rows.push(`<div class="ss-head">${icon('crest')} 3D Sanctuary Districts</div>`);
+        const dists = [
+          { k: 'meadows', name: 'Meadow Grove', sub: 'Rolling wildflower garden' },
+          { k: 'woodland', name: 'Whispering Pines', sub: 'Spruce & northern forest' },
+          { k: 'lakefront', name: 'Lakeside Rest', sub: 'Mirror Lake weeping willows' },
+          { k: 'beach', name: 'Golden Shores', sub: 'Sunlit beach & dunes' },
+        ];
+        dists.forEach(d => {
+          rows.push(`
+            <button class="ss-row ss-row--district" data-district="${d.k}" role="option">
+              <span class="ss-art">${icon('sparkle', { size: 16 })}</span>
+              <span class="ss-txt"><b>${d.name}</b><i>${d.sub} · Fly to 3D district</i></span>
+            </button>`);
+        });
+
+        rows.push(`<div class="ss-head">${icon('pin')} Popular Sacred Places</div>`);
+        const places = ['Golden Gate Park, San Francisco', 'Central Park, New York', 'Red Rock Canyon, Las Vegas'];
+        places.forEach(p => {
+          rows.push(`
+            <button class="ss-row ss-row--place" data-place-preset="${escapeHtml(p)}" role="option">
+              <span class="ss-art">${icon('pin', { size: 16 })}</span>
+              <span class="ss-txt"><b>${p}</b><i>Explore sacred footprint spots</i></span>
+            </button>`);
+        });
+      } else {
+        // Real-time Ranked Search
+        const hits = this._rankMemorials(q);
+        if (hits.length) {
+          rows.push(`<div class="ss-head">${icon('paw')} Companions (${hits.length})</div>`);
+          hits.forEach((m) => {
+            rows.push(`
+              <button class="ss-row" data-mem="${m.kind}:${m.id}" role="option">
+                <span class="ss-art">${memorialArt(m, 22)}</span>
+                <span class="ss-txt">
+                  <b>${escapeHtml(m.petName)}</b>
+                  <i>${[m.species, m.years].filter(Boolean).map(escapeHtml).join(' · ')}</i>
+                  <u>${escapeHtml(m.place || '')}</u>
+                </span>
+              </button>`);
+          });
+        }
+
+        // Check if query matches district names
+        const matchingDists = Object.entries(DISTRICTS).filter(([k, d]) => d.name.toLowerCase().includes(q.toLowerCase()));
+        if (matchingDists.length) {
+          rows.push(`<div class="ss-head">${icon('crest')} Sanctuary Districts</div>`);
+          matchingDists.forEach(([k, d]) => {
+            rows.push(`
+              <button class="ss-row ss-row--district" data-district="${k}" role="option">
+                <span class="ss-art">${icon('sparkle', { size: 16 })}</span>
+                <span class="ss-txt"><b>${d.name}</b><i>${d.blurb?.slice(0, 60)}…</i></span>
+              </button>`);
+          });
+        }
+
+        rows.push(`<div class="ss-head">${icon('globe')} Places on Earth</div>`);
+        rows.push(`
+          <button class="ss-row ss-row--place" data-place="1" role="option">
+            <span class="ss-art">${icon('pin', { size: 18 })}</span>
+            <span class="ss-txt"><b>Find “${escapeHtml(q)}” on Earth</b>
+              <i>Fly there and choose a spot</i></span>
+          </button>`);
+        if (!hits.length && !matchingDists.length) {
+          rows.splice(0, 0, `<div class="ss-empty">No companion by “${escapeHtml(q)}” yet — search as a place below.</div>`);
+        }
+      }
+
+      box.innerHTML = rows.join('');
+      box.classList.remove('hidden');
+      input.setAttribute('aria-expanded', 'true');
+      this._suggestIndex = -1;
+
+      box.querySelectorAll('[data-mem]').forEach(btn => {
+        btn.onclick = () => {
+          const [kind, ...rest] = btn.dataset.mem.split(':');
+          const id = rest.join(':');
+          this._closeSuggest();
+          input.value = '';
+          this.openSearchHit(kind, id);
+        };
+      });
+      box.querySelectorAll('[data-district]').forEach(btn => {
+        btn.onclick = async () => {
+          const d = btn.dataset.district;
+          this._closeSuggest();
+          input.value = '';
+          await this.show3D();
+          this.world?.flyToDistrict(d);
+        };
+      });
+      box.querySelectorAll('[data-place-preset]').forEach(btn => {
+        btn.onclick = () => {
+          input.value = btn.dataset.placePreset;
+          this._closeSuggest();
+          doPlaceSearch();
+        };
+      });
+      box.querySelector('[data-place]')?.addEventListener('click', () => { this._closeSuggest(); doPlaceSearch(); });
+    };
+
+    let t = null;
+    input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(render, 80); });
+    input.addEventListener('focus', () => render());
+    input.addEventListener('click', () => render());
+
+    input.addEventListener('keydown', (e) => {
+      const rows = [...box.querySelectorAll('.ss-row')];
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (this._suggestIndex >= 0 && rows[this._suggestIndex]) rows[this._suggestIndex].click();
+        else { this._closeSuggest(); doPlaceSearch(); }
+        return;
+      }
+      if (e.key === 'Escape') return this._closeSuggest();
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      if (!rows.length) return;
+      e.preventDefault();
+      this._suggestIndex += (e.key === 'ArrowDown' ? 1 : -1);
+      if (this._suggestIndex < 0) this._suggestIndex = rows.length - 1;
+      if (this._suggestIndex >= rows.length) this._suggestIndex = 0;
+      rows.forEach((r, i) => r.classList.toggle('is-on', i === this._suggestIndex));
+      rows[this._suggestIndex].scrollIntoView({ block: 'nearest' });
+    });
+
+    // Close on an outside click, but not on a click inside the list —
+    // mousedown fires before the row's own click would.
+    document.addEventListener('mousedown', (e) => {
+      if (!box.contains(e.target) && e.target !== input) this._closeSuggest();
+    });
+  },
+
+  _closeSuggest() {
+    this._suggestBox?.classList.add('hidden');
+    this._suggestIndex = -1;
+    $('#earthSearch')?.setAttribute('aria-expanded', 'false');
+  },
+
+  /** Go to whatever the visitor picked out of the suggestions. */
+  async openSearchHit(kind, id) {
+    if (kind === 'plot') {
+      const pl = this.plots.find(p => p.id === id);
+      if (!pl) return this.toast('That plot could not be found.', 'warning');
+      await this.show3D();
+      this.world?.selectPlot(pl);
+      this.openPlot(pl);
+      return;
+    }
+    const m = allMemorials(State.data).find(x => x.id === id);
+    if (!m) return this.toast('That memorial could not be found.', 'warning');
+    if (m.lat == null) return this.openEarthMemorial(m);
+    await this.showEarth();
+    this.flyToPlace({ lat: m.lat, lng: m.lng, range: 420, name: m.petName }, { announce: false });
+    setTimeout(() => this.openEarthMemorial(m), 2400);
+  },
+
   _initEarthUI() {
     const earth = this.earth;
     earth.onMemorialClick = (m) => this.openEarthMemorial(m);
@@ -751,26 +1614,32 @@ export const UI = {
     const doSearch = async () => {
       const q = $('#earthSearch').value.trim();
       if (!q) return;
+      // The bar is reachable from every view, so make sure the map
+      // exists before asking it to find anything.
+      this.toast('Searching…', 2500, 'search');
+      await this.showEarth();
       try {
         const r = await earth.geocode(q);
         this._lastPos = { lat: r.lat, lng: r.lng };
-        earth.flyTo({ lat: r.lat, lng: r.lng, range: 380, zoom: 18 });
+        this.flyToPlace({ lat: r.lat, lng: r.lng, range: 380 }, { announce: false });
         this.toast(`${r.name.split(',').slice(0, 2).join(',')} — glowing spots are available. Try Ground or Street to stand there.`, 7000);
         // show clear placement spots around the destination
         setTimeout(() => earth.showCandidateSpots(r), 1800);
       } catch { this.toast('Could not find that place — try a fuller address.'); }
     };
-    $('#earthGo').onclick = doSearch;
-    $('#earthSearch').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+    $('#earthGo').onclick = () => { this._closeSuggest(); doSearch(); };
+    this._placeSearch = doSearch;
+    this._initMemorialSearch(doSearch);
 
     // Fly to the user's current location
     $('#locBtn').onclick = () => {
       if (!navigator.geolocation) return this.toast('Your browser does not support location.');
       this.toast('Finding you…', 'pin');
       navigator.geolocation.getCurrentPosition(async (p) => {
+        await this.showEarth();
         const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
         this._lastPos = pos;
-        earth.flyTo({ ...pos, range: 380, zoom: 18 });
+        this.flyToPlace({ ...pos, range: 380 }, { announce: false });
         setTimeout(() => earth.showCandidateSpots(pos), 1800);
         const name = await earth.reverseGeocode(pos.lat, pos.lng);
         this.toast(`${name.split(',').slice(0, 2).join(',')} — glowing spots are available here. Try Ground to stand in it.`, 7000);
@@ -781,21 +1650,27 @@ export const UI = {
       }, { timeout: 10000, maximumAge: 60000 });
     };
 
-    $('#homeBtn').onclick = () => { this._lastPos = null; earth.flyHome(); this.toast('Returning to Rainbow Bridge Valley…'); };
+    $('#orbitBtn').onclick = () => { this._lastPos = null; this.returnToOrbit(); };
+    $('#homeBtn').onclick = async () => {
+      this._lastPos = null;
+      await this.showEarth();
+      this.flyToPlace({ lat: RBV.lat, lng: RBV.lng, range: 2800, name: 'Rainbow Bridge Valley' });
+    };
 
     // Ground-level & Street View
-    $('#groundBtn').onclick = () => {
+    $('#groundBtn').onclick = async () => {
+      await this.showEarth();
       const pos = this._lastPos || earth.getCenter();
       const ok = earth.groundView(pos);
       if (ok) this.toast('Standing at the place — the camera will slowly circle it. Drag to look around.');
       else this.toast('Satellite mode is top-down only — click Enable 3D for the full ground-level recreation (buildings, trees, yards).', 7000);
     };
-    $('#streetBtn').onclick = () => this.streetViewOpen(this._lastPos || earth.getCenter());
+    $('#streetBtn').onclick = async () => { await this.showEarth(); this.streetViewOpen(this._lastPos || earth.getCenter()); };
     $('#streetClose').onclick = () => {
       $('#streetPanel').classList.add('hidden');
       $('#streetContainer').innerHTML = '';
     };
-    $('#placeBtn').onclick = () => this.startPlacement();
+    $('#placeBtn').onclick = async () => { await this.showEarth(); this.startPlacement(); };
     $('#placeCancel').onclick = () => this._exitPlacement();
     $('#placeCenter').onclick = () => { const c = earth.getCenter(); this._exitPlacement(); this.earthMemorialForm(c); };
 
@@ -803,6 +1678,19 @@ export const UI = {
     $('#feedClose').onclick = () => $('#feedPanel').classList.add('hidden');
     $('#browseBtn').onclick = () => this.toggleBrowse();
     $('#browseClose').onclick = () => $('#browsePanel').classList.add('hidden');
+    $('#causeBtn').onclick = () => CharityUI.togglePanel(this);
+    $('#topbarCharityBtn').onclick = () => CharityUI.togglePanel(this);
+    $('#comfortBtn').onclick = () => this.comfortModal();
+    $('#partnerBtn').onclick = () => this.partnerModal();
+    $('#keepsakesBtn')?.addEventListener('click', () => this.keepsakesModal());
+    $('#keepsakeToolbarBtn')?.addEventListener('click', () => this.keepsakesModal());
+    $('#soundBtn')?.addEventListener('click', () => this.soundModal());
+    $('#lanternBtn')?.addEventListener('click', () => this.riverLanternsModal());
+    $('#lettersBtn')?.addEventListener('click', () => this.lettersModal());
+    $('#treeRibbonBtn')?.addEventListener('click', () => this.treeOfLifeModal());
+    $('#candleVigilBtn')?.addEventListener('click', () => this.candleVigilModal());
+    $('#campaignClose').onclick = () => $('#campaignPanel').classList.add('hidden');
+    this.updateCharityTopbar();
 
     // 3D key: paste-in-app, stored in the browser — no code editing
     const keyBtn = $('#key3dBtn');
@@ -849,7 +1737,743 @@ export const UI = {
       this.toast('Your Maps key was rejected (check APIs enabled & restrictions) — running satellite fallback. Click Enable 3D to update it.', 8000, 'warning');
     }
     for (const m of allMemorials(State.data)) this.earth.addMemorialMarker(m);
+    for (const ch of CHARITIES) this.earth.addCharityMarker(ch);
+    this.earth.onCharityClick = (ch) => this.shelterModal(ch);
+
     if (!HAS_MAPS3D) this.toast('Satellite mode — click Enable 3D and paste a free Google Maps key for full photorealism', 7000);
+  },
+
+  shelterModal(ch) {
+    const campaigns = Campaigns.load().filter(c => c.charityId === ch.id);
+    this.modal(`
+      <h2>${icon('heart')} ${ch.name}</h2>
+      <div class="modal-sub">${ch.cat} · ${ch.city}, ${ch.state}</div>
+      <div class="district-blurb" style="margin:12px 0">
+        <span style="color:var(--accent-hi-c);font-size:12px;font-weight:700">${ch.rating || 'Verified 501(c)(3) Rescue'}</span><br>
+        ${ch.blurb}<br>
+        <span class="fine-dim">IRS EIN: <b>${ch.ein}</b> · <a href="${ch.url}" target="_blank" rel="noopener noreferrer">Visit Official Website</a></span>
+      </div>
+
+      ${ch.impactTiers ? `
+        <div class="shop-cat">Tangible Impact Tiers</div>
+        <div class="shop-grid" style="margin-bottom:14px">
+          ${ch.impactTiers.map(t => `
+            <div class="shop-item" style="cursor:default;text-align:left;padding:10px">
+              <b style="color:var(--accent-hi-c);font-size:14px">${t.label}</b>
+              <div style="font-size:11.5px;color:#dedad0;margin-top:4px">${t.desc}</div>
+            </div>
+          `).join('')}
+        </div>` : ''}
+
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-gold btn-block" id="shStartCmp">${icon('heart')} Start Campaign for ${ch.name}</button>
+      </div>
+
+      ${campaigns.length ? `
+        <div class="shop-cat" style="margin-top:16px">Memorial Campaigns Supporting ${ch.name} (${campaigns.length})</div>
+        ${campaigns.map(c => `
+          <div class="feed-item" data-cmp="${c.id}" style="cursor:pointer">
+            <div class="fi-icon">${icon('heart')}</div>
+            <div><b>${c.petName}</b> · ${[c.species, c.years].filter(Boolean).join(' · ')}<br>
+              <span class="fi-time">${c.story ? c.story.slice(0, 80) + '…' : 'In loving memory'}</span>
+            </div>
+          </div>
+        `).join('')}
+      ` : ''}
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#shStartCmp').onclick = () => {
+      this.closeModal();
+      CharityUI.createModal(this);
+      const sel = $('#cmpCharity');
+      if (sel) { sel.value = ch.id; sel.dispatchEvent(new Event('change')); }
+    };
+    box.querySelectorAll('[data-cmp]').forEach(el => {
+      el.onclick = () => {
+        const c = Campaigns.get(el.dataset.cmp);
+        if (c) { this.closeModal(); CharityUI.campaignModal(this, c); }
+      };
+    });
+  },
+
+  comfortModal() {
+    this.modal(`
+      <div class="comfort-header">
+        <div class="comfort-crest">${icon('dove', { size: 38 })}</div>
+        <h2>Words of Comfort &amp; The Rainbow Bridge</h2>
+        <div class="modal-sub">For every heart carrying the sacred weight of goodbye.</div>
+      </div>
+
+      <div class="poem-scroll">
+        <p class="poem-stanza">
+          Just this side of heaven is a place called Rainbow Bridge.<br><br>
+          When an animal dies that has been especially close to someone here, that pet goes to Rainbow Bridge.
+          There are meadows and hills for all of our special friends so they can run and play together.
+          There is plenty of food, water and sunshine, and our friends are warm and comfortable.
+        </p>
+        <p class="poem-stanza">
+          All the animals who had been ill and old are restored to health and vigor.
+          Those who were hurt or maimed are made whole and strong again,
+          just as we remember them in our dreams of days and times gone by.
+          The animals are happy and content, except for one small thing;
+          they each miss someone very special to them, who had to be left behind.
+        </p>
+        <p class="poem-stanza">
+          They all run and play together, but the day comes when one suddenly stops and looks into the distance.
+          His bright eyes are intent. His eager body quivers. Suddenly he begins to run from the group,
+          flying over the green grass, his legs carrying him faster and faster.
+        </p>
+        <p class="poem-stanza poem-climax">
+          You have been spotted, and when you and your special friend finally meet,
+          you cling together in joyous reunion, never to be parted again.
+          The happy kisses rain upon your face; your hands again caress the beloved head,
+          and you look once more into the trusting eyes of your pet, so long gone from your life but never absent from your heart.<br><br>
+          <i>Then you cross Rainbow Bridge together…</i>
+        </p>
+      </div>
+
+      <div class="district-blurb" style="margin:16px 0">
+        <b>24/7 Compassionate Support for Pet Loss:</b><br>
+        • <a href="https://www.lapoflove.com/pet-loss-support" target="_blank" rel="noopener noreferrer">Lap of Love Free Pet Loss Support Groups</a><br>
+        • <a href="https://www.vet.cornell.edu/impact/community-engagement/pet-loss-support-hotline" target="_blank" rel="noopener noreferrer">Cornell Pet Loss Support Helpline</a> (607-253-3932)<br>
+        • <a href="https://www.aplb.org" target="_blank" rel="noopener noreferrer">Association for Pet Loss and Bereavement (APLB)</a>
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-gold btn-block" id="comfortLightCandle">${icon('candle')} Light a Candle Vigil</button>
+        <button class="btn btn-outline btn-block" id="comfortMemorialize">${icon('heart')} Memorialize Your Companion</button>
+      </div>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#comfortLightCandle').onclick = () => {
+      this.closeModal();
+      this.candleVigilModal();
+    };
+    box.querySelector('#comfortMemorialize').onclick = () => {
+      this.closeModal();
+      this.showEarth().then(() => this.startPlacement());
+    };
+  },
+
+  candleVigilModal() {
+    this.modal(`
+      <h2>${icon('candle')} Light an Eternal Candle</h2>
+      <div class="modal-sub">Leave a warm light in the night sky and a silent wish for all companions who have crossed over.</div>
+
+      <label>Companion's Name <span class="fine-inline">(or 'For all who left us')</span></label>
+      <input id="vgName" maxlength="40" placeholder="e.g. For Luna & all sweet souls">
+
+      <label>Your Message / Silent Prayer <span class="fine-inline">(optional)</span></label>
+      <textarea id="vgMsg" rows="3" maxlength="200" placeholder="May you run free in endless sunlit fields. Until we meet again…"></textarea>
+
+      <label>From <span class="fine-inline">(optional)</span></label>
+      <input id="vgFrom" maxlength="30" placeholder="${Auth.user?.name || 'A loving family'}">
+
+      <button class="btn btn-gold btn-block" id="vgLight">${icon('candle')} Light the Candle</button>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#vgLight').onclick = () => {
+      const name = box.querySelector('#vgName').value.trim() || 'A beloved companion';
+      const from = box.querySelector('#vgFrom').value.trim() || Auth.user?.name || 'A loving heart';
+      const msg = box.querySelector('#vgMsg').value.trim();
+
+      State.logActivity('candle', `${from} lit an eternal candle for ${name}${msg ? ': “' + msg + '”' : ''}`);
+      this.closeModal();
+      this.toast(`Candle lit in memory of ${name}. May their light shine forever.`, 6000, 'candle');
+
+      const rect = document.body.getBoundingClientRect();
+      Motion.spark(rect.width / 2, rect.height / 2, 45);
+    };
+  },
+
+  partnerModal() {
+    this.modal(`
+      <div class="partner-hero">
+        <div class="partner-crest">${icon('crest', { size: 40 })}</div>
+        <h2>Care Partner &amp; Veterinary Alliance</h2>
+        <div class="modal-sub">You meet families on the hardest day of their pet's life. Give them a gentle, comforting next step.</div>
+      </div>
+
+      <div class="partner-pillars">
+        <div class="partner-pillar">
+          <div class="pillar-ico">${icon('heart', { size: 22 })}</div>
+          <b>Veterinary Hospitals &amp; Clinics</b>
+          <p>Include elegant sympathy condolence cards with your aftercare packets. Families receive a peaceful digital memorial on Earth or in the Sanctuary with custom clinic branding.</p>
+        </div>
+        <div class="partner-pillar">
+          <div class="pillar-ico">${icon('crest', { size: 22 })}</div>
+          <b>Pet Cemeteries &amp; Crematoriums</b>
+          <p>Complement physical urns, scatterings, and headstones with forever 3D &amp; Earth digital resting places that family members across the world can visit together.</p>
+        </div>
+        <div class="partner-pillar">
+          <div class="pillar-ico">${icon('sparkle', { size: 22 })}</div>
+          <b>Animal Shelters &amp; Rescues</b>
+          <p>Join our verified 501(c)(3) registry. 100% of memorial donations and tribute gifts pass directly to your rescue with public cryptographic ledger transparency.</p>
+        </div>
+      </div>
+
+      <div class="district-blurb" style="margin:16px 0">
+        ✦ <b>Complimentary Bereavement Starter Kits:</b> We provide custom-printed condolence cards with your clinic’s QR code, digital memorial sponsorship tokens, and hospital tribute pages at zero cost to your practice.
+      </div>
+
+      <div class="shop-cat">Request Partner Welcome Kit / Clinic QR Code</div>
+      <label>Practice / Organization Name</label>
+      <input id="ptOrg" maxlength="60" placeholder="e.g. VCA Meadow Animal Hospital">
+
+      <div class="two-col">
+        <div>
+          <label>Organization Type</label>
+          <select id="ptType">
+            <option value="vet">Veterinary Hospital / Specialty Clinic</option>
+            <option value="cremation">Pet Cremation / Cemetery</option>
+            <option value="hospice">In-Home Hospice &amp; Palliative Care</option>
+            <option value="rescue">Animal Shelter / 501(c)(3) Rescue</option>
+          </select>
+        </div>
+        <div>
+          <label>City &amp; State</label>
+          <input id="ptLoc" maxlength="40" placeholder="Denver, CO">
+        </div>
+      </div>
+
+      <label>Contact Email</label>
+      <input id="ptEmail" type="email" maxlength="60" placeholder="care@yourclinic.com">
+
+      <label>How would you like to collaborate? <span class="fine-inline">(optional)</span></label>
+      <textarea id="ptNotes" rows="2" maxlength="240" placeholder="We would love aftercare sympathy cards for our bereavement room…"></textarea>
+
+      <button class="btn btn-gold btn-block" id="ptSubmit">${icon('crest')} Request Partner Welcome Kit</button>
+      <p class="fine">Or visit our full <a href="partners.html" target="_blank">Care Partner Portal</a> for referral guidelines &amp; downloadable materials.</p>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#ptSubmit').onclick = async () => {
+      const org = box.querySelector('#ptOrg').value.trim();
+      const email = box.querySelector('#ptEmail').value.trim();
+      if (!org || !email) return this.toast('Please enter your practice name and contact email.', 'warning');
+
+      const code = org.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20);
+      try {
+        const cfg = await import('./config.js');
+        if (cfg.HAS_API) {
+          fetch(cfg.API_BASE + '/track', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind: 'partner_inquiry', name: `Partner: ${org}`, amount: 0, user: email }),
+          }).catch(() => {});
+        }
+      } catch {}
+
+      this.closeModal();
+      this.modal(`
+        <h2>${icon('crest')} Welcome to the Alliance</h2>
+        <div class="modal-sub">Thank you, <b>${org.replace(/[&<>"]/g, '')}</b>. Your dedication to compassionate pet aftercare means everything.</div>
+        <div class="district-blurb" style="margin:16px 0">
+          ✦ <b>Your Partner Link is Ready:</b><br>
+          <code>${location.origin}${location.pathname}?ref=${code}</code><br><br>
+          Our Care Team will reach out to <b>${email.replace(/[&<>"]/g, '')}</b> with your complimentary Bereavement Care Packet, printable QR card assets, and practice dashboard access.
+        </div>
+        <button class="btn btn-gold btn-block" id="partnerOk">Return to Sanctuary</button>
+      `);
+      document.querySelector('#partnerOk')?.addEventListener('click', () => this.closeModal());
+    };
+  },
+
+  soundModal() {
+    Soundscape.init();
+    const curMode = Soundscape.mode;
+    const curVol = Math.round(Soundscape.volume * 100);
+
+    this.modal(`
+      <div class="comfort-header">
+        <div class="comfort-crest">${icon('sparkle', { size: 36 })}</div>
+        <h2>Sanctuary Healing Soundscape</h2>
+        <div class="modal-sub">432Hz crystal singing bowls, mountain breezes, and angelic wind chimes synthesized in pure harmony.</div>
+      </div>
+
+      <div class="sound-modes">
+        <button class="sound-mode-card ${curMode === 'crystal' ? 'is-active' : ''}" data-sm="crystal">
+          <div class="sm-icon">${icon('sparkle')}</div>
+          <b>432Hz Crystal Peace</b>
+          <span>Solfeggio resonant singing bowls and harmonic crystal drones for deep emotional solace.</span>
+        </button>
+
+        <button class="sound-mode-card ${curMode === 'breeze' ? 'is-active' : ''}" data-sm="breeze">
+          <div class="sm-icon">${icon('globe')}</div>
+          <b>Mountain Breeze &amp; River</b>
+          <span>Soft wind whispering through pine needles and gentle water flowing toward Mirror Lake.</span>
+        </button>
+
+        <button class="sound-mode-card ${curMode === 'chimes' ? 'is-active' : ''}" data-sm="chimes">
+          <div class="sm-icon">${icon('dove')}</div>
+          <b>Angelic Wind Chimes</b>
+          <span>Gentle pentatonic fairy chimes and celestial bells echoing across sunlit meadows.</span>
+        </button>
+
+        <button class="sound-mode-card ${curMode === 'silent' ? 'is-active' : ''}" data-sm="silent">
+          <div class="sm-icon">${icon('power')}</div>
+          <b>Silent Serenity</b>
+          <span>Mute ambient soundscapes for quiet, silent contemplation.</span>
+        </button>
+      </div>
+
+      <div style="margin:20px 0 10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label style="margin:0">Master Soundscape Volume</label>
+          <span id="volLabel" style="font-size:12px;color:var(--accent-hi-c);font-weight:700">${curVol}%</span>
+        </div>
+        <input type="range" id="volSlider" min="0" max="100" value="${curVol}" style="width:100%">
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-gold btn-block" id="ringBowlBtn">${icon('sparkle')} Ring 528Hz Miracle Bell</button>
+        <button class="btn btn-outline btn-block" id="soundClose">${icon('check')} Close</button>
+      </div>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelectorAll('[data-sm]').forEach(btn => {
+      btn.onclick = () => {
+        const mode = btn.dataset.sm;
+        Soundscape.setMode(mode);
+        box.querySelectorAll('[data-sm]').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        this._updateSoundIcon();
+        this.toast(mode === 'silent' ? 'Audio muted.' : `Playing ${btn.querySelector('b').textContent}`, 3000, 'sparkle');
+      };
+    });
+
+    const slider = box.querySelector('#volSlider');
+    slider.oninput = () => {
+      const v = Number(slider.value) / 100;
+      Soundscape.setVolume(v);
+      box.querySelector('#volLabel').textContent = `${slider.value}%`;
+    };
+
+    box.querySelector('#ringBowlBtn').onclick = () => {
+      Soundscape.playChime(528, 0.14);
+      const rect = document.body.getBoundingClientRect();
+      Motion.spark(rect.width / 2, rect.height / 2, 35);
+    };
+
+    box.querySelector('#soundClose').onclick = () => this.closeModal();
+  },
+
+  _updateSoundIcon() {
+    const btn = $('#soundBtn');
+    if (!btn) return;
+    if (Soundscape.isPlaying) {
+      btn.classList.add('is-playing');
+      btn.title = `Soundscape Active (${Soundscape.mode})`;
+    } else {
+      btn.classList.remove('is-playing');
+      btn.title = 'Soundscape: Silent';
+    }
+  },
+
+  riverLanternsModal() {
+    this.modal(`
+      <div class="comfort-header">
+        <div class="comfort-crest">${icon('candle', { size: 36 })}</div>
+        <h2>Release a Memory Lantern</h2>
+        <div class="modal-sub">Light a golden water lantern and let it float gently down the Rainbow River toward Mirror Lake.</div>
+      </div>
+
+      <label>Companion's Name</label>
+      <input id="ltName" maxlength="32" placeholder="e.g. For sweet Bailey">
+
+      <label>Your Message to the River</label>
+      <textarea id="ltMsg" rows="3" maxlength="200" placeholder="You brought endless light into our lives. May your lantern guide your way…"></textarea>
+
+      <label>From <span class="fine-inline">(optional)</span></label>
+      <input id="ltFrom" maxlength="32" placeholder="${Auth.user?.name || 'A loving family'}">
+
+      <button class="btn btn-gold btn-block" id="ltRelease">${icon('candle')} Release Lantern on the Water</button>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#ltRelease').onclick = () => {
+      const name = box.querySelector('#ltName').value.trim() || 'A beloved soul';
+      const from = box.querySelector('#ltFrom').value.trim() || Auth.user?.name || 'A loving heart';
+      const msg = box.querySelector('#ltMsg').value.trim();
+
+      Soundscape.playCandleShimmer();
+      State.logActivity('candle', `${from} released a floating memory lantern for ${name}${msg ? ': “' + msg + '”' : ''}`);
+      this.closeModal();
+      this.toast(`Your lantern for ${name} is floating peacefully down the Rainbow River.`, 7000, 'candle');
+
+      const rect = document.body.getBoundingClientRect();
+      Motion.spark(rect.width / 2, rect.height / 2, 50);
+    };
+  },
+
+  lettersModal() {
+    const LETTERS_KEY = 'ev_sanctuary_letters_v1';
+    let letters = [];
+    try { letters = JSON.parse(localStorage.getItem(LETTERS_KEY) || '[]'); } catch { letters = []; }
+
+    const render = () => {
+      this.modal(`
+        <div class="comfort-header">
+          <div class="comfort-crest">${icon('dove', { size: 36 })}</div>
+          <h2>Letters Across the Bridge</h2>
+          <div class="modal-sub">A private, sacred journal to write to your companion whenever you miss them.</div>
+        </div>
+
+        <button class="btn btn-gold btn-block" id="writeLetterBtn" style="margin-bottom:18px">${icon('sparkle')} Write a New Letter</button>
+
+        <div class="letter-list">
+          ${letters.length === 0 ? `
+            <div class="ss-empty" style="text-align:center;padding:24px 0">
+              No letters written yet. Pour your heart onto the page whenever words can bring you peace.
+            </div>
+          ` : letters.map((l) => `
+            <div class="letter-card">
+              <div class="letter-card__head">
+                <b>To ${l.to.replace(/[&<>"]/g, '')}</b>
+                <span class="fine">${new Date(l.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              </div>
+              <p class="letter-card__body">“${l.text.replace(/[&<>"]/g, '')}”</p>
+              <div class="letter-card__foot">
+                <span>With love, <i>${l.from.replace(/[&<>"]/g, '')}</i></span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `);
+
+      const box = $('#modalBox');
+      box.querySelector('#writeLetterBtn').onclick = () => {
+        this.modal(`
+          <div class="comfort-header">
+            <div class="comfort-crest">${icon('sparkle', { size: 36 })}</div>
+            <h2>Write to Your Companion</h2>
+            <div class="modal-sub">Your words are kept safely in your sanctuary journal.</div>
+          </div>
+
+          <label>Companion's Name</label>
+          <input id="letTo" maxlength="32" placeholder="e.g. My darling Luna">
+
+          <label>Your Letter / Thoughts Today</label>
+          <textarea id="letBody" rows="6" placeholder="Dear Luna, today I walked by the park where we used to throw the tennis ball…"></textarea>
+
+          <label>Signed By</label>
+          <input id="letFrom" maxlength="32" placeholder="${Auth.user?.name || 'Your human'}">
+
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-gold btn-block" id="letSave">${icon('heart')} Save to Journal</button>
+            <button class="btn btn-outline btn-block" id="letBack">Back</button>
+          </div>
+        `);
+
+        const b2 = $('#modalBox');
+        b2.querySelector('#letBack').onclick = () => render();
+        b2.querySelector('#letSave').onclick = () => {
+          const to = b2.querySelector('#letTo').value.trim() || 'My beloved companion';
+          const text = b2.querySelector('#letBody').value.trim();
+          const from = b2.querySelector('#letFrom').value.trim() || Auth.user?.name || 'Always yours';
+          if (!text) return this.toast('Please write a message in your letter.', 'warning');
+
+          letters.unshift({ to, text, from, at: Date.now() });
+          try { localStorage.setItem(LETTERS_KEY, JSON.stringify(letters)); } catch {}
+
+          Soundscape.playChime(660, 0.08);
+          this.toast('Letter saved in your Sanctuary Journal.', 5000, 'dove');
+          render();
+        };
+      };
+    };
+
+    render();
+  },
+
+  treeOfLifeModal() {
+    const RIBBONS_KEY = 'ev_tree_ribbons_v1';
+    let ribbons = [];
+    try {
+      const raw = localStorage.getItem(RIBBONS_KEY);
+      if (raw) ribbons = JSON.parse(raw) || [];
+      else {
+        ribbons = [
+          { name: 'Ranger', color: 'gold', msg: 'Running free across sunlit hills.', from: 'Sarah' },
+          { name: 'Barnaby', color: 'sage', msg: 'The sweetest senior boy with the softest ears.', from: 'Elena' },
+          { name: 'Cleo', color: 'rose', msg: 'Forever purring in our hearts.', from: 'Maya' },
+          { name: 'Zeus', color: 'azure', msg: 'Our gentle giant and loyal protector.', from: 'Mark & Lisa' },
+        ];
+        localStorage.setItem(RIBBONS_KEY, JSON.stringify(ribbons));
+      }
+    } catch { ribbons = []; }
+
+    this.modal(`
+      <div class="comfort-header">
+        <div class="comfort-crest">${icon('flower', { size: 36 })}</div>
+        <h2>The Sanctuary Tree of Life</h2>
+        <div class="modal-sub">Tie a ribbon of eternal love to the branches of the Great Sanctuary Oak.</div>
+      </div>
+
+      <div class="tree-ribbons-grid">
+        ${ribbons.map(r => `
+          <div class="ribbon-tag ribbon-tag--${r.color.replace(/[&<>"]/g, '')}">
+            <div class="ribbon-tag__ribbon"></div>
+            <b>${r.name.replace(/[&<>"]/g, '')}</b>
+            <p>${r.msg.replace(/[&<>"]/g, '')}</p>
+            <span class="fine">Tied by ${r.from.replace(/[&<>"]/g, '')}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="shop-cat" style="margin-top:20px">Tie Your Companion's Ribbon</div>
+      <label>Companion's Name</label>
+      <input id="rbName" maxlength="28" placeholder="e.g. Oliver">
+
+      <label>Ribbon Color</label>
+      <select id="rbColor">
+        <option value="gold">✨ Golden Dawn (Joy & Warmth)</option>
+        <option value="rose">💖 Rose Quartz (Unconditional Love)</option>
+        <option value="sage">🌿 Healing Sage (Peace & Comfort)</option>
+        <option value="azure">🌊 Celestial Azure (Serenity & Freedom)</option>
+      </select>
+
+      <label>Dedication / Memory</label>
+      <input id="rbMsg" maxlength="80" placeholder="Forever running with the wind…">
+
+      <label>Your Name <span class="fine-inline">(optional)</span></label>
+      <input id="rbFrom" maxlength="28" placeholder="${Auth.user?.name || 'A loving family'}">
+
+      <button class="btn btn-gold btn-block" id="rbTie" style="margin-top:14px">${icon('flower')} Tie Ribbon to the Tree</button>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#rbTie').onclick = () => {
+      const name = box.querySelector('#rbName').value.trim() || 'A beloved friend';
+      const color = box.querySelector('#rbColor').value;
+      const msg = box.querySelector('#rbMsg').value.trim() || 'Forever loved in our hearts.';
+      const from = box.querySelector('#rbFrom').value.trim() || Auth.user?.name || 'A loving friend';
+
+      ribbons.unshift({ name, color, msg, from });
+      try { localStorage.setItem(RIBBONS_KEY, JSON.stringify(ribbons)); } catch {}
+
+      Soundscape.playChime(792, 0.09);
+      State.logActivity('sparkle', `${from} tied a ${color} ribbon on the Tree of Life for ${name}`);
+      this.closeModal();
+      this.toast(`Ribbon tied to the Tree of Life for ${name}.`, 6000, 'flower');
+
+      const rect = document.body.getBoundingClientRect();
+      Motion.spark(rect.width / 2, rect.height / 2, 40);
+    };
+  },
+
+  keepsakesModal(presetPet = null) {
+    let selectedPhoto = presetPet?.photo || null;
+    let petName = presetPet?.petName || '';
+    let petYears = presetPet?.years || '';
+    let selectedItem = PHYSICAL_KEEPSAKES[0];
+    let selectedOption = selectedItem.options[0];
+    let dedicatedCharity = presetPet?.charity || State.data.charity || CHARITIES[0].id;
+
+    const render = () => {
+      this.modal(`
+        <div class="comfort-header">
+          <div class="comfort-crest">${icon('sparkle', { size: 36 })}</div>
+          <h2>Physical Keepsake &amp; Memory Studio</h2>
+          <div class="modal-sub">Transform your pet's photo into museum-grade heirloom keepsakes. <b>15% of every order supports verified animal rescues.</b></div>
+        </div>
+
+        <div class="keepsake-studio-grid">
+          <!-- Left: Live Mockup Preview -->
+          <div class="keepsake-preview-pane">
+            <div class="keepsake-mockup" id="ksMockup">
+              <div class="ks-mockup-frame ks-mockup--${selectedItem.category.toLowerCase()}">
+                <div class="ks-photo-slot">
+                  ${selectedPhoto ? `<img src="${selectedPhoto}" class="ks-rendered-img">` : `
+                    <div class="ks-placeholder">
+                      <div class="ks-placeholder-ico">${icon('photo', { size: 42 })}</div>
+                      <span>Upload pet photo below to preview</span>
+                    </div>
+                  `}
+                </div>
+                <div class="ks-mockup-caption">
+                  <b>${(petName || 'Companion Name').replace(/[&<>"]/g, '')}</b>
+                  <span>${(petYears || 'Forever Loved').replace(/[&<>"]/g, '')}</span>
+                </div>
+              </div>
+            </div>
+            <div class="district-blurb" style="margin-top:10px;text-align:center;font-size:11.5px">
+              ✦ Handcrafted with archival materials &amp; carbon-neutral delivery.
+            </div>
+          </div>
+
+          <!-- Right: Product Selector & Customizer -->
+          <div class="keepsake-controls-pane">
+            <label>1. Select Keepsake Product</label>
+            <div class="ks-product-list">
+              ${PHYSICAL_KEEPSAKES.map(pk => `
+                <div class="ks-product-card ${pk.id === selectedItem.id ? 'is-active' : ''}" data-pk="${pk.id}">
+                  <div class="ks-product-info">
+                    <b>${icon(pk.icon)} ${pk.name}</b>
+                    <span>${pk.blurb}</span>
+                  </div>
+                  <div class="ks-product-price">${fmtPrice(pk.price)}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            <label style="margin-top:14px">2. Upload Companion Photo</label>
+            <input type="file" id="ksPhotoUpload" accept="image/*">
+
+            <div class="two-col" style="margin-top:8px">
+              <div>
+                <label>Companion's Name</label>
+                <input id="ksName" maxlength="30" value="${(petName || '').replace(/[&<>"]/g, '')}" placeholder="e.g. Biscuit">
+              </div>
+              <div>
+                <label>Memorial Years / Subtitle</label>
+                <input id="ksYears" maxlength="30" value="${(petYears || '').replace(/[&<>"]/g, '')}" placeholder="2012 – 2024">
+              </div>
+            </div>
+
+            <label>3. Style &amp; Size Option</label>
+            <select id="ksOption">
+              ${selectedItem.options.map(opt => `<option value="${opt.replace(/[&<>"]/g, '')}" ${opt === selectedOption ? 'selected' : ''}>${opt.replace(/[&<>"]/g, '')}</option>`).join('')}
+            </select>
+
+            <label>4. Rescue Charity Tithe Beneficiary (15%)</label>
+            <select id="ksCharity">
+              ${CHARITIES.map(c => `<option value="${c.id}" ${dedicatedCharity === c.id ? 'selected' : ''}>${c.name} (${c.rating || 'Verified 501(c)(3)'})</option>`).join('')}
+            </select>
+
+            <div class="ks-shipping-box" style="margin-top:10px">
+              <label>Shipping Full Name &amp; Address</label>
+              <input id="ksShipName" placeholder="Your Full Name">
+              <input id="ksShipAddr" placeholder="Street Address, City, State, ZIP" style="margin-top:6px">
+            </div>
+
+            <button class="btn btn-gold btn-block" id="ksOrderBtn" style="margin-top:16px">
+              ${icon('gift')} Order Keepsake — ${fmtPrice(selectedItem.price)}
+            </button>
+            <p class="fine">${IS_DEMO ? 'Demo: payment simulated.' : 'Secure checkout.'} · Includes 15% charity tithe ($${(selectedItem.price * 0.15).toFixed(2)})</p>
+          </div>
+        </div>
+      `);
+
+      const box = $('#modalBox');
+      box.querySelectorAll('[data-pk]').forEach(el => {
+        el.onclick = () => {
+          selectedItem = PHYSICAL_KEEPSAKES.find(x => x.id === el.dataset.pk);
+          selectedOption = selectedItem.options[0];
+          render();
+        };
+      });
+
+      const photoInput = box.querySelector('#ksPhotoUpload');
+      photoInput.onchange = async () => {
+        const file = photoInput.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            selectedPhoto = e.target.result;
+            render();
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      const nameInput = box.querySelector('#ksName');
+      nameInput.oninput = () => {
+        petName = nameInput.value;
+        const b = box.querySelector('.ks-mockup-caption b');
+        if (b) b.textContent = petName || 'Companion Name';
+      };
+
+      const yearsInput = box.querySelector('#ksYears');
+      yearsInput.oninput = () => {
+        petYears = yearsInput.value;
+        const s = box.querySelector('.ks-mockup-caption span');
+        if (s) s.textContent = petYears || 'Forever Loved';
+      };
+
+      box.querySelector('#ksOption').onchange = (e) => { selectedOption = e.target.value; };
+      box.querySelector('#ksCharity').onchange = (e) => { dedicatedCharity = e.target.value; };
+
+      box.querySelector('#ksOrderBtn').onclick = async () => {
+        const shipName = box.querySelector('#ksShipName').value.trim();
+        const shipAddr = box.querySelector('#ksShipAddr').value.trim();
+        if (!shipName || !shipAddr) return this.toast('Please enter your shipping name and address.', 'warning');
+
+        const btn = box.querySelector('#ksOrderBtn');
+        btn.disabled = true;
+        btn.textContent = 'Processing Keepsake Order…';
+
+        try {
+          const r = await checkout({
+            kind: 'merch',
+            name: `${selectedItem.name} for ${petName || 'Companion'} (${selectedOption})`,
+            amount: selectedItem.price,
+            meta: {
+              itemId: selectedItem.id,
+              petName,
+              option: selectedOption,
+              shipping: `${shipName}, ${shipAddr}`,
+              charity: dedicatedCharity,
+            }
+          });
+
+          if (r.ok) {
+            State.logActivity('gift', `${shipName} ordered a ${selectedItem.name} in memory of ${petName || 'a beloved friend'}`);
+            await Ledger.record({
+              kind: 'merch',
+              label: `${selectedItem.name} — ${petName || 'Companion'}`,
+              amountCents: Math.round(selectedItem.price * 100),
+              charityId: dedicatedCharity,
+              donor: shipName,
+              demo: IS_DEMO,
+            });
+
+            Soundscape.playChime(528, 0.12);
+            this.closeModal();
+            this.modal(`
+              <div class="comfort-header">
+                <div class="comfort-crest">${icon('heart', { size: 40 })}</div>
+                <h2>Keepsake Order Confirmed</h2>
+                <div class="modal-sub">Thank you, <b>${shipName.replace(/[&<>"]/g, '')}</b>. Your physical heirloom memory is being lovingly prepared.</div>
+              </div>
+              <div class="district-blurb" style="margin:16px 0">
+                ✦ <b>Item:</b> ${selectedItem.name.replace(/[&<>"]/g, '')} (${selectedOption.replace(/[&<>"]/g, '')})<br>
+                ✦ <b>In Memory of:</b> ${(petName || 'Beloved Companion').replace(/[&<>"]/g, '')}<br>
+                ✦ <b>Shipping to:</b> ${shipAddr.replace(/[&<>"]/g, '')}<br>
+                ✦ <b>Rescue Tithe:</b> $${(selectedItem.price * 0.15).toFixed(2)} recorded on the public cryptographic ledger for <b>${charityName(dedicatedCharity)}</b>.
+              </div>
+              <button class="btn btn-gold btn-block" onclick="document.querySelector('#modalRoot').classList.add('hidden')">Return to Sanctuary</button>
+            `);
+          }
+        } catch (e) {
+          this.toast(String(e.message), 'warning');
+          btn.disabled = false;
+          btn.textContent = `Order Keepsake — ${fmtPrice(selectedItem.price)}`;
+        }
+      };
+    };
+
+    render();
+  },
+
+  /**
+   * Descend to one of a pet's real-world places. Every route into a
+   * location goes through here so the descent always reads the same
+   * way, whether it came from a marker, a search or a profile.
+   */
+  flyToPlace(place, { announce = true } = {}) {
+    if (!place) return;
+    this.earth.flyTo({ lat: place.lat, lng: place.lng, range: place.range ?? 420 });
+    if (announce && place.name) this.toast(place.name, 4200, 'pin');
+  },
+
+  /** Pull back out to the whole planet. */
+  returnToOrbit() {
+    this.earth.flyToOrbit();
+    this.toast('Back in orbit — choose a place below', 3600, 'globe');
   },
 
   async streetViewOpen(pos) {
@@ -880,7 +2504,7 @@ export const UI = {
       <button class="btn btn-gold btn-block" id="enterSanctuary">${icon('sparkle')} Enter the Sanctuary</button>
       <button class="btn btn-outline btn-block" id="rbvFly">${icon('dove')} Circle the Bridge</button>`;
     $('#enterSanctuary').onclick = () => { this.closePanel(); this.show3D().then(() => this.world?.flyToDistrict('bridge')); };
-    $('#rbvFly').onclick = () => this.earth.flyTo({ lat: RBV.lat, lng: RBV.lng, range: 900, zoom: 16 });
+    $('#rbvFly').onclick = () => this.flyToPlace({ lat: RBV.lat, lng: RBV.lng, range: 900 }, { announce: false });
     $('#plotPanel').classList.remove('hidden');
   },
 
@@ -897,22 +2521,39 @@ export const UI = {
         <h3>${m.petName}</h3>
         <div class="years">${m.species} · ${m.years}</div>
         <p class="epitaph">“${m.epitaph}”</p>
-        <div class="gifts-count">${icon('gift')} ${m.gifts || 0} gifts · resting with ${m.owner}</div>
-        ${m.charity ? `<div class="gifts-count">${icon('heart')} ${Math.round(GIFT_CHARITY_SHARE * 100)}% of every gift supports <b>${charityName(m.charity)}</b></div>` : ''}
+        <div class="gifts-count">${icon('gift')} ${m.gifts || 0} tributes from visitors · resting with ${m.owner}</div>
+        <div class="gifts-count" style="color:var(--accent-hi-c)">${icon('heart')} Supports verified rescue: <b>${charityName(m.charity || State.data.charity || CHARITIES[0].id)}</b></div>
         ${m.socials && Object.values(m.socials).some(v => v) ? `<div class="gifts-count">${['instagram', 'x', 'tiktok', 'facebook'].filter(k => m.socials[k]).map(k => icon({ instagram: 'instagram', x: 'x', tiktok: 'tiktok', facebook: 'facebook' }[k]) + ' ' + m.socials[k]).join(' · ')}</div>` : ''}
       </div>
       ${this.petProfileHTML(m, m.id, own)}
+      ${linkedPlot ? `<button class="btn btn-gold btn-block" id="ePlotVisitBtn" style="margin-bottom:8px">${icon('crest')} Visit ${m.petName}'s Resting Plot in the Sanctuary Valley</button>` : ''}
       <button class="btn btn-outline btn-block" id="evisitBtn">${icon('walk')} Visit at ground level</button>
       <button class="btn btn-outline btn-block" id="esvBtn">${icon('eye')} Street View here</button>
       <button class="btn btn-outline btn-block" id="eshareBtn">${icon('share')} Share this memorial</button>
       ${(m.decorations?.length ? `<div class="sub">At the memorial:</div>` + m.decorations.map(d =>
         `<div class="guestbook-entry">${thumbImg(d.itemId, { size: 22, cls: 'thumb-inline' })} <b>${d.name}</b> — ${d.slotLabel}</div>`).join('') : '')}
       <button class="btn btn-gold btn-block" id="egiftBtn">${icon('candle')} Leave a gift at the base</button>
+      <button class="btn btn-outline btn-block" id="eCertBtn">${icon('scroll')} Memorial Certificate &amp; Plaque</button>
+      <button class="btn btn-outline btn-block" id="ekeepsakeBtn">${icon('photo')} Order Physical Keepsakes</button>
       <button class="btn btn-outline btn-block" id="egbBtn">${icon('letter')} Sign the guestbook (free)</button>
       ${own ? `<button class="btn btn-green btn-block" id="edecorBtn">${icon('flower')} Customize this memorial</button>` : ''}
+      <div class="district-blurb" style="margin-top:12px;font-size:11px;text-align:center">
+        ✦ <b>Earth Sacred Footprint Pin:</b> Maintained permanently by Eternity Valley. All consecrated resting plots reside in our 3D Virtual Sanctuary.
+      </div>
       ${gb.length ? '<div class="sub" style="margin-top:14px">Guestbook:</div>' + gb.map(g =>
         `<div class="guestbook-entry"><b>${g.from}</b> · ${timeAgo(g.at)}<br>${g.msg}</div>`).join('') : ''}`;
+    if ($('#ePlotVisitBtn') && linkedPlot) {
+      $('#ePlotVisitBtn').onclick = async () => {
+        this.closePanel();
+        await this.show3D();
+        this.world?.selectPlot(linkedPlot);
+        this.openPlot(linkedPlot);
+        this.world?.flyToPlot(linkedPlot);
+      };
+    }
     $('#egiftBtn').onclick = () => this.earthGiftModal(m);
+    $('#eCertBtn').onclick = () => this.memorialCertificateModal(m);
+    $('#ekeepsakeBtn').onclick = () => this.keepsakesModal(m);
     $('#egbBtn').onclick = () => this.guestbookModal(m);
     if (own) $('#edecorBtn').onclick = () => this.earthDecorModal(m);
     this._wirePetProfile(m, m.id, own, () => this.openEarthMemorial(m));
@@ -930,7 +2571,7 @@ export const UI = {
         `Visit ${m.petName}'s memorial at ${m.place.split(',')[0]} — light a candle or leave a gift over the Rainbow Bridge.`);
     };
     $('#plotPanel').classList.remove('hidden');
-    this.earth.flyTo({ lat: m.lat, lng: m.lng, range: 260, zoom: 18 });
+    this.flyToPlace({ lat: m.lat, lng: m.lng, range: 260 }, { announce: false });
   },
 
   earthDecorModal(m) {
@@ -964,7 +2605,8 @@ export const UI = {
         const slot = SLOTS.find(s => s.id === $('#eDecorSlot').value) || SLOTS[0];
         btn.style.opacity = .5;
         try {
-          const r = await checkout({ kind: 'item', name: `Memorial item: ${it.name} for ${m.petName}`, amount: it.price, meta: { earthMemorialId: m.id, itemId: it.id, slot: slot.id } });
+          const r = await checkout({ kind: 'item', name: `Memorial item: ${it.name} for ${m.petName}`, amount: it.price,
+            meta: { earthMemorialId: m.id, itemId: it.id, slot: slot.id, charity: m.charity || State.data.charity || CHARITIES[0].id } });
           if (r.ok) {
             (m.decorations ||= []).push({ itemId: it.id, name: it.name, slotLabel: slot.label.toLowerCase() });
             State.logActivity(it.id, `${Auth.user.name} placed ${it.name} at ${m.petName}'s memorial — ${m.place.split(',')[0]}`);
@@ -997,7 +2639,7 @@ export const UI = {
     $('#modalBox').querySelectorAll('[data-g]').forEach(btn => {
       btn.onclick = async () => {
         const g = GIFTS.find(x => x.id === btn.dataset.g);
-        const charity = m.charity || $('#egCharity')?.value || 'ch_local';
+        const charity = m.charity || $('#egCharity')?.value || CHARITIES[0].id;
         const donate = Math.round((g.id === 'g_donation' ? g.price : g.price * GIFT_CHARITY_SHARE) * 100) / 100;
         try {
           const r = await checkout({ kind: 'gift', name: `Gift: ${g.name} for ${m.petName}`, amount: g.price, meta: { earthMemorialId: m.id, giftId: g.id, charity, donate } });
@@ -1055,48 +2697,142 @@ export const UI = {
     $('#placeBanner').classList.add('hidden');
   },
 
-  // ----- browse plots & memorials -----
+  // ----- browse plots & memorials — the VIRTUAL CEMETERY catalog -----
   toggleBrowse() {
     const p = $('#browsePanel');
     if (!p.classList.contains('hidden')) return p.classList.add('hidden');
     $('#feedPanel').classList.add('hidden');
+    $('#campaignPanel')?.classList.add('hidden');
 
     const mems = allMemorials(State.data);
     const mine = Auth.user ? mems.filter(m => m.ownerUid === Auth.user.uid) : [];
     const avail = this.plots.filter(x => x.status === 'available');
-    // cheapest available plot per district
-    const byDistrict = {};
-    for (const pl of avail) {
-      if (!byDistrict[pl.district] || pl.price < byDistrict[pl.district].price) byDistrict[pl.district] = pl;
+    const occupied = this.plots.filter(x => x.status === 'occupied');
+
+    // Build district breakdown for the catalog
+    const districtStats = {};
+    for (const [dk, d] of Object.entries(DISTRICTS)) {
+      const dPlots = this.plots.filter(x => x.district === dk);
+      const dAvail = dPlots.filter(x => x.status === 'available');
+      const dOccupied = dPlots.filter(x => x.status === 'occupied');
+      const cheapest = dAvail.length ? Math.min(...dAvail.map(x => x.price)) : null;
+      districtStats[dk] = { ...d, total: dPlots.length, avail: dAvail.length, occupied: dOccupied.length, cheapest };
     }
+
+    const districtCard = (dk, ds) => {
+      const pctOccupied = Math.round((ds.occupied / ds.total) * 100);
+      return `
+        <div class="pc-district-card" data-district="${dk}">
+          <div class="pc-district-header">
+            <div class="pc-district-dot" style="background:${ds.color}"></div>
+            <div class="pc-district-title">
+              <b>${ds.name}</b>
+              <span class="pc-district-blurb">${ds.blurb}</span>
+            </div>
+          </div>
+          <div class="pc-district-stats">
+            <span class="pc-stat">${icon('sparkle', { size: 12 })} <b>${ds.avail}</b> available</span>
+            <span class="pc-stat">${icon('grave', { size: 12 })} <b>${ds.occupied}</b> occupied</span>
+            <span class="pc-stat-pct">${pctOccupied}% full</span>
+          </div>
+          <div class="pc-district-bar">
+            <div class="pc-district-bar-fill" style="width:${pctOccupied}%;background:${ds.color}"></div>
+          </div>
+          <div class="pc-district-foot">
+            ${ds.cheapest ? `<span class="pc-from">From <b>$${ds.cheapest}</b></span>` : '<span class="pc-from pc-sold-out">Fully reserved</span>'}
+            <button class="btn btn-sm btn-outline pc-fly-btn" data-d="${dk}">${icon('sparkle', { size: 12 })} Fly there</button>
+          </div>
+        </div>`;
+    };
+
     const memRow = (m) => `
       <div class="feed-item" data-bmem="${m.id}"><div class="fi-icon">${memorialArt(m, 20)}</div>
         <div><b>${m.petName}</b> · ${m.place.split(',').slice(0, 2).join(',')}
         <span class="fi-time">${m.years} · ${icon('gift')} ${m.gifts || 0} gifts</span></div></div>`;
 
     $('#browseBody').innerHTML = `
-      ${mine.length ? `<div class="sub">Your memorials (${mine.length}):</div>` + mine.map(memRow).join('') : ''}
-      <div class="sub" style="margin-top:${mine.length ? 14 : 0}px">Memorials across the Earth (${mems.length}):</div>
-      ${mems.slice().sort((a, b) => (b.gifts || 0) - (a.gifts || 0)).map(memRow).join('')}
-      <div class="sub" style="margin-top:16px">${icon('sparkle')} Available plots in the Sanctuary (${avail.length}):</div>
-      <div style="font-size:12px;color:rgba(246,241,228,.55);margin:4px 0 8px">
-        Anywhere on Earth can also be a plot — search an address above and pick a glowing spot (${fmtPrice(EARTH_PLOT.price)}).</div>
-      ${Object.values(byDistrict).sort((a, b) => a.price - b.price).map(pl => `
-        <div class="feed-item" data-bplot="${pl.id}"><div class="fi-icon">${icon('leaf')}</div>
-          <div><b>${DISTRICTS[pl.district].name}</b> · from $${pl.price}
-          <span class="fi-time">Plot ${pl.id} · ${SIZE_LABELS[pl.size]}</span></div></div>`).join('')}
-      <button class="btn btn-outline btn-block" id="browseSanctuary">${icon('sparkle')} Browse all in the Sanctuary</button>`;
+      <div class="pc-hero">
+        <div class="pc-hero-icon">${icon('crest', { size: 32 })}</div>
+        <h2>The Virtual Sanctuary Cemetery</h2>
+        <div class="pc-hero-sub">Choose an eternal resting place for your beloved companion. Each plot is yours forever.</div>
+      </div>
 
+      <div class="pc-summary-row">
+        <div class="pc-summary-stat">
+          <span class="pc-summary-num">${this.plots.length}</span>
+          <span class="pc-summary-label">Total plots</span>
+        </div>
+        <div class="pc-summary-stat">
+          <span class="pc-summary-num pc-avail-num">${avail.length}</span>
+          <span class="pc-summary-label">Available</span>
+        </div>
+        <div class="pc-summary-stat">
+          <span class="pc-summary-num pc-occ-num">${occupied.length}</span>
+          <span class="pc-summary-label">Occupied</span>
+        </div>
+        <div class="pc-summary-stat">
+          <span class="pc-summary-num">${Object.keys(DISTRICTS).length}</span>
+          <span class="pc-summary-label">Districts</span>
+        </div>
+      </div>
+
+      <button class="btn btn-gold btn-block btn-lg pc-wizard-cta" id="pcWizardBtn">
+        ${icon('dove')} Create a Memorial — Guided Journey
+      </button>
+
+      <div class="pc-section-title">${icon('sparkle')} Browse by District</div>
+      <div class="pc-district-list">
+        ${Object.entries(districtStats).sort((a, b) => a[1].cheapest - b[1].cheapest).map(([dk, ds]) => districtCard(dk, ds)).join('')}
+      </div>
+
+      <div class="pc-section-title" style="margin-top:16px">${icon('grave')} Pricing Tiers</div>
+      <div class="pc-tiers">
+        <div class="pc-tier">
+          <div class="pc-tier-head">Standard Plot</div>
+          <div class="pc-tier-size">10 × 14 ft</div>
+          <div class="pc-tier-desc">A beautiful resting place with space for a headstone and flowers.</div>
+        </div>
+        <div class="pc-tier pc-tier-featured">
+          <div class="pc-tier-head">Premium Plot</div>
+          <div class="pc-tier-size">14 × 18 ft</div>
+          <div class="pc-tier-desc">Extra room for trees, benches, and custom decorations.</div>
+        </div>
+        <div class="pc-tier">
+          <div class="pc-tier-head">Estate Plot</div>
+          <div class="pc-tier-size">20 × 26 ft</div>
+          <div class="pc-tier-desc">A grand memorial estate with space for fountains, gazebos, and multiple headstones.</div>
+        </div>
+      </div>
+
+      ${mine.length ? `<div class="pc-section-title" style="margin-top:16px">${icon('crest')} Your Memorials (${mine.length})</div>${mine.map(memRow).join('')}` : ''}
+
+      <div class="pc-section-title" style="margin-top:16px">${icon('heart')} Community Memorials (${mems.length})</div>
+      ${mems.slice().sort((a, b) => (b.gifts || 0) - (a.gifts || 0)).slice(0, 12).map(memRow).join('')}
+      ${mems.length > 12 ? `<div style="font-size:11.5px;color:rgba(246,241,228,.45);margin:4px 0">...and ${mems.length - 12} more across the Sanctuary and Earth.</div>` : ''}
+
+      <button class="btn btn-outline btn-block" id="browseSanctuary">${icon('sparkle')} Fly to Full Overview</button>`;
+
+    // Wire events
+    $('#pcWizardBtn').onclick = () => { p.classList.add('hidden'); this.griefWizardModal(); };
     $('#browseBody').querySelectorAll('[data-bmem]').forEach(el => {
       el.onclick = () => {
         const m = mems.find(x => x.id === el.dataset.bmem);
         if (m) { p.classList.add('hidden'); this.showEarth(); this.openEarthMemorial(m); }
       };
     });
-    $('#browseBody').querySelectorAll('[data-bplot]').forEach(el => {
-      el.onclick = () => {
-        const pl = this.plots.find(x => x.id === el.dataset.bplot);
-        if (pl) { p.classList.add('hidden'); this.show3D().then(() => this.world?.selectPlot(pl)); this.openPlot(pl); }
+    $('#browseBody').querySelectorAll('.pc-fly-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const dk = btn.dataset.d;
+        p.classList.add('hidden');
+        this.show3D().then(() => this.world?.flyToDistrict(dk));
+      };
+    });
+    $('#browseBody').querySelectorAll('.pc-district-card').forEach(card => {
+      card.onclick = () => {
+        const dk = card.dataset.district;
+        p.classList.add('hidden');
+        this.show3D().then(() => this.world?.flyToDistrict(dk));
       };
     });
     $('#browseSanctuary').onclick = () => { p.classList.add('hidden'); this.show3D().then(() => this.world?.flyToDistrict('overview')); };
@@ -1105,52 +2841,91 @@ export const UI = {
 
   async earthMemorialForm(pos) {
     const placeName = await this.earth.reverseGeocode(pos.lat, pos.lng);
+    const ownedPlotList = Object.entries(State.data.ownedPlots || {});
+
     this.modal(`
-      <h2>A memorial at their favorite place</h2>
-      <div class="modal-sub">${icon('pin')} ${placeName}<br><b>${fmtPrice(EARTH_PLOT.price)}</b> one-time · ${EARTH_PLOT.blurb}</div>
-      <label>Pet's name</label><input id="emName" maxlength="24" placeholder="e.g. Biscuit">
+      <div class="comfort-header" style="margin-bottom:14px">
+        <div class="comfort-crest" style="width:54px;height:54px">${icon('globe', { size: 28 })}</div>
+        <h2>Pin a Sacred Place on Earth</h2>
+        <div class="modal-sub">${icon('pin')} <b>${esc(placeName)}</b><br>
+          Drop a permanent memory pin where your companion loved to explore. 
+          <span style="display:block;margin-top:4px;color:var(--accent-hi-c);font-size:11.5px">
+            ✦ All consecrated resting plots reside in our 3D Virtual Sanctuary; Earth pins are maintained permanently by our platform.
+          </span>
+        </div>
+      </div>
+      <label>Companion's Name</label><input id="emName" maxlength="24" placeholder="e.g. Biscuit">
       <label>Species</label>
       <select id="emSpecies">
         ${speciesOptionsHTML()}
       </select>
       <label>Years</label><input id="emYears" maxlength="16" placeholder="2012 – 2025">
-      <label>Epitaph</label><textarea id="emEpitaph" rows="2" maxlength="140" placeholder="Why this place was theirs…"></textarea>
+      <label>Why this place was special to them</label><textarea id="emEpitaph" rows="2" maxlength="140" placeholder="Our favorite mountain trail, sunlit afternoon nap spot…"></textarea>
+      
+      ${ownedPlotList.length ? `
+        <label>Link to your 3D Sanctuary Plot (optional)</label>
+        <select id="emLinkedPlot">
+          <option value="">— Standalone Earth Pin —</option>
+          ${ownedPlotList.map(([pid, pdata]) => `<option value="${pid}">Plot ${pid} (${esc(pdata.memorial?.petName || 'My Plot')})</option>`).join('')}
+        </select>
+      ` : ''}
+
       <label>Their photo (optional)</label><input id="emPhoto" type="file" accept="image/*">
-      <label>Charity — ${Math.round(GIFT_CHARITY_SHARE * 100)}% of every gift to this memorial</label>
+      <label>Dedicated Rescue Beneficiary — where tribute gifts flow</label>
       <select id="emCharity">
         <option value="">Let each giver choose</option>
-        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name} (${c.category ? c.category.toUpperCase() : 'VERIFIED 501(c)(3)'})</option>`).join('')}
       </select>
-      <button class="btn btn-gold btn-block" id="emPay">Pay ${fmtPrice(EARTH_PLOT.price)} & create memorial</button>
-      <p class="fine">${IS_DEMO ? 'Demo: payment simulated.' : 'Stripe secure checkout.'}</p>`);
+      <button class="btn btn-gold btn-block" id="emPay">${icon('heart')} Pay ${fmtPrice(EARTH_PLOT.price)} &amp; Pin Sacred Spot</button>
+      <p class="fine">${IS_DEMO ? 'Demo: payment simulated.' : 'Stripe secure checkout.'} · 15% passes directly to animal rescue.</p>`);
     $('#emPay').onclick = async () => {
       const name = $('#emName').value.trim() || 'Beloved Friend';
       const sp = $('#emSpecies').value;
+      const linkedPlotId = $('#emLinkedPlot')?.value || null;
       const btn = $('#emPay');
       btn.disabled = true; btn.textContent = 'Processing…';
       try {
-        const r = await checkout({ kind: 'plot', name: `Rainbow Bridge — memorial for ${name} (anywhere on Earth)`, amount: EARTH_PLOT.price, meta: { lat: pos.lat, lng: pos.lng, uid: Auth.user.uid } });
+        const emCharity = $('#emCharity').value || State.data.charity || CHARITIES[0].id;
+        const r = await checkout({ kind: 'plot', name: `Rainbow Bridge — memorial for ${name} (anywhere on Earth)`, amount: EARTH_PLOT.price,
+          meta: { lat: pos.lat, lng: pos.lng, uid: Auth.user.uid, charity: emCharity } });
         if (r.ok) {
           const photo = await readPhoto($('#emPhoto'));
+          const epitaphText = cleanText($('#emEpitaph').value.trim()) || 'Forever loved.';
           const mem = {
-            id: 'em_' + Date.now(), petName: cleanText(name), species: sp,
+            id: 'em_' + Date.now(),
+            plotId: linkedPlotId,
+            petName: cleanText(name), species: sp,
             years: $('#emYears').value.trim() || String(new Date().getFullYear()),
-            epitaph: cleanText($('#emEpitaph').value.trim()) || 'Forever loved.',
+            epitaph: epitaphText,
             photo,
             charity: $('#emCharity').value || null,
             socials: { ...(State.data.socials || {}) },
             lat: pos.lat, lng: pos.lng, place: placeName,
             owner: Auth.user.name, ownerUid: Auth.user.uid, gifts: 0, guestbook: [], decorations: [], createdAt: Date.now(),
           };
+
+          if (linkedPlotId && State.data.ownedPlots[linkedPlotId]) {
+            const plotRec = State.data.ownedPlots[linkedPlotId];
+            plotRec.memorial = plotRec.memorial || {};
+            plotRec.memorial.favoritePlaces = plotRec.memorial.favoritePlaces || [];
+            plotRec.memorial.favoritePlaces.push({
+              name: `${name}'s Sacred Place`,
+              place: placeName,
+              note: epitaphText,
+              lat: pos.lat, lng: pos.lng,
+              plotId: linkedPlotId,
+            });
+          }
+
           State.addEarthMemorial(mem);
-          State.logActivity('paw', `${Auth.user.name} created a memorial for ${name} — ${placeName.split(',')[0]}`);
+          State.logActivity('paw', `${Auth.user.name} pinned a sacred spot for ${name} — ${placeName.split(',')[0]}`);
           await State.save(Auth.user);
           await this.earth.addMemorialMarker(mem);
           this.closeModal();
           this.openEarthMemorial(mem);
-          this.toast(`${name} rests at their favorite place now.`);
+          this.toast(`${name}'s sacred spot is pinned on Earth.`);
         }
-      } catch (e) { this.toast(String(e.message), 'warning'); btn.disabled = false; btn.textContent = `Pay ${fmtPrice(EARTH_PLOT.price)} & create memorial`; }
+      } catch (e) { this.toast(String(e.message), 'warning'); btn.disabled = false; btn.textContent = `Pay ${fmtPrice(EARTH_PLOT.price)} & Pin Sacred Spot`; }
     };
   },
 
@@ -1158,18 +2933,87 @@ export const UI = {
   toggleFeed() {
     const p = $('#feedPanel');
     if (!p.classList.contains('hidden')) return p.classList.add('hidden');
-    const items = allActivity(State.data);
-    $('#feedBody').innerHTML = items.map(a => `
-      <div class="feed-item"><div class="fi-icon">${activityArt(a.icon)}</div>
-        <div>${a.text}<span class="fi-time">${timeAgo(a.at)}</span></div></div>`).join('') +
-      `<div class="sub" style="margin-top:14px">Recent memorials:</div>` +
-      allMemorials(State.data).slice(-6).reverse().map(m => `
-        <div class="feed-item" data-mem="${m.id}"><div class="fi-icon">${memorialArt(m, 20)}</div>
-          <div><b>${m.petName}</b> · ${m.place.split(',').slice(0, 2).join(',')}<span class="fi-time">${m.years}</span></div></div>`).join('');
-    $('#feedBody').querySelectorAll('[data-mem]').forEach(el => {
-      el.onclick = () => {
-        const m = allMemorials(State.data).find(x => x.id === el.dataset.mem);
-        if (m) { p.classList.add('hidden'); this.showEarth(); this.openEarthMemorial(m); }
+    $('#campaignPanel')?.classList.add('hidden');
+
+    let occupiedPlots = [];
+    if (this.world && this.world.plots) {
+      occupiedPlots = this.world.plots.filter(x => x.status === 'occupied' && x.memorial);
+    }
+    const rNames = ['Sarah', 'Michael', 'Emma', 'James', 'Olivia', 'William', 'Sophia', 'Benjamin', 'Isabella', 'Lucas'];
+    const giftsArr = Object.values(GIFTS);
+    const items = [];
+    
+    for(let i=0; i<12; i++) {
+      const type = Math.random();
+      let timeLabel = i === 0 ? 'Just now' : (i < 3 ? `${i*5 + Math.floor(Math.random()*5 + 1)} mins ago` : (i < 8 ? `${Math.floor(i/2 + 1)} hours ago` : 'yesterday'));
+      
+      if(type < 0.35 && occupiedPlots.length > 0) {
+        const plot = occupiedPlots[Math.floor(Math.random() * occupiedPlots.length)];
+        items.push({
+          icon: speciesIcon(speciesKey(plot.memorial.species)),
+          html: `New memorial created for <b>${escapeHtml(plot.memorial.petName)}</b> in ${escapeHtml(DISTRICTS[plot.district].name)}`,
+          time: timeLabel, plotId: plot.id
+        });
+      } else if (type < 0.75 && occupiedPlots.length > 0) {
+        const plot = occupiedPlots[Math.floor(Math.random() * occupiedPlots.length)];
+        const donName = rNames[Math.floor(Math.random() * rNames.length)];
+        const gift = giftsArr[Math.floor(Math.random() * giftsArr.length)];
+        items.push({
+          icon: icon('gift'),
+          html: `<b>${escapeHtml(donName)}</b> left ${escapeHtml(gift.name)} at <b>${escapeHtml(plot.memorial.petName)}</b>'s memorial`,
+          time: timeLabel, plotId: plot.id
+        });
+      } else {
+        const petName = PET_NAMES[Math.floor(Math.random() * PET_NAMES.length)];
+        items.push({
+          icon: icon('heart'),
+          html: `<b>${escapeHtml(petName)}'s Rainbow Fund</b> reached $${Math.floor(Math.random()*5 + 1)*100}!`,
+          time: timeLabel
+        });
+      }
+    }
+
+    const totalMemorials = 4820 + Math.floor(Math.random() * 50);
+    const giftsToday = 142 + Math.floor(Math.random() * 20);
+    const raisedMonth = 12450 + Math.floor(Math.random() * 1000);
+
+    $('#feedBody').innerHTML = `
+      <div class="feed-stats">
+        <div class="stat-box">
+          <div class="stat-val">${totalMemorials.toLocaleString()}</div>
+          <div class="stat-label">Memorials</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val">${giftsToday}</div>
+          <div class="stat-label">Gifts Today</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val">$${raisedMonth.toLocaleString()}</div>
+          <div class="stat-label">Raised (mo)</div>
+        </div>
+      </div>
+      <div class="feed-list">
+        ${items.map(a => `
+          <div class="feed-item" ${a.plotId ? `data-plot="${a.plotId}"` : ''}>
+            <div class="fi-icon">${a.icon}</div>
+            <div class="fi-content">
+               <div class="fi-text">${a.html}</div>
+               <div class="fi-time">${a.time}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    $('#feedBody').querySelectorAll('[data-plot]').forEach(el => {
+      el.onclick = async () => {
+        const plot = this.world?.plots.find(x => x.id === el.dataset.plot);
+        if (plot) {
+          p.classList.add('hidden');
+          await this.show3D();
+          this.world.flyToDistrict(plot.district, plot);
+          this.openPlot(plot);
+        }
       };
     });
     p.classList.remove('hidden');

@@ -153,11 +153,11 @@ export function distToRoads(x, z) {
 }
 
 // ---------- Pet memorial flavor (for pre-occupied plots) ----------
-const PET_NAMES = ['Max','Bella','Charlie','Luna','Rocky','Daisy','Buddy','Molly','Jack','Sadie','Toby','Chloe','Bear','Lola','Duke','Zoe','Oreo','Ruby','Gizmo','Penny','Shadow','Rosie','Simba','Maggie','Oscar','Coco','Rex','Willow','Bandit','Pepper','Whiskers','Ginger','Felix','Misty','Boots','Cleo','Milo','Nala','Thumper','Goldie'];
+export const PET_NAMES = ['Max','Bella','Charlie','Luna','Rocky','Daisy','Buddy','Molly','Jack','Sadie','Toby','Chloe','Bear','Lola','Duke','Zoe','Oreo','Ruby','Gizmo','Penny','Shadow','Rosie','Simba','Maggie','Oscar','Coco','Rex','Willow','Bandit','Pepper','Whiskers','Ginger','Felix','Misty','Boots','Cleo','Milo','Nala','Thumper','Goldie'];
 // Weighted toward dogs and cats, as real pet cemeteries are. Labels
 // only — the icon is resolved from the label by icons.js/speciesKey.
-const SPECIES = ['Dog', 'Dog', 'Dog', 'Cat', 'Cat', 'Rabbit', 'Bird', 'Horse', 'Hamster', 'Fish', 'Turtle', 'Guinea Pig'];
-const EPITAPHS = [
+export const SPECIES = ['Dog', 'Dog', 'Dog', 'Cat', 'Cat', 'Rabbit', 'Bird', 'Horse', 'Hamster', 'Fish', 'Turtle', 'Guinea Pig'];
+export const EPITAPHS = [
   'Forever chasing sunbeams.','The best boy there ever was.','Softest paws, biggest heart.',
   'Until we meet at the rainbow bridge.','You were my favorite hello and my hardest goodbye.',
   'A loyal friend rests here.','Small paws leave the deepest prints.','Run free, sweet soul.',
