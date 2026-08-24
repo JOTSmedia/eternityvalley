@@ -394,13 +394,42 @@ async function boot() {
 
 boot().catch(err => preloader.fail(err));
 
-// Mobile menu toggle
+// -------- Global error boundary --------
+// Catches unhandled promise rejections (e.g. CDN timeout, bad network) and
+// surfaces a gentle toast rather than leaving the visitor on a silent blank screen.
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = e.reason?.message || String(e.reason || '');
+  // Filter noise: ResizeObserver, AbortError, and intentional cancels are harmless
+  if (/ResizeObserver|AbortError|cancelled|canceled/i.test(msg)) return;
+  console.warn('[unhandledrejection]', e.reason);
+  try { UI?.toast('Something went wrong — please reload if the page looks broken.', 6000, 'warning'); } catch {}
+});
+window.addEventListener('error', (e) => {
+  // Filter Three.js WebGL context loss (handled separately in world3d.js)
+  if (/WebGL|context lost/i.test(e.message || '')) return;
+  console.warn('[error]', e.message, e.filename, e.lineno);
+});
+
+// -------- Mobile menu --------
 document.addEventListener('DOMContentLoaded', () => {
   const menuToggle = document.getElementById('menuToggle');
   const topbar = document.getElementById('topbar');
   if (menuToggle && topbar) {
-    menuToggle.addEventListener('click', () => {
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
       topbar.classList.toggle('nav-open');
+    });
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (topbar.classList.contains('nav-open') && !topbar.contains(e.target)) {
+        topbar.classList.remove('nav-open');
+      }
+    });
+    // Close when a nav link is tapped on mobile
+    topbar.querySelectorAll('a, button').forEach(el => {
+      el.addEventListener('click', () => {
+        setTimeout(() => topbar.classList.remove('nav-open'), 120);
+      });
     });
   }
 });

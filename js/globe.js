@@ -108,8 +108,12 @@ export class Globe {
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
     controls.minDistance = R_EARTH * 1.35;
-    controls.maxDistance = R_EARTH * 9;
-    controls.rotateSpeed = 0.45;
+    // On touch devices allow zooming out more — the globe starts further
+    // back anyway and users want to see the full planet in their palm
+    controls.maxDistance = R_EARTH * 12;
+    // Faster rotate on touch for snappier response
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    controls.rotateSpeed = isTouchDevice ? 0.65 : 0.45;
     // The planet turns.
     //
     // The camera orbits rather than the Earth mesh spinning, and that
@@ -662,7 +666,7 @@ export class Globe {
    * where the land is. Rotating the globe from there still reaches
    * the night side, city lights and all.
    */
-  frameSunlit({ lngOffset = 46, latBias = 16, distance = R_EARTH * 4.2 } = {}) {
+  frameSunlit({ lngOffset = 46, latBias = 16, distance } = {}) {
     // Built straight from the sub-solar coordinates rather than by
     // rotating the sun vector about a derived axis. Both earlier
     // attempts at that quietly depended on the handedness of a cross
@@ -674,6 +678,14 @@ export class Globe {
     // frame, which is what gives the disc its roundness.
     const camLat = Math.max(-25, Math.min(48, s.lat + latBias));
     const camLng = s.lng + lngOffset;
+
+    // On portrait mobile screens pull back significantly so the globe
+    // doesn't fill the entire narrow viewport — the planet should be
+    // an orb in space, not a wall of blue.
+    if (distance == null) {
+      const isMobile = window.innerWidth < 760 && window.innerWidth < window.innerHeight;
+      distance = isMobile ? R_EARTH * 5.8 : R_EARTH * 4.2;
+    }
 
     this.camera.position.copy(latLngToVec(camLat, camLng, distance));
     this.camera.up.set(0, 1, 0);
@@ -705,6 +717,18 @@ export class Globe {
     this.composer?.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+
+    // Re-frame when orientation changes so the globe never fills the
+    // entire portrait viewport or looks tiny in landscape.
+    const isMobile = w < 760;
+    const isPortrait = h > w;
+    const targetDist = isMobile && isPortrait ? R_EARTH * 5.8 : R_EARTH * 4.2;
+    const currentDist = this.camera.position.length();
+    // Only re-frame if we're at a default distance (haven't been user-scrolled)
+    if (Math.abs(currentDist - R_EARTH * 4.2) < 5 || Math.abs(currentDist - R_EARTH * 5.8) < 5) {
+      this.camera.position.normalize().multiplyScalar(targetDist);
+      this.controls?.update();
+    }
   }
 
   start() {

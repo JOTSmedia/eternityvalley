@@ -225,7 +225,8 @@ export const UI = {
     }
     $('#districtNav').style.display = which.view === 'view3d' ? '' : 'none';
     const onMap = which.view === 'viewEarth' || which.view === 'viewGlobe';
-    document.querySelector('.legend').style.display = onMap ? 'none' : '';
+    const legendEl = document.querySelector('.legend');
+    if (legendEl) legendEl.style.display = onMap ? 'none' : '';
     // The toolbar is global — the question it asks applies in every
     // view — but the actions that only make sense on Google's map are
     // disabled elsewhere rather than hidden, so the bar never reflows.
@@ -362,9 +363,10 @@ export const UI = {
       
       const annivs = checkAnniversaries({ [plot.id]: plot });
       const annivData = annivs.length > 0 ? annivs[0] : null;
+      const safePetName = esc(annivData?.petName || '');
       const annivBadge = annivData ? `<div class="anniv-banner">
         <span class="anniv-badge">🕯️ ${annivData.yearsAgo} Year Anniversary</span>
-        <a href="${generateICS(annivData.petName, annivData.crossingDate)}" download="anniversary_${annivData.petName}.ics" class="btn btn-sm btn-outline anniv-ics-btn">Save to Calendar</a>
+        <a href="${generateICS(annivData.petName, annivData.crossingDate)}" download="anniversary_${safePetName}.ics" class="btn btn-sm btn-outline anniv-ics-btn">Save to Calendar</a>
       </div>` : '';
 
       body.innerHTML = `

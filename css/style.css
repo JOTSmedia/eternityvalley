@@ -647,6 +647,12 @@ a { color: var(--accent-hi-c); }
    STAGE & VIEWS
    ============================================================ */
 .stage { position: fixed; inset: 0; }
+/* On mobile the topbar is opaque — the stage must not render behind it
+   or the globe/3D canvas is clipped by the nav bar.
+   We offset by the topbar height: ~38px base + notch safe area inset. */
+@media (max-width: 760px) {
+  .stage { top: calc(38px + max(0px, env(safe-area-inset-top))); }
+}
 .view { position: absolute; inset: 0; animation: view-in 0.6s var(--ease); }
 @keyframes view-in { from { opacity: 0; transform: scale(1.012); } }
 /* Never leave a bare black canvas: an unrendered or failed WebGL
@@ -1436,10 +1442,24 @@ input::placeholder, textarea::placeholder { letter-spacing: 0.05em; }
   .earth-toolbar .btn { flex: 0 0 auto; font-size: 10.5px; padding: 9px 11px; }
 
   /* --- the way in --- */
-  .globe-cta { bottom: 68px; width: calc(100vw - 24px); gap: 9px; }
+  /* Compact card — shows enough globe above it to feel immersive */
+  .globe-cta {
+    bottom: 24px;
+    width: calc(100vw - 24px);
+    max-width: 480px;
+    gap: 8px;
+    padding: 16px 20px;
+  }
   .globe-cta__line { font-size: 9.5px; letter-spacing: 0.13em; }
   .globe-cta__sub { font-size: 9px; }
-  #enterValleyBtn { font-size: 11px; padding: 14px 18px; letter-spacing: 0.1em; width: 100%; }
+  /* Full-width thumb-friendly enter button */
+  #enterValleyBtn {
+    font-size: 12px;
+    padding: 15px 18px;
+    letter-spacing: 0.08em;
+    width: 100%;
+    min-height: 52px;
+  }
 
   .globe-readout { font-size: 9.5px; padding: 6px 11px; bottom: 14px; }
   .demo-chip {
@@ -2072,6 +2092,9 @@ input::placeholder, textarea::placeholder { letter-spacing: 0.05em; }
   top: calc(100% + 7px);
   left: 0;
   right: 0;
+  /* Don't overflow viewport on narrow phones */
+  min-width: 0;
+  max-width: calc(100vw - 24px);
   z-index: 40;
   max-height: min(56vh, 420px);
   overflow-y: auto;

@@ -52,11 +52,33 @@ setInterval(() => { // sweep old buckets
 
 // Security headers
 const isProd = process.env.NODE_ENV === 'production';
+// Allowed origin for Stripe redirect URLs — override with SITE_ORIGIN env var in production
+const SITE_ORIGIN = (process.env.SITE_ORIGIN || '').replace(/\/$/, '') || null;
+function isSafeRedirectUrl(url) {
+  try {
+    const parsed = new URL(url);
+    // Must be http/https
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    // In production: must match SITE_ORIGIN exactly
+    if (isProd && SITE_ORIGIN) {
+      return url.startsWith(SITE_ORIGIN + '/') || url === SITE_ORIGIN;
+    }
+    // In dev: allow localhost on any port
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || (SITE_ORIGIN && url.startsWith(SITE_ORIGIN));
+  } catch { return false; }
+}
 function securityHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  if (isProd) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (isProd) {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.stripe.com https://www.gstatic.com https://maps.googleapis.com https://nominatim.openstreetmap.org https://wttr.in; frame-src https://js.stripe.com; worker-src blob:; object-src 'none';"
+    );
+  }
   next();
 }
 
@@ -113,6 +135,10 @@ app.post('/create-checkout-session', async (req, res) => {
     const { kind, name, amountCents, meta = {}, successUrl, cancelUrl } = req.body;
     if (!name || !amountCents || amountCents < 50 || amountCents > 500000) {
       return res.status(400).json({ error: 'Invalid amount' });
+    }
+    // Validate redirect URLs to prevent open-redirect / SSRF attacks
+    if (!successUrl || !cancelUrl || !isSafeRedirectUrl(successUrl) || !isSafeRedirectUrl(cancelUrl)) {
+      return res.status(400).json({ error: 'Invalid redirect URL' });
     }
     const isSub = kind === 'membership';
     const session = await stripe.checkout.sessions.create({

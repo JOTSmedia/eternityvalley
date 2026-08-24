@@ -47,7 +47,18 @@ export const State = {
       fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       db = fs.getFirestore(appMod.getApp());
       const snap = await fs.getDoc(fs.doc(db, 'users', user.uid));
-      if (snap.exists()) this.data = { ...this.data, ...snap.data() };
+      if (snap.exists()) {
+        const d = snap.data();
+        // Merge carefully: don't clobber default nested objects with undefined
+        this.data = {
+          membership: d.membership || this.data.membership,
+          ownedPlots: d.ownedPlots || this.data.ownedPlots,
+          gifts: d.gifts || this.data.gifts,
+          earth: d.earth || this.data.earth || { memorials: [], activity: [] },
+          memories: d.memories || this.data.memories || {},
+          profile: d.profile || this.data.profile || {},
+        };
+      }
     } catch (e) {
       console.warn('[state] firebase init failed', e);
     }

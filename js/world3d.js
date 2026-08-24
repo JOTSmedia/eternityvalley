@@ -21,6 +21,8 @@ import { icon, speciesIcon, speciesKey } from './icons.js';
 import { charityName } from './catalog.js';
 
 const V3 = THREE.Vector3;
+// Pre-allocated colour constants — avoids per-vertex GC pressure during terrain build
+const _roadTint = new THREE.Color(0xbfb39a);
 
 export class World3D {
   constructor(canvas, plots, onPlotClick) {
@@ -103,7 +105,8 @@ export class World3D {
     this._ambienceTimer = setInterval(() => this.applyAmbience(), 60000);  // follow real time
     fetchWeather().then(w => { this.mood = w.mood; this.applyAmbience(); this.onAmbience?.(w, this.season); });
 
-    addEventListener('resize', () => this._resize());
+    this._resizeHandler = () => this._resize();
+    addEventListener('resize', this._resizeHandler);
     this._resize();
     this._animate();
   }
@@ -352,8 +355,8 @@ export class World3D {
       else if (z < -380 && Math.abs(x) < 260) c.copy(pineFloor).lerp(grass, n * 0.6);
       else c.copy(grass).lerp(grassDry, n);
 
-      // path tint near roads
-      if (distToRoads(x, z) < 9) c.lerp(new THREE.Color(0xbfb39a), 0.75);
+      // path tint near roads — color constant allocated once, not per vertex
+      if (distToRoads(x, z) < 9) c.lerp(_roadTint, 0.75);
 
       colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
     }
@@ -870,7 +873,7 @@ export class World3D {
 
   // ---------------- Seasonal blooms ----------------
   _blooms() {
-    const style = SEASON_STYLE[this.season];
+    const style = SEASON_STYLE[this.season] || SEASON_STYLE['spring'] || Object.values(SEASON_STYLE)[0];
     const rng = mulberry32(20260401);
     const positions = [];
     for (let i = 0; i < 4200 && positions.length < 1100; i++) {
@@ -1044,6 +1047,7 @@ export class World3D {
       const m = new THREE.InstancedMesh(geo, mat, mats.length);
       const t = new THREE.Matrix4(), off = new THREE.Matrix4().makeTranslation(0, yOff, 0);
       mats.forEach((mx, i) => { t.copy(mx).multiply(off); m.setMatrixAt(i, t); });
+      m.instanceMatrix.needsUpdate = true;
       m.castShadow = true;
       this.scene.add(m);
     };
@@ -1057,6 +1061,7 @@ export class World3D {
         t.copy(mx).multiply(off); m.setMatrixAt(i, t);
         m.setColorAt(i, col.setHex(colorFn(i)));
       });
+      m.instanceMatrix.needsUpdate = true;
       if (m.instanceColor) m.instanceColor.needsUpdate = true;
       m.castShadow = true;
       this.scene.add(m);
@@ -1143,7 +1148,7 @@ export class World3D {
     }), mushrooms, 0);
 
     // Desert flowers: bright low blooms
-    const style = SEASON_STYLE[this.season];
+    const style = SEASON_STYLE[this.season] || SEASON_STYLE['spring'] || Object.values(SEASON_STYLE)[0];
     const desertBloomGeo = new THREE.IcosahedronGeometry(0.5, 1);
     const desertBloomMat = new THREE.MeshStandardMaterial({ roughness: 0.7, metalness: 0 });
     const desertColors = [0xff6b4a, 0xffb347, 0xff85a2, 0xf7d84a, 0xd966ff];
@@ -1504,6 +1509,7 @@ export class World3D {
       const m = new THREE.InstancedMesh(geo, mat, mats.length);
       const t = new THREE.Matrix4(), off = new THREE.Matrix4().makeTranslation(0, yOff, 0);
       mats.forEach((mx, i) => { t.copy(mx).multiply(off); m.setMatrixAt(i, t); });
+      m.instanceMatrix.needsUpdate = true;
       m.castShadow = castShadow;
       this.scene.add(m);
     };
@@ -1554,7 +1560,7 @@ export class World3D {
 
     inst(new THREE.CylinderGeometry(0.8, 1.5, 9, 10), barkMat, oak.trunks, 4.5);
     // Oak crowns follow the season: spring blush, summer green, autumn gold, winter frost
-    inst(crownGeo(6.2, 6, 0.72), Surfaces.foliage(2.5, SEASON_STYLE[this.season].crown), oak.crowns, 12);
+    inst(crownGeo(6.2, 6, 0.72), Surfaces.foliage(2.5, (SEASON_STYLE[this.season] || SEASON_STYLE['spring'] || Object.values(SEASON_STYLE)[0]).crown), oak.crowns, 12);
 
     inst(new THREE.CylinderGeometry(0.45, 0.85, 13, 10), palmBark, palm.trunks, 6.5);
     inst(crownGeo(4.2, 7, 0.95, 1), Surfaces.foliage(2, 0x5ea24f), palm.crowns, 13);
@@ -1607,6 +1613,8 @@ export class World3D {
         kerb.setMatrixAt(i, tmp.matrix);
       });
 
+      mesh.instanceMatrix.needsUpdate = true;
+      kerb.instanceMatrix.needsUpdate = true;
       mesh.receiveShadow = true;
       kerb.receiveShadow = kerb.castShadow = true;
       this.scene.add(kerb);
@@ -1987,6 +1995,8 @@ export class World3D {
 
   _animate() {
     requestAnimationFrame(() => this._animate());
+    // Skip render when tab is hidden — saves GPU/battery
+    if (document.hidden) return;
     if (this.canvas.offsetParent === null) return; // hidden (Earth/2D active) — save the GPU
     const t = this.clock.getElapsedTime();
     if (this._flyTween) this._flyTween();
@@ -2030,5 +2040,28 @@ export class World3D {
     // Composer owns the frame now (render → bloom → tonemap/output).
     if (this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Full WebGL resource cleanup — call when switching away from the 3D view
+   * for an extended period or unmounting the component. Stops the interval,
+   * removes the resize listener, disposes all Three.js resources.
+   */
+  dispose() {
+    clearInterval(this._ambienceTimer);
+    removeEventListener('resize', this._resizeHandler);
+    // Dispose all scene meshes, geometries, and materials
+    this.scene.traverse((obj) => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+        else obj.material.dispose();
+      }
+    });
+    this._envRT?.dispose();
+    this.pmrem?.dispose();
+    this.composer?.dispose();
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
   }
 }
