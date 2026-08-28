@@ -538,9 +538,7 @@ export class World3D {
       this.hemi.intensity = LOOK.hemi;
     }
 
-    if (this._terrainShader?.uniforms?.uSunDir) {
-      this._terrainShader.uniforms.uSunDir.value.copy(sunDir);
-    }
+    if (this._terrainShaders) this._terrainShaders.forEach(s => { if (s.uniforms?.uSunDir) s.uniforms.uSunDir.value.copy(sunDir); });
     if (this._bgMountainShader?.uniforms?.uSunDir) {
       this._bgMountainShader.uniforms.uSunDir.value.copy(sunDir);
     }
@@ -683,7 +681,7 @@ export class World3D {
     this._envScene.add(this._envSky);
 
     // Ground bounce plane in _envScene so lower hemisphere receives natural earth bounce
-    const gGeo = new THREE.PlaneGeometry(36000, 36000);
+    const gGeo = new THREE.PlaneGeometry(1000000, 1000000);
     const gMat = new THREE.MeshBasicMaterial({ color: 0x384828 });
     const gMesh = new THREE.Mesh(gGeo, gMat);
     gMesh.rotation.x = -Math.PI / 2;
@@ -720,7 +718,7 @@ export class World3D {
 
     this._envRT?.dispose();
     this._envRT = this.pmrem.fromScene(this._envScene);
-    this.scene.environment = this._envRT.texture;
+    this.scene.environment = null;
     this.scene.environmentIntensity = this._envIntensity || 1.10;
   }
 
@@ -1412,7 +1410,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
     // High-performance slope-dependent triplanar blended terrain shader with crevice AO & snow caps
     mat.onBeforeCompile = (shader) => {
-      this._terrainShader = shader;
+      if (!this._terrainShaders) this._terrainShaders = []; this._terrainShaders.push(shader);
       shader.uniforms.uSunDir = { value: this._sunDir ? this._sunDir.clone() : new THREE.Vector3(0.4, 0.8, 0.5).normalize() };
       shader.uniforms.uGroundDetail = { value: groundDetailTex.map };
       shader.uniforms.uGroundDetailNorm = { value: groundDetailTex.normalMap };
@@ -12912,26 +12910,6 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       this.horizonMat.visible = true;
       this.horizonMat.color.setHex(LOOK.fogCol);
     }
-    
-    // PMREM IBL Update
-    if (this.renderer && this.sky) {
-      if (!this._pmremGenerator) {
-        this._pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-        this._pmremGenerator.compileEquirectangularShader();
-      }
-      const oldVisible = [];
-      this.scene.children.forEach(c => {
-        if (c !== this.sky && c !== this.sun && c !== this.hemi && c !== this.stars && c.visible) {
-          c.visible = false;
-          oldVisible.push(c);
-        }
-      });
-      const rt = this._pmremGenerator.fromScene(this.scene);
-      if (this.scene.environment) this.scene.environment.dispose();
-      this.scene.environment = rt.texture;
-      this.scene.environmentIntensity = LOOK.env;
-      oldVisible.forEach(c => c.visible = true);
-    }
 
     if (this.renderer && this.renderer.shadowMap) {
       this.renderer.shadowMap.needsUpdate = true;
@@ -16293,7 +16271,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     if (this.moteMat) this.moteMat.uniforms.uTime.value = t;
     if (this.pawMat) this.pawMat.opacity = (this._pawBase || 0.45) * (0.72 + 0.28 * Math.sin(t * 2.1));
     if (this.stars?.visible && this.starMat?.uniforms?.uTime) this.starMat.uniforms.uTime.value = t;
-    if (this._terrainShader?.uniforms?.uTime) this._terrainShader.uniforms.uTime.value = t;
+    if (this._terrainShaders) this._terrainShaders.forEach(s => { if (s.uniforms?.uTime) s.uniforms.uTime.value = t; });
     if (this._bgMountainShader?.uniforms?.uTime) this._bgMountainShader.uniforms.uTime.value = t;
     if (this._oceanShader?.uniforms?.uTime) this._oceanShader.uniforms.uTime.value = t;
     if (this._clouds) {
