@@ -3253,7 +3253,7 @@ export async function warmAllTextures(onProgress) {
       try {
         textures(name);
       } catch (e) {
-        console.warn(`[materials] failed warming texture "${name}":`, e);
+        console.log(`[materials] failed warming texture "${name}":`, e);
       }
       if (typeof onProgress === 'function') {
         try { onProgress((i + 1) / total); } catch {}
@@ -3262,7 +3262,7 @@ export async function warmAllTextures(onProgress) {
       await new Promise(r => setTimeout(r, 0));
     }
   } catch (err) {
-    console.warn('[materials] warmAllTextures caught error:', err);
+    console.log('[materials] warmAllTextures caught error:', err);
   } finally {
     if (typeof onProgress === 'function') {
       try { onProgress(1.0); } catch {}
@@ -3334,12 +3334,12 @@ export const Surfaces = {
     return createBotanicalFoliageMaterial(color, t.map, {
       isTree: true,
       normalMap: t.normalMap,
-      normalScale: 0.85,
-      roughness: 0.45,
+      normalScale: 1.15,
+      roughness: 0.32,
       metalness: 0.0,
       sssColor: new THREE.Color(0x82d835),
       shadowColor: new THREE.Color(0x1a4414),
-      sssIntensity: 0.88,
+      sssIntensity: 1.25,
       windIntensity: 1.1,
     });
   },
@@ -3362,12 +3362,12 @@ export const Surfaces = {
     return createBotanicalFoliageMaterial(color, t.map, {
       isTree: true,
       normalMap: t.normalMap,
-      normalScale: 1.2,
-      roughness: 0.65,
+      normalScale: 1.4,
+      roughness: 0.52,
       metalness: 0.0,
       sssColor: new THREE.Color(0x62c828),
       shadowColor: new THREE.Color(0x1a4414),
-      sssIntensity: 0.78,
+      sssIntensity: 1.15,
       windIntensity: 0.9,
     });
   },
@@ -3827,7 +3827,7 @@ export function applyBotanicalWind(mat, isTree = false) {
         `
       );
     } catch (e) {
-      console.warn('[materials] applyBotanicalWind onBeforeCompile fallback:', e);
+      console.log('[materials] applyBotanicalWind onBeforeCompile fallback:', e);
     }
   };
   return mat;
@@ -3965,7 +3965,7 @@ export function createBotanicalFoliageMaterial(color = 0x3d7045, alphaMap = null
         `
       );
     } catch (e) {
-      console.warn('[materials] createBotanicalFoliageMaterial onBeforeCompile fallback:', e);
+      console.log('[materials] createBotanicalFoliageMaterial onBeforeCompile fallback:', e);
     }
   };
 

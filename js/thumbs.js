@@ -126,7 +126,7 @@ function studio() {
     return R;
   } catch (e) {
     studioFailed = true;
-    console.warn('[thumbs] studio renderer init failed:', e);
+    console.log('[thumbs] studio renderer init failed:', e);
     return null;
   }
 }
@@ -905,7 +905,7 @@ export async function warmThumbs(ids = Object.keys(BUILDERS), onProgress) {
   let done = 0;
   for (const id of ids) {
     if (!mem.has(id) && !store[id]) {
-      try { renderThumb(id); } catch (e) { console.warn('[thumbs]', id, e); }
+      try { renderThumb(id); } catch (e) { console.log('[thumbs]', id, e); }
       // Yield to main thread with idle callback / breather between 3D thumbnail renders
       await new Promise(r => {
         if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {

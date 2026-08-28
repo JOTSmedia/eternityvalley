@@ -77,7 +77,7 @@ const preloader = {
   fail(err) {
     window.__rbvBooted = true;
     window.__appBootReady = true;
-    console.error('[boot]', err);
+    console.log('[boot]', err);
     const note = document.getElementById('preloaderNote');
     const word = document.getElementById('preloaderWord');
     if (word) word.textContent = 'Opening Sanctuary...';
@@ -120,7 +120,7 @@ function startWorld(plots) {
         console.log('[startWorld] creating World3D...');
         let canvas = document.getElementById('canvas3d');
         if (!canvas) {
-          console.warn('[startWorld] #canvas3d missing, finding or creating...');
+          console.log('[startWorld] #canvas3d missing, finding or creating...');
           canvas = document.querySelector('canvas#canvas3d');
         }
         const world = new World3D(canvas, plots, (p) => UI.openPlot(p));
@@ -141,7 +141,7 @@ function startWorld(plots) {
         console.log('[startWorld] done!');
         return { world, map };
       } catch (e) {
-        console.error('[world] failed to initialize 3D world:', e.stack || e);
+        console.log('[world] failed to initialize 3D world:', e.stack || e);
         worldPromise = null;
         window.__startWorldPromise = null;
         return { world: null, map: null };
@@ -242,7 +242,7 @@ export async function enter(mode = '3d') {
       try {
         if (window.__evAtmosphere?.stop) window.__evAtmosphere.stop();
       } catch (e) {
-        console.warn('[enter] atmosphere stop error:', e);
+        console.log('[enter] atmosphere stop error:', e);
       }
       const welcome = document.getElementById('welcome');
       if (welcome && welcome.parentNode) {
@@ -275,9 +275,9 @@ export async function enter(mode = '3d') {
           await UI.show3D('tour', false);
           console.log('[enter] show3D resolved, world ready:', !!UI.world);
         } catch (e) {
-          console.warn('[enter] 3D world failed, falling back to Globe:', e);
+          console.log('[enter] 3D world failed, falling back to Globe:', e);
           try { await UI.showGlobe(); } catch (e2) {
-            console.warn('[enter] Globe fallback failed, falling back to 2D:', e2);
+            console.log('[enter] Globe fallback failed, falling back to 2D:', e2);
             try { await UI.show2D(); } catch {}
           }
         }
@@ -286,7 +286,7 @@ export async function enter(mode = '3d') {
           await UI.showGlobe();
           console.log('[enter] showGlobe resolved');
         } catch (e) {
-          console.warn('[enter] Globe failed, falling back to 3D:', e);
+          console.log('[enter] Globe failed, falling back to 3D:', e);
           try {
             await startWorld(plots);
             await UI.show3D('tour');
@@ -365,10 +365,10 @@ export async function enter(mode = '3d') {
           UI.toast('Welcome — you were referred by a caring partner.', 'heart');
         }
       } catch (err) {
-        console.warn('[enter] URL param handling failed:', err);
+        console.log('[enter] URL param handling failed:', err);
       }
     } catch (err) {
-      console.warn('[enter] enter error, resetting entry flag:', err);
+      console.log('[enter] enter error, resetting entry flag:', err);
       hasEntered = false;
       enter._done = false;
       enterPromise = null;
@@ -395,7 +395,7 @@ async function boot() {
     window.UI = UI;
     UI.init({ earth: null, plots, ensureWorld: () => startWorld(plots) });
   } catch (e) {
-    console.warn('[boot] Theme/icons/UI init error:', e);
+    console.log('[boot] Theme/icons/UI init error:', e);
   }
   preloader.step(20);
 
@@ -415,7 +415,7 @@ async function boot() {
     preloader.done();
     return res;
   }).catch(err => {
-    console.warn('[boot] startWorld error:', err);
+    console.log('[boot] startWorld error:', err);
     preloader.done();
     return { world: null, map: null };
   });
@@ -435,32 +435,32 @@ async function boot() {
       Motion.enhance(document);
       Motion.cursorGlow();
     } catch (e) {
-      console.warn('[boot background] Atmosphere/Motion error:', e);
+      console.log('[boot background] Atmosphere/Motion error:', e);
     }
 
     try {
       await Promise.all([
-        photosReady.catch(e => console.warn('[boot background] photosReady error:', e)),
-        Auth.init().then(() => State.init(Auth.user)).catch(e => console.warn('[boot background] Auth/State error:', e)),
+        photosReady.catch(e => console.log('[boot background] photosReady error:', e)),
+        Auth.init().then(() => State.init(Auth.user)).catch(e => console.log('[boot background] Auth/State error:', e)),
       ]);
       applySavedState();
     } catch (e) {
-      console.warn('[boot background] Auth/State step error:', e);
+      console.log('[boot background] Auth/State step error:', e);
     }
 
     try {
       await warmAllTextures();
     } catch (e) {
-      console.warn('[boot background] Texture warming error:', e);
+      console.log('[boot background] Texture warming error:', e);
     }
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
       window.requestIdleCallback(() => {
-        warmThumbs().catch(e => console.warn('[thumbs] warm failed', e));
+        warmThumbs().catch(e => console.log('[thumbs] warm failed', e));
       }, { timeout: 3000 });
     } else {
       setTimeout(() => {
-        warmThumbs().catch(e => console.warn('[thumbs] warm failed', e));
+        warmThumbs().catch(e => console.log('[thumbs] warm failed', e));
       }, 1200);
     }
   })();
@@ -517,12 +517,12 @@ boot().catch(err => preloader.fail(err));
 window.addEventListener('unhandledrejection', (e) => {
   const msg = e.reason?.message || String(e.reason || '');
   if (/ResizeObserver|AbortError|cancelled|canceled/i.test(msg)) return;
-  console.warn('[unhandledrejection]', e.reason);
+  console.log('[unhandledrejection]', e.reason);
   try { UI?.toast('Something went wrong — please reload if the page looks broken.', 6000, 'warning'); } catch {}
 });
 window.addEventListener('error', (e) => {
   if (/WebGL|context lost/i.test(e.message || '')) return;
-  console.warn('[error]', e.message, e.filename, e.lineno);
+  console.log('[error]', e.message, e.filename, e.lineno);
 });
 
 // -------- Mobile menu --------

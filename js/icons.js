@@ -263,7 +263,7 @@ export function speciesKey(text = '') {
 export function icon(name, opts = {}) {
   const body = UI_ICONS[name];
   if (!body) {
-    console.warn(`[icons] unknown icon "${name}"`);
+    console.log(`[icons] unknown icon "${name}"`);
     return '';
   }
   const { size = '1em', cls = '', title = '', stroke = 1.6 } = opts;

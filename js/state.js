@@ -42,7 +42,7 @@ export const State = {
           }
         }
       } catch (e) {
-        console.warn('[state] load failed', e);
+        console.log('[state] load failed', e);
       }
       return;
     }
@@ -67,7 +67,7 @@ export const State = {
         };
       }
     } catch (e) {
-      console.warn('[state] firebase init failed, falling back to localStorage', e);
+      console.log('[state] firebase init failed, falling back to localStorage', e);
       try {
         const raw = localStorage.getItem(LS_KEY);
         if (raw) {
@@ -85,7 +85,7 @@ export const State = {
             };
           }
         }
-      } catch (e2) { console.warn('[state] localStorage fallback also failed', e2); }
+      } catch (e2) { console.log('[state] localStorage fallback also failed', e2); }
     }
   },
 
@@ -98,20 +98,20 @@ export const State = {
         localStorage.setItem(LS_KEY, JSON.stringify(this.data)); 
       } catch (e) { 
         if (e.name === 'QuotaExceededError') {
-          console.warn('[state] LocalStorage quota exceeded, pruning memory cache');
+          console.log('[state] LocalStorage quota exceeded, pruning memory cache');
           try {
             this.data.memories = {};
             localStorage.setItem(LS_KEY, JSON.stringify(this.data));
           } catch {}
         } else {
-          console.warn('[state] localStorage save failed', e); 
+          console.log('[state] localStorage save failed', e); 
         }
       }
       if (IS_DEMO || !user || user.isGuest || !db) return;
       try {
         await fs.setDoc(fs.doc(db, 'users', user.uid), this.data, { merge: true });
       } catch (e) {
-        console.warn('[state] remote Firestore save failed, preserved locally:', e);
+        console.log('[state] remote Firestore save failed, preserved locally:', e);
       }
     };
 

@@ -197,7 +197,7 @@ export class World3D {
     scene.fog = new THREE.FogExp2(0x90b8d8, 0.000065);
     this.scene = scene;
 
-    const cam = new THREE.PerspectiveCamera(46, 1, 1, 28000.0);
+    const cam = new THREE.PerspectiveCamera(35, 1, 1, 28000.0);
     cam.position.set(0, 48.0, 960);
     cam.lookAt(0, 36.0, 600);
     cam.far = 28000.0;
@@ -234,7 +234,7 @@ export class World3D {
     this._terrain();
 
     this._ambienceTimer = setInterval(() => this.applyAmbience(), 60000);
-    fetchWeather().then(w => { this.mood = w.mood; this.applyAmbience(); this.onAmbience?.(w, this.season); }).catch(e => console.warn('[world3d] fetchWeather failed:', e));
+    fetchWeather().then(w => { this.mood = w.mood; this.applyAmbience(); this.onAmbience?.(w, this.season); }).catch(e => console.log('[world3d] fetchWeather failed:', e));
 
     this._resizeHandler = () => this._resize();
     if (typeof window !== 'undefined') window.addEventListener('resize', this._resizeHandler);
@@ -247,7 +247,7 @@ export class World3D {
         await yieldMain();
         fn();
       } catch (e) {
-        console.warn(`[world3d] ${name} skipped:`, e.stack || e);
+        console.log(`[world3d] ${name} skipped:`, e.stack || e);
       }
     };
 
@@ -298,7 +298,7 @@ export class World3D {
     // ---------------- GPU ENFORCEMENT PASS ----------------
     this.scene.traverse((obj) => {
       if (obj.isInstancedMesh) {
-        obj.frustumCulled = true;
+        obj.frustumCulled = false;
         if (!obj.boundingSphere && typeof obj.computeBoundingSphere === 'function') {
           obj.computeBoundingSphere();
         }
@@ -375,7 +375,7 @@ export class World3D {
         this.renderer.compile(this.scene, this.camera);
       }
     } catch (e) {
-      console.warn('[world3d] warmup error:', e);
+      console.log('[world3d] warmup error:', e);
     }
   }
 
@@ -1724,6 +1724,9 @@ export class World3D {
       thickness: type === 'ocean' ? 12.0 : 6.5,
       attenuationColor: type === 'ocean' ? new THREE.Color(0x044259) : new THREE.Color(0x0a384c),
       attenuationDistance: type === 'ocean' ? 8.0 : 4.0,
+      dispersion: 0.024,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.02,
       normalMap: norm,
       normalScale: new THREE.Vector2(0.8, 0.8),
       transparent: true,
@@ -2297,6 +2300,9 @@ export class World3D {
     normals.wrapS = normals.wrapT = THREE.RepeatWrapping;
     normals.repeat.set(16, 16);
     this._waterNormals = normals;
+    this._fountainBasinMat = this._createFountainBasinMaterial(normals);
+    this._fountainCascadeMat = this._createFountainCascadeMaterial(normals);
+    this.riverMat = this._createRiverMaterial(normals);
 
     // Photorealistic Crystalline Mirror Lake with Concentric Ring Tessellation, Gerstner Swells, Dielectric Fresnel & Beer-Lambert Depth
     const lakeRadius = WORLD.lake.r;
@@ -4300,9 +4306,12 @@ export class World3D {
         }
         float fbm(vec2 p) {
           float v = 0.0;
-          v += 0.500 * noise(p); p *= 2.02;
-          v += 0.250 * noise(p); p *= 2.03;
-          v += 0.125 * noise(p); p *= 2.01;
+          float amp = 0.5;
+          for (int i = 0; i < 5; i++) {
+            v += amp * noise(p);
+            p *= 2.02;
+            amp *= 0.5;
+          }
           return v;
         }
 
@@ -4544,9 +4553,12 @@ export class World3D {
         }
         float fbm(vec2 p) {
           float v = 0.0;
-          v += 0.500 * noise(p); p *= 2.02;
-          v += 0.250 * noise(p); p *= 2.03;
-          v += 0.125 * noise(p); p *= 2.01;
+          float amp = 0.5;
+          for (int i = 0; i < 5; i++) {
+            v += amp * noise(p);
+            p *= 2.02;
+            amp *= 0.5;
+          }
           return v;
         }
 
@@ -5423,15 +5435,14 @@ export class World3D {
     const tx = -110, tz = 2160;
     const ty = terrainHeight(tx, tz);
     const templeGroup = new THREE.Group();
-    templeGroup.position.set(tx, ty + 0.1, tz);
+    templeGroup.position.set(tx, ty, tz); // perfectly grounded foundation
 
-    const ancientTravertine = Surfaces.weatheredTravertine(2.5);
-    const cedarWood = Surfaces.timber(1.5);
-    const templeBronze = Surfaces.bronze(1.2);
-    const sunGold = Surfaces.gold(1.0);
-    const blackGranite = Surfaces.granite(1.8).clone();
-    blackGranite.color.setHex(0x181614);
-    const tyrianPurple = new THREE.MeshStandardMaterial({ color: 0x5a0a1e, roughness: 0.95, metalness: 0.0 });
+    const ancientTravertine = material('weatheredTravertine', { repeat: 2.5, color: 0x9c9284, roughness: 0.9, metalness: 0.0, normalScale: 2.5, aoMapIntensity: 1.8 });
+    const cedarWood = material('timber', { repeat: 1.5, color: 0x3d2416, roughness: 0.8, metalness: 0.0, normalScale: 1.5 });
+    const templeBronze = material('bronze', { repeat: 1.2, color: 0x8a6e45, roughness: 0.4, metalness: 0.85, physical: true, clearcoat: 0.2, clearcoatRoughness: 0.5 });
+    const sunGold = material('gold', { repeat: 1.0, color: 0xffd700, roughness: 0.1, metalness: 1.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.05 });
+    const blackGranite = material('granite', { repeat: 1.8, color: 0x12100e, roughness: 0.2, metalness: 0.05, physical: true, clearcoat: 0.5, clearcoatRoughness: 0.3, normalScale: 1.2 });
+    const tyrianPurple = new THREE.MeshStandardMaterial({ color: 0x4a0515, roughness: 0.85, metalness: 0.05 });
 
     // Monumental 3-Tiered Megalithic Ashlar Plinth
     const plinthLowerGeo = new THREE.BoxGeometry(32, 1.4, 46);
@@ -5562,6 +5573,22 @@ export class World3D {
     bronzeBull.rotation.y = -Math.PI * 0.72; // Heroic 3/4 diagonal stance showing full muscular profile & horns
     bronzeBull.scale.setScalar(1.35);
     templeGroup.add(bronzeBull);
+
+    // Interactive Bronze Offering Bowl
+    const offeringBowlGroup = new THREE.Group();
+    offeringBowlGroup.position.set(0, 2.6 + 0.6, 1.2); // Just in front of the altar base
+    
+    const offeringBowl = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.4, 0.5, 16), templeBronze);
+    offeringBowl.position.y = 0.25;
+    offeringBowl.castShadow = true;
+    offeringBowlGroup.add(offeringBowl);
+    
+    const offeringHitbox = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 3), new THREE.MeshBasicMaterial({ visible: false }));
+    offeringHitbox.position.y = 1.0;
+    offeringHitbox.userData = { action: 'donation_temple_baal', label: 'Place an Offering at the Altar' };
+    this.pickables.push(offeringHitbox);
+    offeringBowlGroup.add(offeringHitbox);
+    templeGroup.add(offeringBowlGroup);
 
     // 2. DUAL ROARING ETERNAL FIRE BRAZIERS (Flanking Bull Altar at x = -6.5 and +6.5)
     for (const fx of [-6.5, 6.5]) {
@@ -5948,26 +5975,32 @@ export class World3D {
   // stained glass clerestory lancets, carved walnut pews, High Celestial Altar, and glowing votive candle alcoves.
   _universalCathedral() {
     const g = new THREE.Group();
-    const cx = WORLD.cathedral.x, cz = WORLD.cathedral.z, cy = WORLD.cathedral.y; // (0, -640, 182.0)
+    const cx = WORLD.cathedral.x, cz = WORLD.cathedral.z;
+    const cy = terrainHeight(cx, cz); // ensure perfectly grounded foundation
     g.position.set(cx, cy, cz);
 
     // Master Material Palette
     const stone = Surfaces.agedCaenLimestone(14.0);
-    const darkStone = material('agedCaenLimestone', { repeat: 12.0, color: 0x847966, roughness: 0.86, metalness: 0.02, normalScale: 1.6, aoMapIntensity: 1.25 });
-    const copperRoof = material('weatheredVerdigrisBronze', { repeat: 4.0, color: 0x347060, roughness: 0.35, metalness: 0.85, physical: true, clearcoat: 0.25, clearcoatRoughness: 0.45, normalScale: 1.25 });
+    // Enhanced photorealistic stone and ambient occlusion
+    const darkStone = material('agedCaenLimestone', { repeat: 12.0, color: 0x847966, roughness: 0.86, metalness: 0.02, normalScale: 2.0, aoMapIntensity: 1.65 });
+    // Enhanced weathered copper
+    const copperRoof = material('weatheredVerdigrisBronze', { repeat: 4.0, color: 0x347060, roughness: 0.25, metalness: 0.9, physical: true, clearcoat: 0.35, clearcoatRoughness: 0.45, normalScale: 1.5 });
     const slateRoof = Surfaces.pagodaTile(4.0);
+    // Enhanced celestially reflective bronze & gold
     const bronze = Surfaces.verdigrisBronze(1.4);
-    const gold = Surfaces.celestialGold(1.0);
+    const gold = material('gold', { repeat: 1.0, color: 0xffd700, roughness: 0.15, metalness: 1.0, physical: true, clearcoat: 0.8, clearcoatRoughness: 0.1 });
     const darkWood = Surfaces.wood(2.4);
     const marble = Surfaces.honedCarraraMarble(2.5);
     const stainedGlassRose = Surfaces.stainedGlassRose();
+    
+    // Multi-layer chromatic refraction and iridescent liquid glass
     const stainedGlassLancet = new THREE.MeshPhysicalMaterial({
-      color: 0x124094,
-      emissive: 0x0f2e74,
-      emissiveIntensity: 0.95,
-      roughness: 0.04, transmission: 0.94, thickness: 2.5, ior: 1.54, reflectivity: 0.5, clearcoat: 1.0, clearcoatRoughness: 0.02, dispersion: 0.024, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x124094), attenuationDistance: 1.2
+      color: 0x1848a4,
+      emissive: 0x123684,
+      emissiveIntensity: 1.6,
+      roughness: 0.02, transmission: 0.98, thickness: 3.0, ior: 1.6, reflectivity: 0.85, clearcoat: 1.0, clearcoatRoughness: 0.01, dispersion: 0.035, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x1848a4), attenuationDistance: 1.5
     });
-    const leadCame = new THREE.MeshStandardMaterial({ color: 0x16181b, roughness: 0.62, metalness: 0.85 });
+    const leadCame = new THREE.MeshStandardMaterial({ color: 0x101214, roughness: 0.75, metalness: 0.95 });
 
     // =========================================================================
     // 1. FOUNDATION PODIUM & CASCADING CEREMONIAL STAIRS (z = 44 to 62)
@@ -7553,6 +7586,17 @@ export class World3D {
           candleStand.add(flame);
         }
       }
+      
+      const hitbox = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 6), new THREE.MeshBasicMaterial({ visible: false }));
+      hitbox.position.copy(candleStand.position);
+      hitbox.position.y += 2.0;
+      hitbox.userData = { 
+        action: 'light_candle', 
+        label: 'Light a Votive Candle'
+      };
+      this.pickables.push(hitbox);
+      g.add(hitbox);
+      
       g.add(candleStand);
     });
 
@@ -7563,17 +7607,18 @@ export class World3D {
   // Perched on the Eastern Mountain Ridge (x=480, z=-480, y=135m) overlooking Mirror Lake
   _buddhistPagoda() {
     const g = new THREE.Group();
-    const px = WORLD.buddhistTemple.x, pz = WORLD.buddhistTemple.z, py = WORLD.buddhistTemple.y; // (480, -480, 135.0)
+    const px = WORLD.buddhistTemple.x, pz = WORLD.buddhistTemple.z;
+    const py = terrainHeight(px, pz); // Perfectly grounded foundation
     g.position.set(px, py, pz);
 
-    const vermilion = material('ceramic', { repeat: 2.0, color: 0xba2418, roughness: 0.15, metalness: 0.0, physical: true, clearcoat: 0.95, clearcoatRoughness: 0.05, ior: 1.5 });
-    const vermilionDark = material('ceramic', { repeat: 2.0, color: 0x7c140c, roughness: 0.20, metalness: 0.0, physical: true, clearcoat: 0.85, clearcoatRoughness: 0.08, ior: 1.5 });
+    const vermilion = material('ceramic', { repeat: 2.0, color: 0xba2418, roughness: 0.1, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.6 });
+    const vermilionDark = material('ceramic', { repeat: 2.0, color: 0x7c140c, roughness: 0.15, metalness: 0.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.08, ior: 1.6 });
     const whitePlaster = Surfaces.stuccoMuqarnas(3.0);
     const ebonyWood = material('timber', { repeat: 2.0, color: 0x1c1511, roughness: 0.65, metalness: 0.0, physical: true, clearcoat: 0.15, clearcoatRoughness: 0.6, normalScale: 1.4 });
-    const shojiScreen = new THREE.MeshPhysicalMaterial({ color: 0xfff6e4, emissive: 0xffdda8, emissiveIntensity: 0.85, roughness: 0.9, transmission: 0.6, thickness: 0.1, ior: 1.1, transparent: true });
+    const shojiScreen = new THREE.MeshPhysicalMaterial({ color: 0xfff6e4, emissive: 0xffe4b8, emissiveIntensity: 1.5, roughness: 0.8, transmission: 0.75, thickness: 0.2, ior: 1.1, transparent: true, side: THREE.DoubleSide });
     const cedar = Surfaces.wood(1.4);
     const slateRoof = Surfaces.pagodaTile(3.8);
-    const stone = Surfaces.agedCaenLimestone(2.0);
+    const stone = material('agedCaenLimestone', { repeat: 4.0, color: 0x90897f, roughness: 0.9, metalness: 0.0, normalScale: 1.8, aoMapIntensity: 1.5 });
     const granite = Surfaces.granite(1.5);
     const gold = Surfaces.celestialGold(1.0);
     const bronze = Surfaces.verdigrisBronze(1.0);
@@ -8307,6 +8352,31 @@ export class World3D {
 
     pagodaGroup.add(koroGroup);
 
+    // Saisen-bako (Traditional Wooden Offering Box)
+    const saisenGroup = new THREE.Group();
+    saisenGroup.position.set(0, 1.8, 6.5);
+    const saisenBox = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.8, 2.0), ebonyWood);
+    saisenBox.position.y = 0.9;
+    saisenBox.castShadow = true;
+    saisenGroup.add(saisenBox);
+    
+    // Slotted top lid
+    const saisenLid = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.2, 2.2), ebonyWood);
+    saisenLid.position.y = 1.9;
+    saisenGroup.add(saisenLid);
+    
+    // Interactive Hitbox
+    const saisenHitbox = new THREE.Mesh(new THREE.BoxGeometry(5, 4, 4), new THREE.MeshBasicMaterial({ visible: false }));
+    saisenHitbox.position.y = 1.0;
+    saisenHitbox.userData = { 
+      action: 'donation_pagoda', 
+      label: 'Offer a Coin (Saisen)'
+    };
+    this.pickables.push(saisenHitbox);
+    saisenGroup.add(saisenHitbox);
+    
+    pagodaGroup.add(saisenGroup);
+
     // 4. Iconic Kyoto Sakura Cherry Blossom Trees (Translucent Glowing SSS Blossoms)
     const cherryBlossomMat = Surfaces.sakuraBlossom(0xffffff);
     if (this._windMaterials) this._windMaterials.push(cherryBlossomMat);
@@ -8439,19 +8509,20 @@ export class World3D {
   // Perched on the Western Mountain Ridge (x=-480, z=-200, y=96m) overlooking the sunset valley
   _moorishMosque() {
     const g = new THREE.Group();
-    const mx = WORLD.mosque.x, mz = WORLD.mosque.z, my = WORLD.mosque.y; // (-480, -200, 96.0)
+    const mx = WORLD.mosque.x, mz = WORLD.mosque.z;
+    const my = terrainHeight(mx, mz); // perfectly grounded foundation
     g.position.set(mx, my, mz);
 
-    const marble = Surfaces.honedCarraraMarble(1.5);
-    const stone = Surfaces.agedCaenLimestone(2.0);
+    const marble = material('honedCarraraMarble', { repeat: 2.0, color: 0xfffcf8, roughness: 0.12, metalness: 0.05, physical: true, clearcoat: 0.4, clearcoatRoughness: 0.2 });
+    const stone = material('agedCaenLimestone', { repeat: 3.0, color: 0xc4b7a6, roughness: 0.8, metalness: 0.0, normalScale: 1.5, aoMapIntensity: 1.3 });
     const zellij = Surfaces.moorishZellij(3.8);
-    const carvedStucco = Surfaces.stuccoMuqarnas(2.0);
+    const carvedStucco = material('stuccoMuqarnas', { repeat: 2.5, color: 0xfdfaf4, roughness: 0.9, metalness: 0.0, normalScale: 2.2, aoMapIntensity: 1.8 });
     const turquoiseTile = material('moorishZellij', {
-      repeat: 6.0, color: 0x1292a2, roughness: 0.08, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, ior: 1.5, reflectivity: 0.8
+      repeat: 6.0, color: 0x1292a2, roughness: 0.04, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.01, ior: 1.65, reflectivity: 0.95, clearcoatNormalScale: 0.5
     });
-    const gold = Surfaces.celestialGold(1.0);
-    const darkCedar = Surfaces.wood(2.4);
-    const brass = Surfaces.verdigrisBronze(1.0);
+    const gold = material('gold', { repeat: 1.0, color: 0xffd700, roughness: 0.15, metalness: 1.0, physical: true, clearcoat: 0.8, clearcoatRoughness: 0.1 });
+    const darkCedar = material('timber', { repeat: 3.0, color: 0x2e1a10, roughness: 0.7, metalness: 0.0, physical: true, clearcoat: 0.1, clearcoatRoughness: 0.5, normalScale: 1.4 });
+    const brass = material('bronze', { repeat: 2.0, color: 0xb5a642, roughness: 0.3, metalness: 0.8, physical: true, clearcoat: 0.3, clearcoatRoughness: 0.4 });
 
     // 1. Terraced Carrara Marble & Limestone Foundation Platform
     const platformGeo = new THREE.BoxGeometry(40, 2.2, 58);
@@ -8743,6 +8814,26 @@ export class World3D {
     const mihrabLight = new THREE.PointLight(0xffe4a0, 3.6, 25);
     mihrabLight.position.set(0, 4.5, 0.8);
     mihrabGroup.add(mihrabLight);
+    
+    // Sadaqah (Charity Donation Box)
+    const sadaqahGroup = new THREE.Group();
+    sadaqahGroup.position.set(3.2, 0.0, -7.0);
+    const sadaqahBox = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 1.0), darkCedar);
+    sadaqahBox.position.y = 0.6;
+    sadaqahBox.castShadow = true;
+    sadaqahGroup.add(sadaqahBox);
+    
+    const sadaqahLid = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 1.1), brass);
+    sadaqahLid.position.y = 1.25;
+    sadaqahGroup.add(sadaqahLid);
+    
+    const sadaqahHitbox = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), new THREE.MeshBasicMaterial({ visible: false }));
+    sadaqahHitbox.position.y = 1.0;
+    sadaqahHitbox.userData = { action: 'donation_mosque', label: 'Offer Sadaqah (Charity)' };
+    this.pickables.push(sadaqahHitbox);
+    sadaqahGroup.add(sadaqahHitbox);
+    
+    hallGroup.add(sadaqahGroup);
     hallGroup.add(mihrabGroup);
 
     // Carved Plaster Stucco Muqarnas Corbels (Mocárabes Honeycomb Stalactites)
@@ -11239,19 +11330,13 @@ export class World3D {
     const g = new THREE.Group();
 
     // Luminous Classical & PBR Materials
-    const marble = Surfaces.marble(1.5).clone();
-    if (marble && marble.color) marble.color.setHex(0xfdfaf4);
-    marble.roughness = 0.16;
-    marble.metalness = 0.02;
-
-    const stone = Surfaces.flagstone(3.2).clone();
-    if (stone && stone.color) stone.color.setHex(0xb8ab93);
-
-    const stoneDark = Surfaces.limestoneDark(1.8).clone();
-    if (stoneDark && stoneDark.color) stoneDark.color.setHex(0x7a7062);
-
-    const gold = Surfaces.celestialGold(1.0).clone();
-    if (gold && gold.color) gold.color.setHex(0xf5d360);
+    const marble = material('honedCarraraMarble', { repeat: 1.5, color: 0xfffef8, roughness: 0.1, metalness: 0.05, physical: true, clearcoat: 0.5, clearcoatRoughness: 0.15 });
+    
+    const stone = material('flagstone', { repeat: 3.2, color: 0xc4b7a6, roughness: 0.85, metalness: 0.0, normalScale: 2.0, aoMapIntensity: 1.5 });
+    
+    const stoneDark = material('limestoneDark', { repeat: 1.8, color: 0x847966, roughness: 0.9, metalness: 0.0, normalScale: 2.5, aoMapIntensity: 1.8 });
+    
+    const gold = material('gold', { repeat: 1.0, color: 0xffe270, roughness: 0.1, metalness: 1.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.05 });
     gold.roughness = 0.16;
     gold.metalness = 0.96;
 
@@ -12824,8 +12909,9 @@ export class World3D {
       const dRoad = distToRoads(x, z);
       const inDesert = x < -220 && z > 180 && h < 70;
 
-      tmp.position.set(x, h, z);
-      tmp.rotation.y = rng() * Math.PI * 2;
+      // Ensure perfectly grounded vegetation by sinking the root base slightly into the terrain
+      tmp.position.set(x, h - 0.35 * s, z);
+      tmp.rotation.set(0, rng() * Math.PI * 2, 0);
 
       if (inDesert) {
         if (rng() < 0.3) { tmp.scale.setScalar(s); tmp.updateMatrix(); cactus.push(tmp.matrix.clone()); }
@@ -13891,8 +13977,18 @@ export class World3D {
   // ---------------- Plots & Memorial Architecture ----------------
   _plots() {
     const avail = [], occup = [];
-    for (const p of this.plots) (p.status === 'available' ? avail : occup).push(p);
-
+    for (const p of this.plots) {
+      if (!p.quaternion) {
+        const eps = 0.5;
+        const hN = terrainHeight(p.x, p.z - eps);
+        const hS = terrainHeight(p.x, p.z + eps);
+        const hW = terrainHeight(p.x - eps, p.z);
+        const hE = terrainHeight(p.x + eps, p.z);
+        p.normal = new THREE.Vector3(hW - hE, 2.0 * eps, hN - hS).normalize();
+        p.quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.normal).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.rot));
+      }
+      (p.status === 'available' ? avail : occup).push(p);
+    }
     const tmp = new THREE.Object3D();
 
     // Soft Radial Contact Ambient Occlusion Shadow Decal Texture for Plots
@@ -13961,7 +14057,7 @@ export class World3D {
         const [w, d] = SIZE_DIMS[p.size] || [10, 14];
         const ph = terrainHeight(p.x, p.z);
         tmp.position.set(p.x, ph, p.z);
-        tmp.rotation.set(0, p.rot, 0);
+        tmp.quaternion.copy(p.quaternion);
         tmp.scale.set(w, 1, d);
         tmp.updateMatrix();
         mesh.setMatrixAt(i, tmp.matrix);
@@ -13983,7 +14079,7 @@ export class World3D {
           const [w, d] = SIZE_DIMS[p.size] || [10, 14];
           const ph = terrainHeight(p.x, p.z);
           tmp.position.set(p.x, ph + 0.02, p.z);
-          tmp.rotation.set(0, p.rot, 0);
+          tmp.quaternion.copy(p.quaternion);
           tmp.scale.set(w * 1.35, 1, d * 1.35);
           tmp.updateMatrix();
           shadowMesh.setMatrixAt(i, tmp.matrix);
@@ -14013,7 +14109,7 @@ export class World3D {
           const [w, d] = SIZE_DIMS[p.size] || [10, 14];
           const ph = terrainHeight(p.x, p.z);
           tmp.position.set(p.x, ph, p.z);
-          tmp.rotation.set(0, p.rot, 0);
+          tmp.quaternion.copy(p.quaternion);
           tmp.scale.set(w * 0.96, 1, d * 0.96);
           tmp.updateMatrix();
           plinthMesh.setMatrixAt(i, tmp.matrix);
@@ -14066,7 +14162,7 @@ export class World3D {
           const [w, d] = SIZE_DIMS[p.size] || [10, 14];
           const ph = terrainHeight(p.x, p.z);
           tmp.position.set(p.x, ph + 0.04, p.z);
-          tmp.rotation.set(0, p.rot, 0);
+          tmp.quaternion.copy(p.quaternion);
           tmp.scale.set(Math.max(w, d) * 1.2, 1, Math.max(w, d) * 1.2);
           tmp.updateMatrix();
           beaconMesh.setMatrixAt(i, tmp.matrix);
@@ -14129,7 +14225,7 @@ export class World3D {
       const rz = -dx * Math.sin(p.rot) + dz * Math.cos(p.rot);
       const actualY = terrainHeight(p.x + rx, p.z + rz);
       tmp.position.set(p.x + rx, actualY, p.z + rz);
-      tmp.rotation.set(0, p.rot, 0);
+      tmp.quaternion.copy(p.quaternion);
       tmp.scale.setScalar(extraS);
       tmp.updateMatrix();
       (buckets[key] ||= { mats: [], colors: [] });
@@ -14596,12 +14692,15 @@ export class World3D {
 
   rebuildPlots() {
     // Called after a purchase/customization: rebuild plot & decor meshes
-    for (const m of this.pickables) {
-      this.scene.remove(m);
-      m.geometry?.dispose();
-      m.material?.dispose();
+    for (let i = this.pickables.length - 1; i >= 0; i--) {
+      const m = this.pickables[i];
+      if (this.plotMeshIndex.has(m)) {
+        this.scene.remove(m);
+        m.geometry?.dispose();
+        m.material?.dispose();
+        this.pickables.splice(i, 1);
+      }
     }
-    this.pickables = [];
     for (const m of this._decorMeshes || []) {
       this.scene.remove(m);
       m.geometry?.dispose();
@@ -14947,10 +15046,10 @@ export class World3D {
       // === LEG 5: HIGHLAND WATER SOURCE & SUBMERGED TARN DIVE (Stage 5: t in [0.364, 0.455], indices 32..39) ===
       new THREE.Vector3(0, 178.5, -500),  // 32: Submerged dive into Highland Glacial Tarn
       new THREE.Vector3(6, 177.8, -510),  // 33: Deep submerged tarn basin glide
-      new THREE.Vector3(8, 177.0, -525),  // 34: Swimming with celestial trout
-      new THREE.Vector3(4, 177.2, -540),  // 35: Cruising through crystal alpine lake
-      new THREE.Vector3(-6, 178.0, -548), // 36: Approaching cathedral shoreline
-      new THREE.Vector3(-8, 185.0, -555), // 37: Resurfacing ascent begins
+      new THREE.Vector3(8, 179.5, -525),  // 34: Swimming with celestial trout
+      new THREE.Vector3(4, 183.0, -540),  // 35: Cruising through crystal alpine lake
+      new THREE.Vector3(-6, 184.6, -548), // 36: Approaching cathedral shoreline
+      new THREE.Vector3(-8, 185.5, -555), // 37: Resurfacing ascent begins
       new THREE.Vector3(-4, 200.0, -560), // 38: Breaking water surface
       new THREE.Vector3(0, 215.0, -568),  // 39: Breaching cleanly into crisp mountain air
 
@@ -15666,9 +15765,21 @@ export class World3D {
       const lookDamp = 1.0 - Math.exp(-8.8 * safeDt);
       this._currentLook.lerp(this._v3TourLook, lookDamp);
 
-      // Rock-solid Horizon Stability: Upright vertical (up = 0, 1, 0, zero tilt)
-      this._currentRoll = 0.0;
-      this.camera.up.set(0, 1, 0);
+      // Cinematic Drone Banking (roll into turns)
+      const futureT = (t + 0.002) % 1.0;
+      const futureTan = this._tourSpline.getTangent(futureT);
+      const yawCurrent = Math.atan2(-this._v3TourTan.x, -this._v3TourTan.z);
+      const yawFuture = Math.atan2(-futureTan.x, -futureTan.z);
+      let dYaw = yawFuture - yawCurrent;
+      if (dYaw > Math.PI) dYaw -= Math.PI * 2;
+      if (dYaw < -Math.PI) dYaw += Math.PI * 2;
+      
+      const targetRoll = Math.max(-0.35, Math.min(0.35, dYaw * 12.0));
+      const rollDamp = 1.0 - Math.exp(-5.0 * safeDt);
+      this._currentRoll = (this._currentRoll || 0.0) + (targetRoll - (this._currentRoll || 0.0)) * rollDamp;
+      
+      const viewDir = new THREE.Vector3().subVectors(this._currentLook, this._v3TourPos).normalize();
+      this.camera.up.set(0, 1, 0).applyAxisAngle(viewDir, this._currentRoll);
 
       this.camera.position.copy(this._v3TourPos);
       this.camera.lookAt(this._currentLook);
@@ -16180,7 +16291,8 @@ export class World3D {
         const dz = Math.cos(currentAng) * radZ;
         const heading = Math.atan2(dx, dz);
 
-        dummy.position.set(fx, fy, fz);
+        const th = terrainHeight(fx, fz);
+        dummy.position.set(fx, Math.max(fy, th + 0.3), fz);
         dummy.rotation.set(
           Math.cos(koiTime * f.speed * 1.4 + f.phase) * 0.07,
           heading,
@@ -16210,7 +16322,8 @@ export class World3D {
         const dz = Math.cos(currentAng) * radZ;
         const heading = Math.atan2(dx, dz);
 
-        dummy.position.set(fx, fy, fz);
+        const th = terrainHeight(fx, fz);
+        dummy.position.set(fx, Math.max(fy, th + 0.3), fz);
         dummy.rotation.set(
           Math.cos(fishTime * f.speed * 1.8 + f.phase) * 0.09,
           heading,
@@ -16249,7 +16362,8 @@ export class World3D {
         const dz = Math.cos(currentAng) * tur.radiusZ;
         const heading = Math.atan2(dx, dz);
 
-        dummy.position.set(tx, ty, tz);
+        const th = terrainHeight(tx, tz);
+        dummy.position.set(tx, Math.max(ty, th + 0.6), tz);
         const bankRoll = -Math.sin(currentAng) * 0.18;
         const pitchAngle = Math.cos(turtleTime * tur.speed * 1.2 + tur.phase) * 0.08;
         dummy.rotation.set(pitchAngle, heading, bankRoll);
@@ -16279,7 +16393,8 @@ export class World3D {
         const dz = Math.cos(currentAng) * ray.radiusZ;
         const heading = Math.atan2(dx, dz);
 
-        dummy.position.set(mx, my, mz);
+        const th = terrainHeight(mx, mz);
+        dummy.position.set(mx, Math.max(my, th + 1.0), mz);
         const bankRoll = -Math.sin(currentAng) * 0.28;
         const pitchAngle = Math.cos(mantaTime * ray.speed * 0.8 + ray.phase) * 0.06;
         dummy.rotation.set(pitchAngle, heading, bankRoll);
@@ -16442,7 +16557,7 @@ export class World3D {
         this.renderer.render(this.scene, this.camera);
       }
     } catch (err) {
-      console.warn('[world3d] _animate error in frame, falling back to direct render:', err);
+      console.log('[world3d] _animate error in frame, falling back to direct render:', err);
       try {
         if (this.renderer && this.scene && this.camera) {
           this.renderer.render(this.scene, this.camera);
@@ -16475,8 +16590,7 @@ export class World3D {
     parts.push(dorsal);
     const lFin = new THREE.PlaneGeometry(0.55, 0.28);
     lFin.rotateZ(-0.35); lFin.rotateY(0.45); lFin.translate(-0.45, -0.15, 0.45);
-    const rFin = lFin.clone();
-    rFin.rotation.set(0, -0.45, 0.35); rFin.position.set(0.45, -0.15, 0.45);
+    const rFin = new THREE.PlaneGeometry(0.55, 0.28); rFin.rotateZ(-0.35); rFin.rotateY(-0.45); rFin.translate(0.45, -0.15, 0.45);
     parts.push(lFin, rFin);
     const merged = window.mergeGeometries ? window.mergeGeometries(parts, false) : parts[0];
     return merged || body;
@@ -16617,9 +16731,12 @@ export class World3D {
         }
         float fbm(vec2 p) {
           float v = 0.0;
-          v += 0.5000 * noise(p); p *= 2.02;
-          v += 0.2500 * noise(p); p *= 2.03;
-          v += 0.1250 * noise(p); p *= 2.01;
+          float amp = 0.5;
+          for (int i = 0; i < 5; i++) {
+            v += amp * noise(p);
+            p *= 2.02;
+            amp *= 0.5;
+          }
           return v;
         }
 
@@ -16662,7 +16779,7 @@ export class World3D {
       depthWrite: false,
     };
     const waterfallMat = new THREE.ShaderMaterial(waterfallShader);
-    this._mountainWaterfallShader = waterfallShader;
+    this._mountainWaterfallShader = waterfallMat;
 
     // Spline Chute Builder
     const buildChuteRibbon = (curve, widthTop, widthBottom, segs = 140) => {

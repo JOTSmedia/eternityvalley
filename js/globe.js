@@ -100,7 +100,7 @@ function loadTexture(file, { srgb = false, aniso = 8 } = {}) {
       },
       undefined,
       (err) => {
-        console.warn(`[globe] Texture ${file} failed to load, using resilient fallback`, err);
+        console.log(`[globe] Texture ${file} failed to load, using resilient fallback`, err);
         resolve(createFallbackTexture(file, srgb));
       },
     );
@@ -229,7 +229,7 @@ export class Globe {
         this.renderer.render(this.scene, this.camera);
       }
     } catch (e) {
-      console.warn('[globe] warmup error:', e);
+      console.log('[globe] warmup error:', e);
     }
   }
 
@@ -970,7 +970,7 @@ export class Globe {
       if (this.composer) this.composer.render();
       else this.renderer.render(this.scene, this.camera);
     } catch (e) {
-      if (!this._warned) { this._warned = true; console.warn('[globe]', e); }
+      if (!this._warned) { this._warned = true; console.log('[globe]', e); }
     }
   }
 

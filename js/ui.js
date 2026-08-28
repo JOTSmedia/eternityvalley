@@ -235,7 +235,7 @@ export const UI = {
       try {
         await globe.init();
       } catch (e) {
-        console.error('[globe] init failed', e);
+        console.log('[globe] init failed', e);
         this.toast('The globe could not be loaded — showing the map instead.', 6000, 'warning');
         return this.showEarth();
       }
@@ -345,7 +345,7 @@ export const UI = {
         await this.mountEarth();
       } catch (e) {
         this._earthMounted = false;
-        console.error('[earth] mount failed', e);
+        console.log('[earth] mount failed', e);
         this.toast('The map could not be loaded.', 5000, 'warning');
       }
     } else {
@@ -409,7 +409,7 @@ export const UI = {
         this.world = window.world;
       }
     } catch (e) {
-      console.warn('[ensureWorld] error resolving world:', e);
+      console.log('[ensureWorld] error resolving world:', e);
     }
     return this.world;
   },

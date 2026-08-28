@@ -48,7 +48,7 @@ export const Auth = {
         this._emit();
       });
     } catch (e) {
-      console.warn('[auth] firebase init failed', e);
+      console.log('[auth] firebase init failed', e);
       this.user = null;
       this._emit();
     }

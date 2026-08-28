@@ -189,7 +189,7 @@ export class Atmosphere {
       this._update(dt);
       this._draw();
     } catch (e) {
-      if (!this._warned) { this._warned = true; console.warn('[atmosphere] draw failed', e); }
+      if (!this._warned) { this._warned = true; console.log('[atmosphere] draw failed', e); }
     }
   }
 

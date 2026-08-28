@@ -35,7 +35,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Monumental approach and direct flight through the soaring open triumphal arch into the sanctuary.',
     tStart: 0.000,
     tEnd: 1/11,
-    speedScale: 0.85,
+    speedScale: 0.65,
     icon: 'crest',
   },
   {
@@ -45,7 +45,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Gliding along Grand Boulevard and soaring cleanly over the glowing prismatic bridge crest.',
     tStart: 1/11,
     tEnd: 2/11,
-    speedScale: 0.85,
+    speedScale: 0.65,
     icon: 'sparkle',
   },
   {
@@ -55,7 +55,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: '360-degree orbit around the tiered lion fountain basin, starburst mosaics, and flower beds.',
     tStart: 2/11,
     tEnd: 3/11,
-    speedScale: 0.78,
+    speedScale: 0.58,
     icon: 'flower',
   },
   {
@@ -65,7 +65,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Soaring high over central meadow tree crowns, descending to mist level in clear air 25m in front of the 182m cascade face, and ascending vertically to crest the waterfall lip.',
     tStart: 3/11,
     tEnd: 4/11,
-    speedScale: 0.78,
+    speedScale: 0.55,
     icon: 'heart',
   },
   {
@@ -75,7 +75,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Submerged dive in the Glacial Tarn water source exploring swimming celestial trout pods, glowing boulders and bubbles, ascending and resurfacing cleanly into crisp alpine air.',
     tStart: 4/11,
     tEnd: 5/11,
-    speedScale: 0.76,
+    speedScale: 0.45,
     icon: 'globe',
   },
   {
@@ -85,7 +85,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'High aerial orbit around the 140m gold flèche spire & twin 102m bell towers, flying straight between open French Gothic oak doors down the center nave aisle.',
     tStart: 5/11,
     tEnd: 6/11,
-    speedScale: 0.76,
+    speedScale: 0.52,
     icon: 'feather',
   },
   {
@@ -95,7 +95,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Panoramic descent along the western ridge to the terrace perched above the valley, orbiting the minaret, gliding over the marble reflecting pool and Alhambra arcade.',
     tStart: 6/11,
     tEnd: 7/11,
-    speedScale: 0.78,
+    speedScale: 0.55,
     icon: 'crescent',
   },
   {
@@ -105,7 +105,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Descent across valley meadows, skimming lake waters beneath weeping willows, diving underwater with swimming golden koi, and resurfacing into golden mist.',
     tStart: 7/11,
     tEnd: 8/11,
-    speedScale: 0.80,
+    speedScale: 0.45,
     icon: 'lotus',
   },
   {
@@ -115,7 +115,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Flying past the open South Porch and golden Buddha statue before spiraling up past the 5-tiered curved eaves & Sōrin finial.',
     tStart: 8/11,
     tEnd: 9/11,
-    speedScale: 0.78,
+    speedScale: 0.52,
     icon: 'star',
   },
   {
@@ -125,7 +125,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'High coastal flight approaching Kaya Island from the North, orbiting the Starlight Pavilion, and plunging off the sea cliff into the glowing coral reef lagoon.',
     tStart: 9/11,
     tEnd: 10/11,
-    speedScale: 0.78,
+    speedScale: 0.58,
     icon: 'sparkle',
   },
   {
@@ -135,7 +135,7 @@ export const DRONE_TOUR_LANDMARKS = [
     sub: 'Radiant sunrise ocean breach into golden morning sunlight for a soaring high panoramic climb commanding the full valley vista, looping seamlessly back to Leg 1.',
     tStart: 10/11,
     tEnd: 11/11,
-    speedScale: 0.88,
+    speedScale: 0.65,
     icon: 'globe',
   },
 ];

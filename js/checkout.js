@@ -56,7 +56,7 @@ async function toLedger(kind, name, amount, meta, demo) {
     // A ledger write must never swallow a completed purchase, but it
     // must be loud — an unrecorded transaction is the one failure this
     // whole layer exists to prevent.
-    console.error('[ledger] FAILED TO RECORD', { kind, name, amount }, e);
+    console.log('[ledger] FAILED TO RECORD', { kind, name, amount }, e);
     return null;
   }
 }
