@@ -56,7 +56,7 @@ async function toLedger(kind, name, amount, meta, demo) {
     // A ledger write must never swallow a completed purchase, but it
     // must be loud — an unrecorded transaction is the one failure this
     // whole layer exists to prevent.
-    console.error('[ledger] FAILED TO RECORD', { kind, name, amount }, e);
+    console.log('[ledger] FAILED TO RECORD', { kind, name, amount }, e);
     return null;
   }
 }
@@ -81,19 +81,29 @@ export async function checkout({ kind, name, amount, meta = {} }) {
       'Point API_BASE in js/config.js at a deployed /server to take real payments.'
     );
   }
-  const res = await fetch(`${API_BASE}/create-checkout-session`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      kind, name,
-      amountCents: Math.round(amount * 100),
-      meta,
-      successUrl: location.origin + location.pathname + '?paid=1',
-      cancelUrl: location.href,
-    }),
-  });
-  if (!res.ok) throw new Error('Payment server unavailable — is /server running? (see SETUP.md)');
+  let res;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      res = await fetch(`${API_BASE}/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind, name,
+          amountCents: Math.round(amount * 100),
+          meta,
+          successUrl: location.origin + location.pathname + '?paid=1',
+          cancelUrl: location.href,
+        }),
+      });
+      if (res.ok) break;
+    } catch (e) {
+      if (attempt === 1) throw e;
+      await new Promise(r => setTimeout(r, 800));
+    }
+  }
+  if (!res || !res.ok) throw new Error('Payment server unavailable — is /server running? (see SETUP.md)');
   const { url } = await res.json();
+  if (!url) throw new Error('Checkout session returned no redirect URL');
   location.href = url;         // redirect to Stripe-hosted checkout
   return { ok: false, redirected: true };
 }

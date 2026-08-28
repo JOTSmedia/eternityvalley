@@ -123,6 +123,73 @@ export const EARTH_PLOT = {
   blurb: 'Their favorite spot, forever marked — your backyard, their beach, the trail you walked every morning. Visible to the whole community, guestbook included.',
 };
 
+// Physical Heirloom Keepsakes & Artifact Memories
+export const PHYSICAL_KEEPSAKES = [
+  {
+    id: 'pk_print_framed',
+    name: 'Fine Art Framed Print',
+    category: 'Prints',
+    price: 38.00,
+    blurb: 'Archival 8x10” lustre print with solid timber frame and museum-grade anti-reflective glass.',
+    icon: 'photo',
+    options: ['Gold Gilded Frame', 'Warm Walnut Frame', 'Obsidian Black Frame'],
+  },
+  {
+    id: 'pk_crystal_block',
+    name: 'Illuminated Crystal Glass Block',
+    category: 'Prints',
+    price: 48.00,
+    blurb: 'Ultra-clear 1-inch solid acrylic crystal block that catches sunlight on your mantel.',
+    icon: 'sparkle',
+    options: ['5x7” Crystal Block', '6x8” Crystal Block'],
+  },
+  {
+    id: 'pk_hardcover_book',
+    name: 'Rainbow Bridge Memorial Keepsake Book',
+    category: 'Books',
+    price: 54.00,
+    blurb: '24-page linen hardcover book featuring your pet’s photos, life stories, and the Rainbow Bridge poem.',
+    icon: 'book',
+    options: ['Celestial Gold Foil Linen', 'Midnight Sage Linen', 'Rose Dust Linen'],
+  },
+  {
+    id: 'pk_ceramic_mug',
+    name: 'Morning Comfort Ceramic Mug',
+    category: 'Mugs',
+    price: 22.00,
+    blurb: '15oz warm ceramic mug with companion portrait and “Always in My Heart” gold foil script.',
+    icon: 'cup',
+    options: ['15oz Matte Bone White', '15oz Warm Twilight Green'],
+  },
+  {
+    id: 'pk_custom_plush',
+    name: 'Custom Lookalike Memory Plush',
+    category: 'Plush',
+    price: 78.00,
+    blurb: 'Handcrafted ultra-soft cuddle plush styled after your companion with engraved heart collar tag.',
+    icon: 'paw',
+    options: ['Small (10-inch)', 'Medium (14-inch)'],
+  },
+  {
+    id: 'pk_suncatcher',
+    name: 'Rainbow Bridge Crystal Suncatcher',
+    category: 'Decor',
+    price: 28.00,
+    blurb: 'K9 optical crystal prism with engraved companion silhouette that casts dancing rainbows across your room.',
+    icon: 'rainbow',
+    options: ['Prism Teardrop', 'Celestial Heart Prism'],
+  },
+  {
+    id: 'pk_sticker_pack',
+    name: 'Holographic Memorial Sticker Pack',
+    category: 'Stickers',
+    price: 14.00,
+    blurb: 'Pack of 6 waterproof UV-resistant vinyl & holographic stickers for laptops, journals, and cars.',
+    icon: 'star',
+    options: ['6-Pack Holographic & Matte'],
+  },
+];
+
 export function fmtPrice(n) {
   return n % 1 === 0 ? `$${n}` : `$${n.toFixed(2)}`;
 }

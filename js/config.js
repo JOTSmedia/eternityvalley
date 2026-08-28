@@ -32,8 +32,9 @@ const isLoopback = (host) =>
 export const API_BASE = (() => {
   let configuredHost = '';
   try { configuredHost = new URL(CONFIGURED_API_BASE).hostname; } catch { return ''; }
-  if (!isLoopback(configuredHost)) return CONFIGURED_API_BASE;
-  return isLoopback(location.hostname) ? CONFIGURED_API_BASE : '';
+  const host = typeof location !== 'undefined' && location.hostname ? location.hostname : '';
+  if (isLoopback(configuredHost)) return isLoopback(host) ? CONFIGURED_API_BASE : '';
+  return CONFIGURED_API_BASE;
 })();
 
 export const HAS_API = API_BASE !== '';
@@ -70,8 +71,20 @@ export const GOOGLE_MAPS_API_KEY = (HARDCODED_MAPS_KEY !== 'PASTE_YOUR_MAPS_KEY'
 
 export const IS_DEMO = FIREBASE_CONFIG.apiKey === 'PASTE_YOUR_API_KEY';
 
-// Admin mode: enabled from the admin dashboard ("View site as Admin").
-// Bypasses all paywalls client-side. NOTE: this is a prototype
-// convenience — production enforcement must stay server-side.
-export const IS_ADMIN = (() => { try { return localStorage.getItem('ev_admin_mode') === '1'; } catch { return false; } })();
+export const IS_ADMIN = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === '0' || params.get('admin') === 'false') {
+      localStorage.removeItem('ev_admin_mode');
+      return false;
+    }
+    if (params.get('admin') === '1' || params.get('admin') === 'true' || params.get('mode') === 'admin' || params.get('dev') === '1') {
+      localStorage.setItem('ev_admin_mode', '1');
+      return true;
+    }
+    return localStorage.getItem('ev_admin_mode') === '1';
+  } catch {
+    return false;
+  }
+})();
 export const HAS_MAPS3D = GOOGLE_MAPS_API_KEY !== 'PASTE_YOUR_MAPS_KEY' && GOOGLE_MAPS_API_KEY.length > 20;

@@ -11,7 +11,16 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 const app = express();
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  console.log(`[REQ] ${req.method} ${req.url} (path: ${req.path})`);
+  next();
+});
 const PORT = process.env.PORT || 4242;
 
 // ---------------- Admin & event store ----------------
@@ -52,11 +61,33 @@ setInterval(() => { // sweep old buckets
 
 // Security headers
 const isProd = process.env.NODE_ENV === 'production';
+// Allowed origin for Stripe redirect URLs — override with SITE_ORIGIN env var in production
+const SITE_ORIGIN = (process.env.SITE_ORIGIN || '').replace(/\/$/, '') || null;
+function isSafeRedirectUrl(url) {
+  try {
+    const parsed = new URL(url);
+    // Must be http/https
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    // In production: must match SITE_ORIGIN exactly
+    if (isProd && SITE_ORIGIN) {
+      return url.startsWith(SITE_ORIGIN + '/') || url === SITE_ORIGIN;
+    }
+    // In dev: allow localhost on any port
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || (SITE_ORIGIN && url.startsWith(SITE_ORIGIN));
+  } catch { return false; }
+}
 function securityHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  if (isProd) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (isProd) {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    res.setHeader('Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://www.gstatic.com https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.stripe.com https://www.gstatic.com https://maps.googleapis.com https://nominatim.openstreetmap.org https://wttr.in; frame-src https://js.stripe.com; worker-src blob:; object-src 'none';"
+    );
+  }
   next();
 }
 
@@ -76,9 +107,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   if (!stripe) return res.status(500).send('Stripe not configured');
   let event;
   try {
-    event = process.env.STRIPE_WEBHOOK_SECRET
-      ? stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET)
-      : JSON.parse(req.body);
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      if (isProd) return res.status(500).send('Webhook secret not configured');
+      event = JSON.parse(req.body);
+    } else {
+      event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+    }
   } catch (err) {
     return res.status(400).send(`Webhook error: ${err.message}`);
   }
@@ -107,12 +141,16 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(securityHeaders);
 app.use(express.json({ limit: '60kb' }));
 
-app.post('/create-checkout-session', async (req, res) => {
+app.post('/create-checkout-session', rateLimit('checkout', 10, 60000), async (req, res) => {
   if (!stripe) return res.status(500).json({ error: 'Set STRIPE_SECRET_KEY in server/.env (see SETUP.md)' });
   try {
     const { kind, name, amountCents, meta = {}, successUrl, cancelUrl } = req.body;
     if (!name || !amountCents || amountCents < 50 || amountCents > 500000) {
       return res.status(400).json({ error: 'Invalid amount' });
+    }
+    // Validate redirect URLs to prevent open-redirect / SSRF attacks
+    if (!successUrl || !cancelUrl || !isSafeRedirectUrl(successUrl) || !isSafeRedirectUrl(cancelUrl)) {
+      return res.status(400).json({ error: 'Invalid redirect URL' });
     }
     const isSub = kind === 'membership';
     const session = await stripe.checkout.sessions.create({
@@ -139,7 +177,10 @@ app.post('/create-checkout-session', async (req, res) => {
 
 // ---------------- Admin API ----------------
 app.post('/admin/login', rateLimit('login', 5, 60000), (req, res) => {
-  if ((req.body?.password || '') !== ADMIN_PASSWORD) {
+  const inputPw = String(req.body?.password || '');
+  const inputHash = crypto.createHash('sha256').update(inputPw).digest();
+  const expectedHash = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
+  if (!crypto.timingSafeEqual(inputHash, expectedHash)) {
     return res.status(401).json({ error: 'Wrong password' });
   }
   const token = crypto.randomBytes(24).toString('hex');
@@ -154,11 +195,11 @@ app.post('/track', rateLimit('track', 30, 60000), (req, res) => {
   if (!kind || typeof amount !== 'number') return res.status(400).json({ ok: false });
   const evts = readEvents();
   evts.push({
-    kind, name: String(name).slice(0, 120), amount, admin: !!isAdmin,
-    user: String(user || 'guest').slice(0, 60),
-    charity: charity ? String(charity).slice(0, 30) : undefined,
+    kind: escapeHtml(kind), name: escapeHtml(String(name).slice(0, 120)), amount, admin: !!isAdmin,
+    user: escapeHtml(String(user || 'guest').slice(0, 60)),
+    charity: charity ? escapeHtml(String(charity).slice(0, 30)) : undefined,
     donate: typeof donate === 'number' ? donate : undefined,
-    ref: ref ? String(ref).slice(0, 40) : undefined,
+    ref: ref ? escapeHtml(String(ref).slice(0, 40)) : undefined,
     at: Date.now(),
   });
   writeEvents(evts);
@@ -212,10 +253,25 @@ app.get('/admin/summary', checkAdmin, (req, res) => {
 });
 
 // Serve the frontend
-app.use(express.static(path.join(__dirname, '..')));
-
-app.listen(PORT, () => {
-  console.log(`\n🌈 Somewhere Over the Rainbow Bridge running at http://localhost:${PORT}`);
-  console.log(stripe ? '  Stripe: configured ✓' : '  Stripe: NOT configured — frontend will run in demo mode');
-  console.log(`  Admin dashboard: http://localhost:${PORT}/admin.html  (password: ${process.env.ADMIN_PASSWORD ? 'from .env' : 'rainbowadmin — set ADMIN_PASSWORD in .env!'})`);
+app.use((req, res, next) => {
+  if (req.path.startsWith('/server') || req.path.startsWith('/.env')) {
+    return res.status(403).send('Forbidden');
+  }
+  next();
 });
+app.use(express.static(path.join(__dirname, '..'), { extensions: ['html'] }));
+
+const portsToTry = Array.from(new Set([PORT, 8000, 8080, 8088, 4242, 3000, 5000]));
+function tryListen(index) {
+  if (index >= portsToTry.length) return;
+  const p = portsToTry[index];
+  const s = app.listen(p, () => {
+    console.log(`🌈 Somewhere Over the Rainbow Bridge running at http://localhost:${p}`);
+  });
+  s.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      tryListen(index + 1);
+    }
+  });
+}
+tryListen(0);

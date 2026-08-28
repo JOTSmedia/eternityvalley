@@ -22,6 +22,138 @@ const reduceMotion = () =>
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /**
+ * Master 11-Stage Drone Tour Landmarks Metadata
+ * Single source of truth for the cinematic multi-building drone flight stages.
+ * Dynamic POI Camera Tracking: Drone stays strictly forward-facing for Legs 1 & 2,
+ * and dynamically rotates/focuses on each landmark object from Living Fountain onwards.
+ */
+export const DRONE_TOUR_LANDMARKS = [
+  {
+    stage: 1,
+    id: 'grand-gate',
+    title: 'The Grand Triumphal Gate',
+    sub: 'Monumental approach and direct flight through the soaring open triumphal arch into the sanctuary.',
+    tStart: 0.000,
+    tEnd: 1/11,
+    seconds: 11,
+    speedScale: 0.65,
+    icon: 'crest',
+  },
+  {
+    stage: 2,
+    id: 'rainbow-bridge',
+    title: 'The Rainbow Bridge Crest',
+    sub: 'Gliding along Grand Boulevard and soaring cleanly over the glowing prismatic bridge crest.',
+    tStart: 1/11,
+    tEnd: 2/11,
+    seconds: 9,
+    speedScale: 0.65,
+    icon: 'sparkle',
+  },
+  {
+    stage: 3,
+    id: 'central-plaza',
+    title: 'Central Plaza & Living Fountain',
+    sub: '360-degree orbit around the tiered lion fountain basin, starburst mosaics, and flower beds.',
+    tStart: 2/11,
+    tEnd: 3/11,
+    seconds: 12,
+    speedScale: 0.58,
+    icon: 'flower',
+  },
+  {
+    stage: 4,
+    id: 'cataract-waterfall',
+    title: 'Cataract Waterfall Vertical Ascent',
+    sub: 'Soaring high over central meadow tree crowns, descending to mist level in clear air 25m in front of the 182m cascade face, and ascending vertically to crest the waterfall lip.',
+    tStart: 3/11,
+    tEnd: 4/11,
+    seconds: 13,
+    speedScale: 0.55,
+    icon: 'heart',
+  },
+  {
+    stage: 5,
+    id: 'glacial-tarn',
+    title: 'Cathedral Glacial Tarn Underwater Dive',
+    sub: 'Submerged dive in the Glacial Tarn water source exploring swimming celestial trout pods, glowing boulders and bubbles, ascending and resurfacing cleanly into crisp alpine air.',
+    tStart: 4/11,
+    tEnd: 5/11,
+    seconds: 14,
+    speedScale: 0.45,
+    icon: 'globe',
+  },
+  {
+    stage: 6,
+    id: 'universal-cathedral',
+    title: 'Universal Cathedral Aerial Orbit & Entry',
+    sub: 'High aerial orbit around the 140m gold flèche spire & twin 102m bell towers, flying straight between open French Gothic oak doors down the center nave aisle.',
+    tStart: 5/11,
+    tEnd: 6/11,
+    seconds: 13,
+    speedScale: 0.52,
+    icon: 'feather',
+  },
+  {
+    stage: 7,
+    id: 'moorish-mosque',
+    title: 'The Moorish Mosque of Light',
+    sub: 'Panoramic descent along the western ridge to the terrace perched above the valley, orbiting the minaret, gliding over the marble reflecting pool and Alhambra arcade.',
+    tStart: 6/11,
+    tEnd: 7/11,
+    seconds: 12,
+    speedScale: 0.55,
+    icon: 'crescent',
+  },
+  {
+    stage: 8,
+    id: 'mirror-lake',
+    title: 'Mirror Lake & Submerged Aquatic Realm',
+    sub: 'Descent across valley meadows, skimming lake waters beneath weeping willows, diving underwater with swimming golden koi, and resurfacing into golden mist.',
+    tStart: 7/11,
+    tEnd: 8/11,
+    seconds: 13,
+    speedScale: 0.45,
+    icon: 'lotus',
+  },
+  {
+    stage: 9,
+    id: 'buddhist-pagoda',
+    title: 'Buddhist Pagoda, Zen Garden & Shoji Porch',
+    sub: 'Flying past the open South Porch and golden Buddha statue before spiraling up past the 5-tiered curved eaves & Sōrin finial.',
+    tStart: 8/11,
+    tEnd: 9/11,
+    seconds: 12,
+    speedScale: 0.52,
+    icon: 'star',
+  },
+  {
+    stage: 10,
+    id: 'kaya-island-reef',
+    title: 'Kaya Island & Submerged Coral Reef',
+    sub: 'High coastal flight approaching Kaya Island from the North, orbiting the Starlight Pavilion, and plunging off the sea cliff into the glowing coral reef lagoon.',
+    tStart: 9/11,
+    tEnd: 10/11,
+    seconds: 16,
+    speedScale: 0.58,
+    icon: 'sparkle',
+  },
+  {
+    stage: 11,
+    id: 'celestial-ascent',
+    title: 'Celestial Sunrise Ascent & Panoramic Vista',
+    sub: 'Radiant sunrise ocean breach into golden morning sunlight for a soaring high panoramic climb commanding the full valley vista, looping seamlessly back to Leg 1.',
+    tStart: 10/11,
+    tEnd: 11/11,
+    seconds: 12,
+    speedScale: 0.65,
+    icon: 'globe',
+  },
+];
+
+export const TOUR_LANDMARKS = DRONE_TOUR_LANDMARKS;
+
+/**
  * The script. `target` is a selector resolved at the moment the step
  * runs — never cached, because views mount lazily and the toolbar
  * reflows. A step with no target is shown centred.
@@ -31,102 +163,44 @@ const STEPS = [
     id: 'orbit',
     target: null,
     icon: 'globe',
-    title: 'This is Earth, right now',
-    body: 'Not a picture of it — the real thing, at this minute. The sunlight falls where the sun actually is, the city lights come on as night reaches them, and the moon overhead is tonight’s moon at tonight’s phase.',
+    title: 'Live Earth in Real Time',
+    body: 'Sunlight, city lights, and tonight’s actual moon phase mirrored in real-time orbit.',
   },
   {
     id: 'valley',
     target: '#enterValleyBtn',
     icon: 'crest',
-    title: 'The valley is through here',
-    body: 'Rainbow Bridge Valley is a place you can walk: meadows, a lakeside, pines, shores, a summit. Every companion has a spot here, whether or not you ever choose one on the map.',
+    title: 'Rainbow Bridge Valley',
+    body: 'Step into the living 3D sanctuary — experience the cinematic 11-Stage Drone Tour, stroll the meadows, glowing bridge, lake, and gardens.',
   },
   {
     id: 'search',
     target: '#earthSearch',
     icon: 'search',
-    title: 'Or somewhere they actually loved',
-    body: 'Type any real address or place — your own backyard, the beach they tore up and down, the trail you walked every evening. This is the heart of it: their memorial can sit on the ground they knew.',
-  },
-  {
-    id: 'fly',
-    target: '#earthGo',
-    icon: 'plane',
-    title: 'Then fly there',
-    body: 'The planet turns under you and drops you into real satellite imagery of that exact place. “My location” does the same for wherever you’re standing now.',
-  },
-  {
-    id: 'views',
-    target: '.view-toggle',
-    icon: 'eye',
-    title: 'Four ways to be there',
-    body: 'Orbit is the whole planet. Map is real imagery of one place on it. Valley is the sanctuary itself, in 3D. 2D is a plain overhead plan for when you just want to find something quickly.',
-  },
-  {
-    id: 'place',
-    target: '#placeBtn',
-    icon: 'paw',
-    title: 'Place their memorial',
-    body: 'Choose the spot, add their name, their photo, the years, a few words. It stays at those coordinates — you can come back and stand there any time.',
-    optional: true,
+    title: 'Their Favorite Place on Earth',
+    body: 'Search any home address, beach, or trail to place a lasting memorial on the real world map.',
   },
   {
     id: 'cause',
     target: '#causeBtn',
     icon: 'heart',
-    title: 'Remembering one animal should help a living one',
-    body: 'A share of every plot, membership and gift goes to an animal charity — the one the memorial’s owner picked, not one we picked for them. And if you never buy anything at all, you can still start a free campaign in your companion’s name: 100% of what it raises goes straight to the charity you chose.',
-    optional: true,
+    title: 'Giving Back to Rescues',
+    body: '100% of memorial campaign donations pass directly to verified animal shelters with a public ledger.',
   },
   {
-    id: 'ledger',
-    target: '#causeBtn',
-    icon: 'scroll',
-    title: 'And you can check that we mean it',
-    body: 'Every transaction this site has ever taken is published — what came in, what the card processor took, what reached the charity. The list is hash-chained, so an entry cannot be quietly rewritten later. Open it from here any time.',
-    optional: true,
-  },
-  {
-    id: 'browse',
-    target: '#browseBtn',
-    icon: 'grave',
-    title: 'Visit other companions',
-    body: 'Every memorial anyone has placed, and every plot in the valley. Leave flowers, light a candle, or just read what someone wrote about a dog you never met.',
-    optional: true,
-  },
-  {
-    id: 'feed',
-    target: '#feedBtn',
-    icon: 'chat',
-    title: 'Nobody grieves well alone',
-    body: 'The community feed is where people say the things that are hard to say elsewhere. Read it, or add to it.',
-    optional: true,
-  },
-  {
-    id: 'mine',
-    target: '#myBtn',
-    icon: 'heart',
-    title: 'Everything of yours lives here',
-    body: 'My Bridge collects the memorials you’ve made and the gifts you’ve left. You can look around as a guest for as long as you like — an account only matters when you want it kept.',
-    optional: true,
-  },
-  {
-    id: 'done',
-    target: '#tourBtn',
+    id: 'views',
+    target: '.view-toggle',
     icon: 'sparkle',
-    title: 'That’s the whole map',
-    body: 'Take your time — nothing here is in a hurry. This guide lives under this button whenever you want it again.',
-    optional: true,
+    title: 'Explore Four Perspectives',
+    body: 'Switch effortlessly between Orbit, Photorealistic 3D Earth, the Valley Sanctuary, and 2D Map.',
     last: true,
   },
 ];
 
-// Long enough to actually read: a floor, plus time proportional to the
-// text. The earlier loading screen shipped with a fixed interval and
-// changed before anyone finished a sentence; this is deliberately slow.
+// Crisp, fast dwell time (2.0s - 3.2s) so the tutorial flows smoothly without holding the user up.
 function dwellFor(step) {
   const chars = (step.title + step.body).length;
-  return Math.min(13000, 3800 + chars * 52);
+  return Math.min(3200, 1800 + chars * 12);
 }
 
 export const Tour = {

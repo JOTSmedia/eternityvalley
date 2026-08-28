@@ -12,7 +12,7 @@
 // to a still gradient when the visitor asks for less motion.
 // ============================================================
 
-const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+const REDUCED = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 
@@ -189,7 +189,7 @@ export class Atmosphere {
       this._update(dt);
       this._draw();
     } catch (e) {
-      if (!this._warned) { this._warned = true; console.warn('[atmosphere] draw failed', e); }
+      if (!this._warned) { this._warned = true; console.log('[atmosphere] draw failed', e); }
     }
   }
 
@@ -353,26 +353,121 @@ export class Atmosphere {
   // and only its crown rising into frame. Brightest in rain — "the
   // Bridge glows brightest" — and after dark. Kept faint on purpose:
   // it is atmosphere behind the copy, never competition for it.
+  // Photorealistic Optical Double Rainbow Engine
+  // Models true atmospheric light dispersion through spherical raindrops:
+  // - Primary 42° arc with continuous wavelength dispersion (Red 700nm to Violet 400nm)
+  // - Supernumerary inner interference fringes
+  // - Alexander's dark band region between arcs
+  // - Secondary 51° inverted spectral arc (Violet outer, Red inner)
+  // - Dynamic atmospheric shimmering, light shafts, and caustics
   _drawRainbow(snap) {
     const { ctx, w, h } = this;
-    const cx = w * 0.5 + this.px * 26;
-    const cy = h * 1.10 + this.py * 10;
-    const R = Math.max(w, h) * 0.60;
-    const band = R * 0.048;
-    const breathe = 0.88 + 0.12 * Math.sin(this.t * 0.5);
-    const alpha = (0.045 + snap.vividness * 0.085) * (0.8 + snap.stars * 0.3) * breathe;
+    const cx = w * 0.5 + this.px * 32;
+    const cy = h * 0.98 + this.py * 14;
+    const baseR = Math.max(w, h) * 0.72;
+    const primaryWidth = baseR * 0.085;
+    
+    // Dynamic optical breathing & atmospheric shimmer
+    const shimmer = 0.92 + 0.08 * Math.sin(this.t * 0.85);
+    const wave = Math.sin(this.t * 0.45) * 0.02;
+    const alpha = Math.min(0.85, (0.16 + (snap.vividness || 0.6) * 0.28) * (0.85 + (snap.stars || 0) * 0.25) * shimmer);
 
     ctx.save();
+
+    // 1. Primary Spectral Arc — Continuous Optical Wavelength Radial Gradient
+    const pOuter = baseR + primaryWidth * 0.5;
+    const pInner = baseR - primaryWidth * 0.5;
+    const gradPrimary = ctx.createRadialGradient(cx, cy, pInner - primaryWidth * 0.15, cx, cy, pOuter + primaryWidth * 0.2);
+
+    gradPrimary.addColorStop(0.00, 'rgba(0, 0, 0, 0)');
+    // Supernumerary inner green/pink interference fringe
+    gradPrimary.addColorStop(0.06, 'rgba(230, 160, 240, 0.06)');
+    gradPrimary.addColorStop(0.12, 'rgba(120, 230, 180, 0.08)');
+    // Deep Violet (400nm) to Blue (450nm)
+    gradPrimary.addColorStop(0.18, 'rgba(130, 70, 230, 0.55)');
+    gradPrimary.addColorStop(0.28, 'rgba(65, 120, 245, 0.68)');
+    // Cyan (490nm) to Emerald Green (530nm)
+    gradPrimary.addColorStop(0.40, 'rgba(50, 215, 220, 0.75)');
+    gradPrimary.addColorStop(0.52, 'rgba(80, 225, 110, 0.82)');
+    // Solar Gold (580nm) to Warm Amber (610nm)
+    gradPrimary.addColorStop(0.66, 'rgba(255, 220, 60, 0.88)');
+    gradPrimary.addColorStop(0.78, 'rgba(255, 145, 45, 0.84)');
+    // Crimson Red (680nm) to Infrared soft glow
+    gradPrimary.addColorStop(0.90, 'rgba(240, 55, 55, 0.78)');
+    gradPrimary.addColorStop(1.00, 'rgba(240, 55, 55, 0)');
+
     ctx.globalCompositeOperation = 'screen';
-    ctx.filter = `blur(${Math.round(band * 0.7)}px)`;
-    snap.spectrum.forEach((c, i) => {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = gradPrimary;
+    ctx.beginPath();
+    ctx.arc(cx, cy, pOuter + primaryWidth * 0.3, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Secondary Arc — Inverted Spectrum (51° radius, Violet outer, Red inner)
+    const secR = baseR * 1.24;
+    const secWidth = primaryWidth * 0.75;
+    const sOuter = secR + secWidth * 0.5;
+    const sInner = secR - secWidth * 0.5;
+    const gradSecondary = ctx.createRadialGradient(cx, cy, sInner - secWidth * 0.1, cx, cy, sOuter + secWidth * 0.1);
+
+    gradSecondary.addColorStop(0.00, 'rgba(0, 0, 0, 0)');
+    // Inverted: Red inner
+    gradSecondary.addColorStop(0.20, 'rgba(235, 60, 60, 0.32)');
+    gradSecondary.addColorStop(0.35, 'rgba(255, 150, 50, 0.35)');
+    gradSecondary.addColorStop(0.50, 'rgba(250, 220, 70, 0.35)');
+    gradSecondary.addColorStop(0.65, 'rgba(75, 215, 120, 0.32)');
+    gradSecondary.addColorStop(0.80, 'rgba(60, 130, 240, 0.28)');
+    // Violet outer
+    gradSecondary.addColorStop(0.92, 'rgba(140, 70, 235, 0.25)');
+    gradSecondary.addColorStop(1.00, 'rgba(0, 0, 0, 0)');
+
+    ctx.globalAlpha = alpha * 0.45;
+    ctx.fillStyle = gradSecondary;
+    ctx.beginPath();
+    ctx.arc(cx, cy, sOuter + secWidth * 0.2, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Volumetric Atmospheric Light Rays (God Rays slicing across the bow)
+    const rayCount = 7;
+    for (let i = 0; i < rayCount; i++) {
+      const rayAngle = -Math.PI * 0.85 + (i / (rayCount - 1)) * (Math.PI * 0.70) + Math.sin(this.t * 0.3 + i * 1.1) * 0.04;
+      const rayAlpha = (0.04 + 0.03 * Math.sin(this.t * 0.7 + i * 1.7)) * alpha;
+      const rayLen = baseR * 1.35;
+      const rx = cx + Math.cos(rayAngle) * rayLen;
+      const ry = cy + Math.sin(rayAngle) * rayLen;
+
+      const rGrad = ctx.createLinearGradient(cx, cy, rx, ry);
+      rGrad.addColorStop(0, 'rgba(255, 245, 210, 0.18)');
+      rGrad.addColorStop(0.65, 'rgba(255, 240, 190, 0.08)');
+      rGrad.addColorStop(1, 'rgba(255, 240, 190, 0)');
+
+      ctx.save();
+      ctx.globalAlpha = rayAlpha;
+      ctx.strokeStyle = rGrad;
+      ctx.lineWidth = w * 0.08;
       ctx.beginPath();
-      ctx.arc(cx, cy, R - i * band, Math.PI, Math.PI * 2);
-      ctx.lineWidth = band * 1.5;
-      ctx.strokeStyle = c;
-      ctx.globalAlpha = alpha;
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(rx, ry);
       ctx.stroke();
-    });
+      ctx.restore();
+    }
+
+    // 4. Prismatic Shimmering Mist Caustics (Luminous Water Droplets)
+    const sparkleN = 16;
+    for (let j = 0; j < sparkleN; j++) {
+      const sAngle = Math.PI + (j / (sparkleN - 1)) * Math.PI + Math.sin(this.t * 0.5 + j) * 0.03;
+      const sDist = baseR + (Math.sin(j * 3.7 + this.t * 0.9) * 0.35) * primaryWidth;
+      const sx = cx + Math.cos(sAngle) * sDist;
+      const sy = cy + Math.sin(sAngle) * sDist;
+      const sSize = 1.5 + Math.sin(this.t * 2.2 + j * 1.4) * 1.2;
+      if (sSize > 0.5) {
+        ctx.fillStyle = j % 3 === 0 ? 'rgba(255, 240, 180, 0.7)' : j % 3 === 1 ? 'rgba(180, 240, 255, 0.7)' : 'rgba(255, 200, 240, 0.7)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, sSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     ctx.restore();
   }
 
