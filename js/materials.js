@@ -3187,11 +3187,38 @@ const RECIPES = {
  * Get the raw texture set for a recipe, generated once and cached.
  * @param {keyof RECIPES} name
  */
+
+const RECIPE_ALIASES = {
+  'gold': 'celestialGold24K',
+  'celestialGold': 'celestialGold24K',
+  'sunGold': 'celestialGold24K',
+  'flagstone': 'limestone',
+  'paving': 'limestone',
+  'pavers': 'limestone',
+  'bronze': 'weatheredVerdigrisBronze'
+};
+
+const _warnedAliases = new Set();
+function resolveAlias(name) {
+  if (RECIPE_ALIASES[name]) {
+    if (!_warnedAliases.has(name)) {
+      console.warn(`[materials] alias used: "${name}" -> "${RECIPE_ALIASES[name]}"`);
+      _warnedAliases.add(name);
+    }
+    return RECIPE_ALIASES[name];
+  }
+  return name;
+}
+
 export function textures(name, size) {
+  name = resolveAlias(name);
   const key = `${name}@${size || 'auto'}`;
   if (texCache.has(key)) return texCache.get(key);
   const recipe = RECIPES[name];
-  if (!recipe) throw new Error(`[materials] no recipe "${name}"`);
+  if (!recipe) {
+    console.warn(`[materials] no texture recipe "${name}"`);
+    return {};
+  }
   const canvases = size ? recipe(size) : recipe();
   const out = {};
   if (canvases.map) out.map = toTexture(canvases.map, { srgb: true });
@@ -3278,6 +3305,7 @@ export async function warmAllTextures(onProgress) {
  * @param {object} opts    { repeat, color, roughness, metalness, physical, ...THREE material props }
  */
 export function material(name, opts = {}) {
+  name = resolveAlias(name);
   const { repeat = 1, physical = false, normalScale = 1, ...rest } = opts;
   const key = `${name}|${repeat}|${physical}|${normalScale}|${JSON.stringify(rest)}`;
   if (matCache.has(key)) return matCache.get(key);

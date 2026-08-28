@@ -712,8 +712,8 @@
 <script type="module" src="js/main.js"></script>
 <script>
 setTimeout(function() {
-  if (!window.__rbvBooted) {
-    console.warn('[watchdog] Safety timeout (5.5s) reached. Executing graceful 3D Sanctuary entry.');
+  if (!window.world && !window.__rbvBooted) {
+    console.warn('[watchdog] Safety timeout (20s) reached. Executing graceful 3D Sanctuary entry.');
     window.__rbvBooted = true;
     window.__appBootReady = true;
     if (typeof window.enter === 'function') {
@@ -748,7 +748,7 @@ setTimeout(function() {
       if (typeof window.world.start === 'function') window.world.start();
     }
   }
-}, 5500);
+}, 20000);
 </script>
 </body>
 </html>

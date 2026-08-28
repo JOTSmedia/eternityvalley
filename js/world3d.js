@@ -181,7 +181,7 @@ export class World3D {
     });
     // High-performance 1.0x max pixel ratio — prevents high-DPI Retina thermal throttling
     // while keeping WebGL rendering at razor-sharp 60 FPS.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.0));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 768 ? 1.25 : 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate = false;
@@ -238,6 +238,10 @@ export class World3D {
 
     this._resizeHandler = () => this._resize();
     if (typeof window !== 'undefined') window.addEventListener('resize', this._resizeHandler);
+
+    this._resize();
+    this._running = true;
+    this._animate();
   }
 
   async initAsync() {
@@ -298,7 +302,7 @@ export class World3D {
     // ---------------- GPU ENFORCEMENT PASS ----------------
     this.scene.traverse((obj) => {
       if (obj.isInstancedMesh) {
-        obj.frustumCulled = false;
+        obj.frustumCulled = true;
         if (!obj.boundingSphere && typeof obj.computeBoundingSphere === 'function') {
           obj.computeBoundingSphere();
         }
@@ -323,7 +327,8 @@ export class World3D {
 
     // Default to panoramic Orbit Map view of the sanctuary
     this.setMode('orbit');
-    this._animate();
+    console.log('[world3d] initAsync complete');
+    if (this.renderer.shadowMap) this.renderer.shadowMap.needsUpdate = true;
   }
 
   /**
@@ -417,16 +422,18 @@ export class World3D {
     sun.castShadow = true;
 
     // Shadow Map Resolution & Orthographic Volume tightly enclosing active sanctuary valley territory
-    sun.shadow.mapSize.set(2048, 2048);
-    const s = 1100;
+    sun.shadow.mapSize.set(4096, 4096);
+    const s = 850;
     Object.assign(sun.shadow.camera, {
       left: -s,
       right: s,
       top: s,
       bottom: -s,
       near: 350,
-      far: 5500,
+      far: 4500,
     });
+    sun.shadow.bias = -0.0005;
+    this.renderer.shadowMap.autoUpdate = false;
 
     // Precision bias parameters to eliminate shadow acne & peter-panning on curved terrain & rocks
     sun.shadow.bias = -0.00012;
@@ -503,11 +510,11 @@ export class World3D {
 
     // Directional Sun, Hemisphere Fill, Aerial Perspective Fog & Exposure Matrix
     const LOOK = {
-      dawn:  { exposure: 0.90, sun: 2.8,  env: 0.75, hemi: 0.38, sunCol: 0xffe0ba, hemiSky: 0x6a5870, hemiGnd: 0x302820, fogCol: 0xb89084, fogDensity: 0.000075, stars: 0.0,  clouds: 0xf4dfd4, water: 0x1c4456 },
-      day:   { exposure: 0.92, sun: 3.6,  env: 0.80, hemi: 0.45, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874 },
-      dusk:  { exposure: 0.90, sun: 2.8,  env: 0.75, hemi: 0.38, sunCol: 0xff883c, hemiSky: 0x684848, hemiGnd: 0x2e201a, fogCol: 0xa86854, fogDensity: 0.000075, stars: 0.18, clouds: 0xfba680, water: 0x203848 },
-      night: { exposure: 0.96, sun: 1.4,  env: 0.65, hemi: 0.30, sunCol: 0xd4ecff, hemiSky: 0x1c2c3e, hemiGnd: 0x101814, fogCol: 0x142236, fogDensity: 0.000055, stars: 1.0,  clouds: 0x42587c, water: 0x142e48 },
-    }[p.key] || { exposure: 0.92, sun: 3.6, env: 0.80, hemi: 0.45, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874 };
+      dawn:  { exposure: 0.85, sun: 2.8,  env: 0.70, hemi: 0.38, sunCol: 0xffe0ba, hemiSky: 0x6a5870, hemiGnd: 0x302820, fogCol: 0xb89084, fogDensity: 0.000075, stars: 0.0,  clouds: 0xf4dfd4, water: 0x1c4456 },
+      day:   { exposure: 0.92, sun: 3.6,  env: 1.15, hemi: 0.45, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874 },
+      dusk:  { exposure: 0.78, sun: 2.8,  env: 0.65, hemi: 0.38, sunCol: 0xff883c, hemiSky: 0x684848, hemiGnd: 0x2e201a, fogCol: 0xa86854, fogDensity: 0.000075, stars: 0.18, clouds: 0xfba680, water: 0x203848 },
+      night: { exposure: 0.50, sun: 1.4,  env: 0.18, hemi: 0.30, sunCol: 0xd4ecff, hemiSky: 0x1c2c3e, hemiGnd: 0x101814, fogCol: 0x142236, fogDensity: 0.000055, stars: 1.0,  clouds: 0x42587c, water: 0x142e48 },
+    }[p.key] || { exposure: 0.92, sun: 3.6, env: 1.15, hemi: 0.45, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874 };
 
     if (!this.scene.background || !this.scene.background.isColor) {
       this.scene.background = new THREE.Color(SKY_PALETTE.zenith);
@@ -782,6 +789,12 @@ export class World3D {
 
   // ---------------- Post-processing ----------------
   _composer() {
+    const isHigh = typeof window !== 'undefined' && window.innerWidth > 768;
+    if (!isHigh) {
+      this.useComposer = false;
+      return;
+    }
+    this.useComposer = true;
     const w = this.canvas.clientWidth || window.innerWidth || 1;
     const h = this.canvas.clientHeight || window.innerHeight || 1;
     const composer = new EffectComposer(this.renderer);
@@ -1369,12 +1382,65 @@ export class World3D {
     geo.computeBoundingSphere();
     geo.computeBoundingBox();
 
-    const groundDetailTex = textures('groundDetail');
+    // Streaming Close-Range Patch
+    this.patchSegs = 128;
+    this.patchSize = 1000;
+    this.terrainPatchGeo = new THREE.PlaneGeometry(this.patchSize, this.patchSize, this.patchSegs, this.patchSegs);
+    this.terrainPatchGeo.rotateX(-Math.PI / 2);
+    
+    const patchPos = this.terrainPatchGeo.attributes.position;
+    this.terrainPatchGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(patchPos.count * 3), 3));
+    this.terrainPatchGeo.setAttribute('aCreviceAO', new THREE.BufferAttribute(new Float32Array(patchPos.count), 1));
+    // Normal attribute is auto-created by PlaneGeometry, we'll compute it dynamically
+    
+    this.terrainPatch = new THREE.Mesh(this.terrainPatchGeo, mat);
+    this.terrainPatch.castShadow = true;
+    this.terrainPatch.receiveShadow = true;
+    // tiny polygon offset or vertical bump
+    this.terrainPatch.position.y = 0.15;
+    this.scene.add(this.terrainPatch);
+    this._lastPatchX = -999999;
+    this._lastPatchZ = -999999;
+    this._updateTerrainPatch = () => {
+      if (!this.terrainPatch || !this.camera) return;
+      const cx = Math.round(this.camera.position.x / 100) * 100;
+      const cz = Math.round(this.camera.position.z / 100) * 100;
+      if (this._lastPatchX === cx && this._lastPatchZ === cz) return;
+      this._lastPatchX = cx; this._lastPatchZ = cz;
+      
+      this.terrainPatch.position.set(cx, 0.15, cz);
+      const pPos = this.terrainPatchGeo.attributes.position;
+      const pCol = this.terrainPatchGeo.attributes.color;
+      const pAO = this.terrainPatchGeo.attributes.aCreviceAO;
+      const c = new THREE.Color();
+      for (let i = 0; i < pPos.count; i++) {
+        const x = pPos.getX(i) + cx;
+        const z = pPos.getZ(i) + cz;
+        const h = terrainHeight(x, z);
+        pPos.setY(i, h);
+        
+        // very simplified tinting for patch to match
+        c.setHex(0x2e5c1e);
+        if (h > 280) c.setHex(0xdce6f0);
+        else if (h > 18) c.lerp(new THREE.Color(0x565e68), Math.min(1.0, (h-18)/45));
+        pCol.setXYZ(i, c.r, c.g, c.b);
+        pAO.setX(i, 1.0);
+      }
+      this.terrainPatchGeo.computeVertexNormals();
+      pPos.needsUpdate = true;
+      pCol.needsUpdate = true;
+      pAO.needsUpdate = true;
+      if (this.renderer.shadowMap) this.renderer.shadowMap.needsUpdate = true;
+    };
+
+
+    const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 : 512;
+    const groundDetailTex = textures('groundDetail', isHigh);
     const orthophotoTex = textures('satelliteOrthophoto');
-    const photoRockTex = textures('photogrammetryRock');
-    const mossyScreeTex = textures('mossyScree');
-    const meadowTex = textures('meadowLush');
-    const snowTex = textures('alpineSnowDrift');
+    const photoRockTex = textures('photogrammetryRock', isHigh);
+    const mossyScreeTex = textures('mossyScree', isHigh);
+    const meadowTex = textures('meadowLush', isHigh);
+    const snowTex = textures('alpineSnowDrift', isHigh);
 
     [
       groundDetailTex.map, groundDetailTex.normalMap, groundDetailTex.roughnessMap,
@@ -5440,7 +5506,11 @@ export class World3D {
     const ancientTravertine = material('weatheredTravertine', { repeat: 2.5, color: 0x9c9284, roughness: 0.9, metalness: 0.0, normalScale: 2.5, aoMapIntensity: 1.8 });
     const cedarWood = material('timber', { repeat: 1.5, color: 0x3d2416, roughness: 0.8, metalness: 0.0, normalScale: 1.5 });
     const templeBronze = material('bronze', { repeat: 1.2, color: 0x8a6e45, roughness: 0.4, metalness: 0.85, physical: true, clearcoat: 0.2, clearcoatRoughness: 0.5 });
-    const sunGold = material('gold', { repeat: 1.0, color: 0xffd700, roughness: 0.1, metalness: 1.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.05 });
+    const sunGold = Surfaces.gold(1.0).clone();
+    sunGold.color.setHex(0xffd700);
+    sunGold.roughness = 0.1;
+    sunGold.clearcoat = 0.9;
+    sunGold.clearcoatRoughness = 0.05;
     const blackGranite = material('granite', { repeat: 1.8, color: 0x12100e, roughness: 0.2, metalness: 0.05, physical: true, clearcoat: 0.5, clearcoatRoughness: 0.3, normalScale: 1.2 });
     const tyrianPurple = new THREE.MeshStandardMaterial({ color: 0x4a0515, roughness: 0.85, metalness: 0.05 });
 
@@ -5988,7 +6058,11 @@ export class World3D {
     const slateRoof = Surfaces.pagodaTile(4.0);
     // Enhanced celestially reflective bronze & gold
     const bronze = Surfaces.verdigrisBronze(1.4);
-    const gold = material('gold', { repeat: 1.0, color: 0xffd700, roughness: 0.15, metalness: 1.0, physical: true, clearcoat: 0.8, clearcoatRoughness: 0.1 });
+    const gold = Surfaces.gold(1.0).clone();
+    gold.color.setHex(0xffd700);
+    gold.roughness = 0.15;
+    gold.clearcoat = 0.8;
+    gold.clearcoatRoughness = 0.1;
     const darkWood = Surfaces.wood(2.4);
     const marble = Surfaces.honedCarraraMarble(2.5);
     const stainedGlassRose = Surfaces.stainedGlassRose();
@@ -8520,7 +8594,11 @@ export class World3D {
     const turquoiseTile = material('moorishZellij', {
       repeat: 6.0, color: 0x1292a2, roughness: 0.04, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.01, ior: 1.65, reflectivity: 0.95, clearcoatNormalScale: 0.5
     });
-    const gold = material('gold', { repeat: 1.0, color: 0xffd700, roughness: 0.15, metalness: 1.0, physical: true, clearcoat: 0.8, clearcoatRoughness: 0.1 });
+    const gold = Surfaces.gold(1.0).clone();
+    gold.color.setHex(0xffd700);
+    gold.roughness = 0.15;
+    gold.clearcoat = 0.8;
+    gold.clearcoatRoughness = 0.1;
     const darkCedar = material('timber', { repeat: 3.0, color: 0x2e1a10, roughness: 0.7, metalness: 0.0, physical: true, clearcoat: 0.1, clearcoatRoughness: 0.5, normalScale: 1.4 });
     const brass = material('bronze', { repeat: 2.0, color: 0xb5a642, roughness: 0.3, metalness: 0.8, physical: true, clearcoat: 0.3, clearcoatRoughness: 0.4 });
 
@@ -11332,11 +11410,19 @@ export class World3D {
     // Luminous Classical & PBR Materials
     const marble = material('honedCarraraMarble', { repeat: 1.5, color: 0xfffef8, roughness: 0.1, metalness: 0.05, physical: true, clearcoat: 0.5, clearcoatRoughness: 0.15 });
     
-    const stone = material('flagstone', { repeat: 3.2, color: 0xc4b7a6, roughness: 0.85, metalness: 0.0, normalScale: 2.0, aoMapIntensity: 1.5 });
+    const stone = Surfaces.flagstone(3.2).clone();
+    stone.color.setHex(0xc4b7a6);
+    stone.roughness = 0.85;
+    if (stone.normalScale) stone.normalScale.set(2.0, 2.0);
+    stone.aoMapIntensity = 1.5;
     
     const stoneDark = material('limestoneDark', { repeat: 1.8, color: 0x847966, roughness: 0.9, metalness: 0.0, normalScale: 2.5, aoMapIntensity: 1.8 });
     
-    const gold = material('gold', { repeat: 1.0, color: 0xffe270, roughness: 0.1, metalness: 1.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.05 });
+    const gold = Surfaces.gold(1.0).clone();
+    gold.color.setHex(0xffe270);
+    gold.roughness = 0.1;
+    gold.clearcoat = 1.0;
+    gold.clearcoatRoughness = 0.05;
     gold.roughness = 0.16;
     gold.metalness = 0.96;
 
@@ -11783,20 +11869,32 @@ export class World3D {
     g.add(pavGroup);
 
     // 6. Primary Ethereal Atmospheric Rainbow Arc (Physical spectral wavelength Red 650nm -> Violet 400nm)
-    const arc = this._makeRainbowArc(95, 145, 0.16, false);
-    arc.position.set(bx, 2, bz);
-    g.add(arc);
+    const arcGroup = new THREE.Group();
+    arcGroup.position.set(bx, 2, bz);
+    for (let offset = -24; offset <= 24; offset += 4) {
+      const arc = this._makeRainbowArc(95, 145, 0.16 * (1.0 - Math.abs(offset)/30.0), false);
+      arc.position.z = offset;
+      arcGroup.add(arc);
+      this._rainbowShaders.push(arc.material);
+    }
+    g.add(arcGroup);
 
     // Secondary Outer Rainbow Arc (physics-accurate Alexander's Dark Band with inverted spectrum)
-    const arc2 = this._makeRainbowArc(150, 180, 0.055, true);
-    arc2.position.set(bx, 2, bz - 6);
-    g.add(arc2);
+    const arc2Group = new THREE.Group();
+    arc2Group.position.set(bx, 2, bz - 6);
+    for (let offset = -16; offset <= 16; offset += 4) {
+      const arc2 = this._makeRainbowArc(150, 180, 0.055 * (1.0 - Math.abs(offset)/20.0), true);
+      arc2.position.z = offset;
+      arc2Group.add(arc2);
+      this._rainbowShaders.push(arc2.material);
+    }
+    g.add(arc2Group);
 
     // Atmospheric Sunburst Halo
     const glow = this._makeRainbowArc(85, 155, 0.035, false);
     glow.position.set(bx, 2, bz - 0.5);
     g.add(glow);
-    this._rainbowShaders = [arc.material, arc2.material, glow.material];
+    this._rainbowShaders.push(arc2.material, glow.material);
 
     // Swirling Stardust Particles along the Bridge Arch
     const STAR_COUNT = 240;
@@ -12023,11 +12121,19 @@ export class World3D {
         const z = glade.z + Math.sin(angle) * dist;
         const h = terrainHeight(x, z);
 
-        if (h < WORLD.waterLevel + 0.3 || h > 165) continue;
-        if (distToRoads(x, z) < 1.2) continue;
+        if (h < 13.2 || h > 165) continue;
+        if (distToRoads(x, z) < 2.0) continue;
         if (Math.hypot(x - WORLD.plaza.x, z - WORLD.plaza.z) < WORLD.plaza.r + 4) continue;
+        
+        // Exclude river and lake beds strictly
+        const { dist: dRiver, y: rWaterY } = getRiverInfo(x, z);
+        if (dRiver < 42.0 && h < rWaterY + 1.2) continue;
+        if (h < 13.5 && x > 50 && z < 0) continue; // Mirror Lake region bounds
+        
+        // Density falloff
+        if (rng() > 0.6) continue;
 
-        const s = 0.85 + rng() * 0.55;
+        const s = 0.35 + rng() * 0.25;
         tmp.position.set(x, h, z);
         tmp.rotation.set(0, rng() * Math.PI * 2, 0);
         tmp.scale.setScalar(s);
@@ -12795,6 +12901,30 @@ export class World3D {
     if (this.horizonMat) {
       this.horizonMat.visible = true;
       this.horizonMat.color.setHex(LOOK.fogCol);
+    }
+    
+    // PMREM IBL Update
+    if (this.renderer && this.sky) {
+      if (!this._pmremGenerator) {
+        this._pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+        this._pmremGenerator.compileEquirectangularShader();
+      }
+      const oldVisible = [];
+      this.scene.children.forEach(c => {
+        if (c !== this.sky && c !== this.sun && c !== this.hemi && c !== this.stars && c.visible) {
+          c.visible = false;
+          oldVisible.push(c);
+        }
+      });
+      const rt = this._pmremGenerator.fromScene(this.scene);
+      if (this.scene.environment) this.scene.environment.dispose();
+      this.scene.environment = rt.texture;
+      this.scene.environmentIntensity = LOOK.env;
+      oldVisible.forEach(c => c.visible = true);
+    }
+
+    if (this.renderer && this.renderer.shadowMap) {
+      this.renderer.shadowMap.needsUpdate = true;
     }
 
     // --- Dynamic Volumetric Cloud Deck Color ---
@@ -16555,6 +16685,10 @@ export class World3D {
         this.composer.render();
       } else {
         this.renderer.render(this.scene, this.camera);
+      }
+      if (!this._firstFrameRendered) {
+        this._firstFrameRendered = true;
+        console.log('[world3d] first frame');
       }
     } catch (err) {
       console.log('[world3d] _animate error in frame, falling back to direct render:', err);
