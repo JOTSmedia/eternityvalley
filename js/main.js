@@ -91,7 +91,7 @@ const preloader = {
       if (this.el.parentNode) this.el.remove();
     }
     if (typeof window.enter === 'function') {
-      window.enter('3d');
+      window.enter('tour');
     }
   },
 };
@@ -223,7 +223,7 @@ let enterPromise = null;
  * Cross into the site. Runs automatically once loading finishes —
  * the loading screen should not hand off to another door.
  */
-export async function enter(mode = '3d') {
+export async function enter(mode = 'tour') {
   console.log('[enter] entering sanctuary in mode:', mode);
   if (hasEntered && enterPromise) return enterPromise;
   hasEntered = true;
@@ -392,7 +392,7 @@ window.enter = enter;
 // Immediately expose checkAndEnterApp so preloader or button clicks can trigger it
 window.__checkAndEnterApp = () => {
   if (window.__appBootReady || window.__rainbowAnimationReady) {
-    enter('3d');
+    enter('tour');
   }
 };
 
@@ -491,14 +491,14 @@ async function boot() {
 
   // Primary enter buttons
   document.getElementById('enterBtn')?.addEventListener('click', () => enter('globe'));
-  document.getElementById('sanctuaryEntryBtn')?.addEventListener('click', () => enter('3d'));
+  document.getElementById('sanctuaryEntryBtn')?.addEventListener('click', () => enter('tour'));
   document.getElementById('enterValleyBtn')?.addEventListener('click', () => UI.show3D('tour'));
   document.getElementById('btn3d')?.addEventListener('click', () => UI.show3D('orbit'));
   document.getElementById('btnGlobe')?.addEventListener('click', () => UI.showGlobe());
 
   // "Create a Memorial — Guided Journey" enters, then opens the wizard
   document.getElementById('wizardEntryBtn')?.addEventListener('click', async () => {
-    await enter('3d');
+    await enter('tour');
     setTimeout(() => UI.griefWizardModal(), 800);
   });
 

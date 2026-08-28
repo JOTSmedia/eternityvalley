@@ -16,13 +16,37 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { WORLD, DISTRICTS, ROADS, RIVER, RIVER_INLET, RIVER_OUTLET, terrainHeight, backgroundMountainElevation, distToRoads, distToRiver, riverWaterElevation, fbm, ridgeNoise, mulberry32, SIZE_DIMS } from './terrain.js';
+import { WORLD, DISTRICTS, ROADS, RIVER, RIVER_INLET, RIVER_OUTLET, terrainHeight, backgroundMountainElevation, distToRoads, distToRiver, getRiverInfo, riverWaterElevation, fbm, ridgeNoise, mulberry32, SIZE_DIMS } from './terrain.js';
 import { getSeason, SEASON_STYLE, getDayPhase, PHASES, MOODS, fetchWeather } from './ambience.js';
 import { Surfaces, waterNormalTexture, textures, material, createBotanicalFoliageMaterial, clearCache } from './materials.js';
 import { icon, speciesIcon, speciesKey } from './icons.js';
 import { charityName } from './catalog.js';
 import { DRONE_TOUR_LANDMARKS } from './tour.js';
 import { buildGrandBoulevard, buildSecondaryRoad } from './roads.js';
+
+
+// Soft Radial Contact Ambient Occlusion Shadow Decal Texture
+let _sharedShadowMat = null;
+function createContactShadow(radius, yPos = 0.04) {
+  if (!_sharedShadowMat) {
+    const shadowCnv = document.createElement('canvas');
+    shadowCnv.width = shadowCnv.height = 128;
+    const sCtx = shadowCnv.getContext('2d');
+    const sGrad = sCtx.createRadialGradient(64, 64, 4, 64, 64, 64);
+    sGrad.addColorStop(0, 'rgba(0, 0, 0, 0.72)');
+    sGrad.addColorStop(0.4, 'rgba(0, 0, 0, 0.38)');
+    sGrad.addColorStop(0.8, 'rgba(0, 0, 0, 0.10)');
+    sGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    sCtx.fillStyle = sGrad;
+    sCtx.fillRect(0, 0, 128, 128);
+    const shadowTex = new THREE.CanvasTexture(shadowCnv);
+    _sharedShadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
+  }
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), _sharedShadowMat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = yPos;
+  return mesh;
+}
 
 // ---- GPU OPTIMIZATION: Foliage Overdraw Elimination ----
 // Force canopy materials to use binary alpha cutouts and write to depth buffer instantly
@@ -9484,26 +9508,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       depthWrite: false,
     });
 
-    // Soft Radial Contact Ambient Occlusion Shadow Decal Texture
-    const shadowCnv = document.createElement('canvas');
-    shadowCnv.width = shadowCnv.height = 128;
-    const sCtx = shadowCnv.getContext('2d');
-    const sGrad = sCtx.createRadialGradient(64, 64, 4, 64, 64, 64);
-    sGrad.addColorStop(0, 'rgba(0, 0, 0, 0.72)');
-    sGrad.addColorStop(0.4, 'rgba(0, 0, 0, 0.38)');
-    sGrad.addColorStop(0.8, 'rgba(0, 0, 0, 0.10)');
-    sGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-    sCtx.fillStyle = sGrad;
-    sCtx.fillRect(0, 0, 128, 128);
-    const shadowTex = new THREE.CanvasTexture(shadowCnv);
-    const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
 
-    const createContactShadow = (radius, yPos = 0.04) => {
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), shadowMat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.y = yPos;
-      return mesh;
-    };
 
     // Classical Carved Carrara Marble Floral Urn with Cascading Ivy & Blooming Roses
     const flowerLeafTex = textures('leafCard');
@@ -14006,7 +14011,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         for (let i = 0; i < pos.count; i++) {
           let x = pos.getX(i);
           const y = pos.getY(i) + height * 0.5; // base at 0
-          const yFrac = y / height;
+          const yFrac = Math.max(0.0, y / height);
           
           x *= (1.0 - Math.pow(yFrac, 1.5)); // Taper
           const zOffset = Math.pow(yFrac, 2.0) * curveAmt; // Curve

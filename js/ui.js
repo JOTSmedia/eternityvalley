@@ -193,7 +193,7 @@ export const UI = {
     if ($('#droneTourToolbarBtn')) $('#droneTourToolbarBtn').onclick = toggleDroneTour;
     if ($('#globeDroneTourBtn')) $('#globeDroneTourBtn').onclick = () => this.startDroneTour();
     if ($('#droneTourEntryBtn')) $('#droneTourEntryBtn').onclick = async () => {
-      if (typeof window.enter === 'function') await window.enter('3d');
+      if (typeof window.enter === 'function') await window.enter('tour');
       this.startDroneTour();
     };
     this._initEarthUI();
