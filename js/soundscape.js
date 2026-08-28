@@ -18,12 +18,22 @@ export const Soundscape = {
 
   init() {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
       return;
     }
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
-    this.ctx = new AudioCtx();
+    try {
+      this.ctx = new AudioCtx();
+    } catch { return; }
+
+    const unlock = () => {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      ['click', 'touchstart', 'keydown'].forEach(evt => window.removeEventListener(evt, unlock));
+    };
+    ['click', 'touchstart', 'keydown'].forEach(evt => window.addEventListener(evt, unlock, { passive: true }));
 
     // Master bus
     this.masterGain = this.ctx.createGain();
@@ -152,7 +162,7 @@ export const Soundscape = {
   // ---------------- Play Individual Musical FX ----------------
   playChime(freq = 528, gainLevel = 0.08) {
     if (!this.ctx) this.init();
-    if (!this.ctx || this.mode === 'silent') return;
+    if (!this.ctx || this.ctx.state !== 'running' || this.mode === 'silent') return;
 
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
@@ -218,6 +228,13 @@ export const Soundscape = {
     setTimeout(() => this.playChime(1760, 0.04), 360);
   },
 
+  playHarmonicChord(freq = 432) {
+    this.playBowlGong(freq / 2);
+    this.playChime(freq, 0.08);
+    setTimeout(() => this.playChime(freq * 1.25, 0.06), 150);
+    setTimeout(() => this.playChime(freq * 1.5, 0.05), 300);
+  },
+
   // ---------------- Toggle & Preset Modes ----------------
   setMode(mode) {
     this.init();
@@ -261,3 +278,7 @@ export const Soundscape = {
     }
   },
 };
+
+if (typeof window !== 'undefined') {
+  window.Soundscape = Soundscape;
+}

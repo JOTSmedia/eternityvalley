@@ -10,7 +10,7 @@
 // Every effect no-ops under prefers-reduced-motion.
 // ============================================================
 
-const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+const REDUCED = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 const FLAG = '__rbMotion';       // marks an element as already wired
 
 function once(el, key) {

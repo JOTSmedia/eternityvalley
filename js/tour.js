@@ -22,6 +22,127 @@ const reduceMotion = () =>
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /**
+ * Master 11-Stage Drone Tour Landmarks Metadata
+ * Single source of truth for the cinematic multi-building drone flight stages.
+ * Dynamic POI Camera Tracking: Drone stays strictly forward-facing for Legs 1 & 2,
+ * and dynamically rotates/focuses on each landmark object from Living Fountain onwards.
+ */
+export const DRONE_TOUR_LANDMARKS = [
+  {
+    stage: 1,
+    id: 'grand-gate',
+    title: 'The Grand Triumphal Gate',
+    sub: 'Monumental approach and direct flight through the soaring open triumphal arch into the sanctuary.',
+    tStart: 0.000,
+    tEnd: 1/11,
+    speedScale: 0.85,
+    icon: 'crest',
+  },
+  {
+    stage: 2,
+    id: 'rainbow-bridge',
+    title: 'The Rainbow Bridge Crest',
+    sub: 'Gliding along Grand Boulevard and soaring cleanly over the glowing prismatic bridge crest.',
+    tStart: 1/11,
+    tEnd: 2/11,
+    speedScale: 0.85,
+    icon: 'sparkle',
+  },
+  {
+    stage: 3,
+    id: 'central-plaza',
+    title: 'Central Plaza & Living Fountain',
+    sub: '360-degree orbit around the tiered lion fountain basin, starburst mosaics, and flower beds.',
+    tStart: 2/11,
+    tEnd: 3/11,
+    speedScale: 0.78,
+    icon: 'flower',
+  },
+  {
+    stage: 4,
+    id: 'cataract-waterfall',
+    title: 'Cataract Waterfall Vertical Ascent',
+    sub: 'Soaring high over central meadow tree crowns, descending to mist level in clear air 25m in front of the 182m cascade face, and ascending vertically to crest the waterfall lip.',
+    tStart: 3/11,
+    tEnd: 4/11,
+    speedScale: 0.78,
+    icon: 'heart',
+  },
+  {
+    stage: 5,
+    id: 'glacial-tarn',
+    title: 'Cathedral Glacial Tarn Underwater Dive',
+    sub: 'Submerged dive in the Glacial Tarn water source exploring swimming celestial trout pods, glowing boulders and bubbles, ascending and resurfacing cleanly into crisp alpine air.',
+    tStart: 4/11,
+    tEnd: 5/11,
+    speedScale: 0.76,
+    icon: 'globe',
+  },
+  {
+    stage: 6,
+    id: 'universal-cathedral',
+    title: 'Universal Cathedral Aerial Orbit & Entry',
+    sub: 'High aerial orbit around the 140m gold flèche spire & twin 102m bell towers, flying straight between open French Gothic oak doors down the center nave aisle.',
+    tStart: 5/11,
+    tEnd: 6/11,
+    speedScale: 0.76,
+    icon: 'feather',
+  },
+  {
+    stage: 7,
+    id: 'moorish-mosque',
+    title: 'The Moorish Mosque of Light',
+    sub: 'Panoramic descent along the western ridge to the terrace perched above the valley, orbiting the minaret, gliding over the marble reflecting pool and Alhambra arcade.',
+    tStart: 6/11,
+    tEnd: 7/11,
+    speedScale: 0.78,
+    icon: 'crescent',
+  },
+  {
+    stage: 8,
+    id: 'mirror-lake',
+    title: 'Mirror Lake & Submerged Aquatic Realm',
+    sub: 'Descent across valley meadows, skimming lake waters beneath weeping willows, diving underwater with swimming golden koi, and resurfacing into golden mist.',
+    tStart: 7/11,
+    tEnd: 8/11,
+    speedScale: 0.80,
+    icon: 'lotus',
+  },
+  {
+    stage: 9,
+    id: 'buddhist-pagoda',
+    title: 'Buddhist Pagoda, Zen Garden & Shoji Porch',
+    sub: 'Flying past the open South Porch and golden Buddha statue before spiraling up past the 5-tiered curved eaves & Sōrin finial.',
+    tStart: 8/11,
+    tEnd: 9/11,
+    speedScale: 0.78,
+    icon: 'star',
+  },
+  {
+    stage: 10,
+    id: 'kaya-island-reef',
+    title: 'Kaya Island & Submerged Coral Reef',
+    sub: 'High coastal flight approaching Kaya Island from the North, orbiting the Starlight Pavilion, and plunging off the sea cliff into the glowing coral reef lagoon.',
+    tStart: 9/11,
+    tEnd: 10/11,
+    speedScale: 0.78,
+    icon: 'sparkle',
+  },
+  {
+    stage: 11,
+    id: 'celestial-ascent',
+    title: 'Celestial Sunrise Ascent & Panoramic Vista',
+    sub: 'Radiant sunrise ocean breach into golden morning sunlight for a soaring high panoramic climb commanding the full valley vista, looping seamlessly back to Leg 1.',
+    tStart: 10/11,
+    tEnd: 11/11,
+    speedScale: 0.88,
+    icon: 'globe',
+  },
+];
+
+export const TOUR_LANDMARKS = DRONE_TOUR_LANDMARKS;
+
+/**
  * The script. `target` is a selector resolved at the moment the step
  * runs — never cached, because views mount lazily and the toolbar
  * reflows. A step with no target is shown centred.
@@ -39,7 +160,7 @@ const STEPS = [
     target: '#enterValleyBtn',
     icon: 'crest',
     title: 'Rainbow Bridge Valley',
-    body: 'Step into the living 3D sanctuary — stroll the meadows, glowing bridge, lake, and gardens.',
+    body: 'Step into the living 3D sanctuary — experience the cinematic 11-Stage Drone Tour, stroll the meadows, glowing bridge, lake, and gardens.',
   },
   {
     id: 'search',

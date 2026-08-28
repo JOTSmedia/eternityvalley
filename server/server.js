@@ -11,7 +11,16 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 const app = express();
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  console.log(`[REQ] ${req.method} ${req.url} (path: ${req.path})`);
+  next();
+});
 const PORT = process.env.PORT || 4242;
 
 // ---------------- Admin & event store ----------------
@@ -98,9 +107,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   if (!stripe) return res.status(500).send('Stripe not configured');
   let event;
   try {
-    event = process.env.STRIPE_WEBHOOK_SECRET
-      ? stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET)
-      : JSON.parse(req.body);
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      if (isProd) return res.status(500).send('Webhook secret not configured');
+      event = JSON.parse(req.body);
+    } else {
+      event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+    }
   } catch (err) {
     return res.status(400).send(`Webhook error: ${err.message}`);
   }
@@ -129,7 +141,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(securityHeaders);
 app.use(express.json({ limit: '60kb' }));
 
-app.post('/create-checkout-session', async (req, res) => {
+app.post('/create-checkout-session', rateLimit('checkout', 10, 60000), async (req, res) => {
   if (!stripe) return res.status(500).json({ error: 'Set STRIPE_SECRET_KEY in server/.env (see SETUP.md)' });
   try {
     const { kind, name, amountCents, meta = {}, successUrl, cancelUrl } = req.body;
@@ -165,7 +177,10 @@ app.post('/create-checkout-session', async (req, res) => {
 
 // ---------------- Admin API ----------------
 app.post('/admin/login', rateLimit('login', 5, 60000), (req, res) => {
-  if ((req.body?.password || '') !== ADMIN_PASSWORD) {
+  const inputPw = String(req.body?.password || '');
+  const inputHash = crypto.createHash('sha256').update(inputPw).digest();
+  const expectedHash = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
+  if (!crypto.timingSafeEqual(inputHash, expectedHash)) {
     return res.status(401).json({ error: 'Wrong password' });
   }
   const token = crypto.randomBytes(24).toString('hex');
@@ -180,11 +195,11 @@ app.post('/track', rateLimit('track', 30, 60000), (req, res) => {
   if (!kind || typeof amount !== 'number') return res.status(400).json({ ok: false });
   const evts = readEvents();
   evts.push({
-    kind, name: String(name).slice(0, 120), amount, admin: !!isAdmin,
-    user: String(user || 'guest').slice(0, 60),
-    charity: charity ? String(charity).slice(0, 30) : undefined,
+    kind: escapeHtml(kind), name: escapeHtml(String(name).slice(0, 120)), amount, admin: !!isAdmin,
+    user: escapeHtml(String(user || 'guest').slice(0, 60)),
+    charity: charity ? escapeHtml(String(charity).slice(0, 30)) : undefined,
     donate: typeof donate === 'number' ? donate : undefined,
-    ref: ref ? String(ref).slice(0, 40) : undefined,
+    ref: ref ? escapeHtml(String(ref).slice(0, 40)) : undefined,
     at: Date.now(),
   });
   writeEvents(evts);
@@ -238,10 +253,25 @@ app.get('/admin/summary', checkAdmin, (req, res) => {
 });
 
 // Serve the frontend
-app.use(express.static(path.join(__dirname, '..')));
-
-app.listen(PORT, () => {
-  console.log(`\n🌈 Somewhere Over the Rainbow Bridge running at http://localhost:${PORT}`);
-  console.log(stripe ? '  Stripe: configured ✓' : '  Stripe: NOT configured — frontend will run in demo mode');
-  console.log(`  Admin dashboard: http://localhost:${PORT}/admin.html  (password: ${process.env.ADMIN_PASSWORD ? 'from .env' : 'rainbowadmin — set ADMIN_PASSWORD in .env!'})`);
+app.use((req, res, next) => {
+  if (req.path.startsWith('/server') || req.path.startsWith('/.env')) {
+    return res.status(403).send('Forbidden');
+  }
+  next();
 });
+app.use(express.static(path.join(__dirname, '..'), { extensions: ['html'] }));
+
+const portsToTry = Array.from(new Set([PORT, 8000, 8080, 8088, 4242, 3000, 5000]));
+function tryListen(index) {
+  if (index >= portsToTry.length) return;
+  const p = portsToTry[index];
+  const s = app.listen(p, () => {
+    console.log(`🌈 Somewhere Over the Rainbow Bridge running at http://localhost:${p}`);
+  });
+  s.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      tryListen(index + 1);
+    }
+  });
+}
+tryListen(0);

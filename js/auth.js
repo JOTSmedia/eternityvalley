@@ -10,8 +10,13 @@ let fbAuth = null, fbApp = null, fbFns = null;
 
 export const Auth = {
   user: null,               // { uid, name, email, provider, isGuest }
-  listeners: [],
-  onChange(fn) { this.listeners.push(fn); fn(this.user); },
+  listeners: new Set(),
+  onChange(fn) {
+    this.listeners.add(fn);
+    fn(this.user);
+    return () => this.listeners.delete(fn);
+  },
+  offChange(fn) { this.listeners.delete(fn); },
   _emit() { this.listeners.forEach(fn => fn(this.user)); },
 
   async init() {
@@ -35,10 +40,11 @@ export const Auth = {
     try {
       const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
       fbFns = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-      fbApp = appMod.initializeApp(FIREBASE_CONFIG);
+      fbApp = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(FIREBASE_CONFIG);
       fbAuth = fbFns.getAuth(fbApp);
       fbFns.onAuthStateChanged(fbAuth, (u) => {
         this.user = u ? { uid: u.uid, name: u.displayName || u.email?.split('@')[0], email: u.email, provider: u.providerData[0]?.providerId || 'password', isGuest: false } : null;
+        if (this.user) localStorage.setItem('ev_user', JSON.stringify(this.user)); else localStorage.removeItem('ev_user');
         this._emit();
       });
     } catch (e) {
@@ -72,8 +78,9 @@ export const Auth = {
     await fbFns.signInWithPopup(fbAuth, provider);
   },
   continueAsGuest(anonymous = true, name = '') {
-    this.user = { uid: 'guest_' + Math.random().toString(36).slice(2, 9), name: anonymous ? 'Anonymous Visitor' : (name || 'Visitor'), email: null, provider: 'guest', isGuest: true };
-    if (IS_DEMO) localStorage.setItem('ev_user', JSON.stringify(this.user));
+    const randomSuffix = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 9);
+    this.user = { uid: 'guest_' + randomSuffix, name: anonymous ? 'Anonymous Visitor' : (name || 'Visitor'), email: null, provider: 'guest', isGuest: true };
+    localStorage.setItem('ev_user', JSON.stringify(this.user));
     this._emit();
   },
   async signOut() {

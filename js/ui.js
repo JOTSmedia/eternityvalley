@@ -26,6 +26,24 @@ const speciesOptionsHTML = (sel = 'dog') => SPECIES_OPTIONS
   .map(k => `<option value="${k}"${k === sel ? ' selected' : ''}>${SPECIES_LABELS[k]}</option>`)
   .join('');
 
+export const DISTRICT_FLY_MAP = {
+  all: 'all',
+  overview: 'all',
+  meadows: 'meadows',
+  canopy: 'canopy',
+  woodland: 'canopy',
+  riverbank: 'riverbank',
+  lakefront: 'riverbank',
+  beach: 'starlight',
+  starlight: 'starlight',
+  kaya_island: 'starlight',
+  highland: 'highland',
+  summit: 'highland',
+  desert: 'desert',
+  bridge: 'bridge',
+  gate: 'gate',
+};
+
 /**
  * Art for a community-feed entry. The stored key may be a UI icon
  * name, a catalog id (rendered as the real 3D object), or — for state
@@ -106,9 +124,12 @@ export const UI = {
   _ensureWorld: null,
 
   init({ earth, plots, ensureWorld }) {
-    this.earth = earth;
-    this.plots = plots || [];
-    this._ensureWorld = ensureWorld;
+    if (earth !== undefined) this.earth = earth;
+    if (plots) this.plots = plots;
+    if (ensureWorld) this._ensureWorld = ensureWorld;
+
+    if (this._initialized) return;
+    this._initialized = true;
 
     setTimeout(() => {
       if (!State.data?.ownedPlots) return;
@@ -119,25 +140,50 @@ export const UI = {
       }
     }, 1000);
 
-    $('#panelClose').onclick = () => this.closePanel();
-    $('#authBtn').onclick = () => this.authModal();
-    $('#signOutBtn').onclick = async () => { await Auth.signOut(); this.toast('Signed out. You are browsing as a guest.'); };
-    $('#membershipBtn').onclick = () => this.membershipModal();
-    $('#createMemorialBtn').onclick = () => this.griefWizardModal();
+    if ($('#panelClose')) $('#panelClose').onclick = () => this.closePanel();
+    if ($('#authBtn')) $('#authBtn').onclick = () => this.authModal();
+    if ($('#signOutBtn')) $('#signOutBtn').onclick = async () => { await Auth.signOut(); this.toast('Signed out. You are browsing as a guest.'); };
+    if ($('#membershipBtn')) $('#membershipBtn').onclick = () => this.membershipModal();
+    if ($('#createMemorialBtn')) $('#createMemorialBtn').onclick = () => this.griefWizardModal();
 
-    $('#districtNav').addEventListener('click', async (e) => {
-      const d = e.target.closest('[data-d]')?.dataset?.d;
-      if (d) { await this.show3D(); this.world?.flyToDistrict(d); }
+    // District navigation filter pills (in 3D Sanctuary view)
+    $('#districtNav')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-d]');
+      const d = btn?.dataset?.d;
+      if (d) {
+        $('#districtNav').querySelectorAll('.district-btn').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        await this.show3D();
+        const mappedDistrict = DISTRICT_FLY_MAP[d] || d;
+        this.world?.flyToDistrict(mappedDistrict);
+      }
     });
-    $('#btnGlobe').onclick = () => this.showGlobe();
-    $('#enterValleyBtn').onclick = (e) => {
+
+    if ($('#btnGlobe')) $('#btnGlobe').onclick = () => this.showGlobe();
+    if ($('#enterValleyBtn')) $('#enterValleyBtn').onclick = (e) => {
       const r = e.currentTarget.getBoundingClientRect();
       Motion.spark(r.left + r.width / 2, r.top + r.height / 2, 26);
-      this.show3D().then(() => this.world?.flyToDistrict('gate'));
+      this.show3D('tour');
     };
-    $('#btnEarth').onclick = () => this.showEarth();
-    $('#btn3d').onclick = () => this.show3D();
-    $('#btn2d').onclick = () => this.show2D();
+    if ($('#btnEarth')) $('#btnEarth').onclick = () => this.showEarth();
+    if ($('#btn3d')) $('#btn3d').onclick = () => this.show3D('orbit');
+    if ($('#btn2d')) $('#btn2d').onclick = () => this.show2D();
+    const toggleDroneTour = () => {
+      if (this.world?.tourMode) {
+        this.world.setMode('orbit');
+        this._setView({ view: 'view3d', btn: 'btn3d' });
+      } else {
+        this.startDroneTour();
+      }
+    };
+    if ($('#btnDroneTour')) $('#btnDroneTour').onclick = toggleDroneTour;
+    if ($('#navDroneTourBtn')) $('#navDroneTourBtn').onclick = toggleDroneTour;
+    if ($('#droneTourToolbarBtn')) $('#droneTourToolbarBtn').onclick = toggleDroneTour;
+    if ($('#globeDroneTourBtn')) $('#globeDroneTourBtn').onclick = () => this.startDroneTour();
+    if ($('#droneTourEntryBtn')) $('#droneTourEntryBtn').onclick = async () => {
+      if (typeof window.enter === 'function') await window.enter('3d');
+      this.startDroneTour();
+    };
     this._initEarthUI();
 
     Auth.onChange(u => {
@@ -145,28 +191,24 @@ export const UI = {
       $('#userChip').classList.toggle('hidden', !u);
       if (u) $('#userName').textContent = u.name;
     });
-    $('#userName').style.cursor = 'pointer';
-    $('#userName').title = 'My Bridge — profile, plots & memorials';
-    $('#userName').onclick = () => this.myBridgeModal();
-    $('#myBtn').onclick = () => this.myBridgeModal();
+    const userNameEl = $('#userName');
+    if (userNameEl) {
+      userNameEl.style.cursor = 'pointer';
+      userNameEl.title = 'My Bridge — profile, plots & memorials';
+      userNameEl.onclick = () => this.myBridgeModal();
+    }
+    const myBtnEl = $('#myBtn');
+    if (myBtnEl) {
+      myBtnEl.onclick = () => this.myBridgeModal();
+    }
 
     if (IS_ADMIN) {
       const chip = document.createElement('div');
-      chip.className = 'demo-chip';
-      chip.style.borderColor = '#8fce8a';
-      chip.style.color = '#8fce8a';
+      chip.className = 'demo-chip is-admin';
       chip.style.cursor = 'pointer';
-      chip.innerHTML = icon('shield') + ' ADMIN MODE — paywalls off, purchases comped · click to exit';
-      chip.title = 'Click to exit admin mode';
-      chip.onclick = () => {
-        try { localStorage.removeItem('ev_admin_mode'); } catch {}
-        location.reload();
-      };
-      document.body.appendChild(chip);
-    } else if (IS_DEMO) {
-      const chip = document.createElement('div');
-      chip.className = 'demo-chip';
-      chip.textContent = '● Demo mode — add your Firebase & Stripe keys to go live (SETUP.md)';
+      chip.innerHTML = icon('shield') + ' ⚡ UNTETHERED ADMIN CONSOLE';
+      chip.title = 'Click to open superuser controls';
+      chip.onclick = () => this.adminHudModal();
       document.body.appendChild(chip);
     }
   },
@@ -181,6 +223,10 @@ export const UI = {
       const { Globe } = await import('./globe.js');
       const globe = new Globe(document.getElementById('canvasGlobe'), {
         onPinClick: (pin) => this.descendTo(pin),
+        onGlobeClick: ({ lat, lng }) => {
+          this.toast(`Earth spot selected: ${lat.toFixed(2)}°, ${lng.toFixed(2)}° — opening memorial consecration.`, 4000, 'globe');
+          this.beginMemorialAt({ lat, lng });
+        },
       });
       // Assigned only once init() has actually succeeded. Assigning
       // first meant a failure part-way through left a half-built globe
@@ -200,30 +246,68 @@ export const UI = {
       this.globe.addPin({ lat: RBV.lat, lng: RBV.lng, name: 'Rainbow Bridge Valley', rbv: true });
       const s = this.globe.sky;
       const read = $('#globeReadout');
-      if (read) {
-        read.innerHTML = `${icon('sparkle')} <span>${s.moon.name} · ${Math.round(s.moon.illumination * 100)}% lit`
-          + ` · sun over ${s.sun.lat.toFixed(0)}°, ${s.sun.lng.toFixed(0)}°</span>`;
+      if (read && s?.moon && s?.sun) {
+        read.innerHTML = `${icon('sparkle')} <span>${s.moon.name || 'Moon'} · ${Math.round((s.moon.illumination || 0) * 100)}% lit`
+          + ` · sun over ${(s.sun.lat || 0).toFixed(0)}°, ${(s.sun.lng || 0).toFixed(0)}°</span>`;
       }
     }
     this._setView({ view: 'viewGlobe', btn: 'btnGlobe' });
-    this.globe.resize();
-    this.globe.start();
+    requestAnimationFrame(() => { 
+      this.globe?.resize(); 
+      this.globe?.start(); 
+    });
   },
 
-  /** Leave orbit for a real place, on Google's photoreal imagery. */
+  /** Leave orbit for a real place, with smooth camera descent. */
   async descendTo(pin) {
+    if (pin.rbv) {
+      this.toast('Descending from orbit to Rainbow Bridge Valley…', 3200, 'rainbow');
+      if (this.globe?.zoomTo) {
+        await this.globe.zoomTo(pin.lat, pin.lng, { targetDistance: 140, duration: 1100 });
+      }
+      await this.show3D('orbit', true);
+      return;
+    }
+    this.toast(`Descending to ${pin.name || 'Earth memorial'}…`, 2800, 'pin');
+  if (this.globe?.zoomTo) {
+      await this.globe.zoomTo(pin.lat, pin.lng, { targetDistance: 160, duration: 900 });
+    }
     await this.showEarth();
-    this.flyToPlace({ lat: pin.lat, lng: pin.lng, range: pin.rbv ? 1400 : 420, name: pin.name });
+    this.flyToPlace({ lat: pin.lat, lng: pin.lng, range: 420, name: pin.name });
     if (pin.memorial) setTimeout(() => this.openEarthMemorial(pin.memorial), 2600);
   },
 
   _setView(which) {
-    if (which.view !== 'viewGlobe') this.globe?.stop();
-    for (const [id, btn] of [['viewGlobe', 'btnGlobe'], ['viewEarth', 'btnEarth'], ['view3d', 'btn3d'], ['view2d', 'btn2d']]) {
-      $('#' + id).classList.toggle('hidden', id !== which.view);
-      $('#' + btn).classList.toggle('active', btn === which.btn);
+    const stage = $('#stage');
+    if (stage) {
+      stage.classList.remove('hidden');
+      stage.style.display = 'block';
     }
-    $('#districtNav').style.display = which.view === 'view3d' ? '' : 'none';
+
+    if (which.view !== 'viewGlobe') {
+      this.globe?.stop();
+    }
+    for (const [id, btn] of [['viewGlobe', 'btnGlobe'], ['viewEarth', 'btnEarth'], ['view3d', 'btn3d'], ['view2d', 'btn2d']]) {
+      const vEl = $('#' + id);
+      const bEl = $('#' + btn);
+      if (vEl) {
+        const isTarget = id === which.view;
+        vEl.classList.toggle('hidden', !isTarget);
+        vEl.style.display = isTarget ? 'block' : 'none';
+      }
+      if (bEl) bEl.classList.toggle('active', btn === which.btn);
+    }
+    const droneBtn = $('#btnDroneTour');
+    if (droneBtn) droneBtn.classList.toggle('active', which.btn === 'btnDroneTour');
+    if (which.view === 'view3d') {
+      if (this.world?.start) this.world.start();
+      if (this.world?._resize) this.world._resize();
+    }
+    const dNav = $('#districtNav');
+    if (dNav) {
+      dNav.classList.toggle('hidden', which.view !== 'view3d');
+      dNav.style.display = which.view === 'view3d' ? '' : 'none';
+    }
     const onMap = which.view === 'viewEarth' || which.view === 'viewGlobe';
     const legendEl = document.querySelector('.legend');
     if (legendEl) legendEl.style.display = onMap ? 'none' : '';
@@ -235,7 +319,14 @@ export const UI = {
       const b = document.getElementById(id);
       if (b) b.classList.toggle('is-off-map', which.view !== 'viewEarth');
     }
-    $('#earthToolbar')?.classList.remove('is-waiting');
+    const tb = $('#earthToolbar');
+    if (tb) {
+      const showTb = which.view === 'viewGlobe' || which.view === 'viewEarth';
+      tb.classList.toggle('hidden', !showTb);
+      tb.classList.toggle('is-globe-compact', which.view === 'viewGlobe');
+      tb.classList.remove('is-waiting');
+    }
+    $('#globeCta')?.classList.toggle('hidden', which.view !== 'viewGlobe');
     $('#globeCta')?.classList.remove('is-waiting');
   },
   /**
@@ -257,6 +348,12 @@ export const UI = {
         console.error('[earth] mount failed', e);
         this.toast('The map could not be loaded.', 5000, 'warning');
       }
+    } else {
+      setTimeout(() => {
+        if (this.earth?.leaflet) {
+          this.earth.leaflet.invalidateSize();
+        }
+      }, 60);
     }
     return this.earth;
   },
@@ -264,21 +361,55 @@ export const UI = {
   attachWorld(world, map) {
     this.world = world;
     this.map = map;
+    window.world = world;
+    if (window.UI) window.UI.world = world;
   },
 
   /** Resolve when the 3D world exists; starts loading it if needed. */
   async ensureWorld() {
     if (this.world) return this.world;
-    // Only announce the wait if there actually is one worth announcing.
-    this._loadingToast ||= setTimeout(
-      () => this.toast('Loading the Sanctuary…', 8000, 'sparkle'), 350);
+    if (window.world) {
+      this.world = window.world;
+      return this.world;
+    }
     try {
-      await this._ensureWorld?.();
+      if (this._ensureWorld) {
+        const res = await this._ensureWorld();
+        if (res?.world) {
+          this.world = res.world;
+          window.world = res.world;
+        }
+      } else if (window.__startWorldPromise) {
+        const res = await window.__startWorldPromise;
+        if (res?.world) {
+          this.world = res.world;
+          window.world = res.world;
+        }
+      } else {
+        // Fast wait for _ensureWorld, __startWorldPromise or window.world to appear
+        const start = Date.now();
+        while (!this.world && !window.world && !this._ensureWorld && !window.__startWorldPromise && (Date.now() - start < 1500)) {
+          await new Promise(r => setTimeout(r, 30));
+        }
+        if (this._ensureWorld) {
+          const res = await this._ensureWorld();
+          if (res?.world) {
+            this.world = res.world;
+            window.world = res.world;
+          }
+        } else if (window.__startWorldPromise) {
+          const res = await window.__startWorldPromise;
+          if (res?.world) {
+            this.world = res.world;
+            window.world = res.world;
+          }
+        }
+      }
+      if (window.world && !this.world) {
+        this.world = window.world;
+      }
     } catch (e) {
-      console.warn('[ui] world failed to load', e);
-    } finally {
-      clearTimeout(this._loadingToast);
-      this._loadingToast = null;
+      console.warn('[ensureWorld] error resolving world:', e);
     }
     return this.world;
   },
@@ -291,26 +422,134 @@ export const UI = {
     }
   },
 
-  // Both 3D views wait for the renderer BEFORE switching. Switching
-  // first and awaiting after shows an unsized, unrendered canvas —
-  // i.e. a black screen — for as long as three.js takes to arrive.
-  // The visitor keeps the view they are on until there is something
+  // -------------------------------------------------------------
+  // Primary views
+  //
+  // Every view change goes through _setView, which keeps the 4 tabs in
+  // sync, halts the animation loop of whatever was running, and lets
+  // the toolbar know whether place-on-earth actions make sense right
+  // now. Google's map and the 3D valley are both lazy: they mount
+  // the first time they are shown, so the entrance can be on screen
+  // before their JS is parsed.
+  // -------------------------------------------------------------
+
+  /**
+   * Focus a single plot in 3D, opening its panel. Used by the search
+   * bar, the share links, and the "my plots" shortcut.
+   */
+  async flyToPlot(plot) {
+    if (!plot) return;
+    await this.show3D();
+    this.world?.selectPlot(plot);
+    this.openPlot(plot);
+  },
+
+  /** Focus an earth memorial on the map, opening its sheet. */
+  async flyToMemorial(m) {
+    if (!m) return;
+    await this.showEarth();
+    this.flyToPlace({ lat: m.lat, lng: m.lng, range: 380, name: m.place });
+    this.openEarthMemorial(m);
+  },
+
+  // The 3D view and the flat map share the same plot list; the search
+  // bar and the "My plots" modal can land in either. The helper waits
+  // for the renderer module (loaded lazily on boot) before trying
   // to show them.
-  async show3D() {
+  /**
+   * Switch to 3D Sanctuary View with support for the Grand Gate entrance transition.
+   * @param {string} [mode='tour'] Cam mode ('orbit', 'walk', 'tour')
+   * @param {boolean} [isEntrance=false] If true, executes the Grand Gate fly-in sequence
+   */
+  async show3D(mode = 'tour', isEntrance = false) {
+    const stage = $('#stage');
+    if (stage) {
+      stage.classList.remove('hidden');
+      stage.style.display = 'block';
+    }
+    const v3d = $('#view3d');
+    if (v3d) {
+      v3d.classList.remove('hidden');
+      v3d.style.display = 'block';
+    }
+
+    if (!this.world && window.world) this.world = window.world;
     if (!this.world) await this.ensureWorld();
-    if (!this.world) return this.toast('The Sanctuary could not be loaded. Check your connection and reload.', 6000, 'warning');
-    this._setView({ view: 'view3d', btn: 'btn3d' });
-    this.world._resize();
-    requestAnimationFrame(() => {
+    if (!this.world && window.world) this.world = window.world;
+    if (!this.world && typeof window.RBV?.ready === 'function') {
+      const res = await window.RBV.ready();
+      if (res?.world) this.world = res.world;
+    }
+    
+    const viewBtn = (mode === 'tour') ? 'btnDroneTour' : 'btn3d';
+    this._setView({ view: 'view3d', btn: viewBtn });
+
+    if (!this.world) return this.toast('Loading the Sanctuary…', 2000, 'sparkle');
+
+    if (isEntrance && this.world.startEntranceFlight) {
+      this.world.startEntranceFlight({
+        targetMode: mode || 'tour',
+        duration: 7.0,
+        onThresholdCross: () => {
+          // Synchronize Soundscape and Welcoming Solace
+          Soundscape.init();
+          Soundscape.playBowlGong(216);
+          Soundscape.playChime(528, 0.12);
+          setTimeout(() => Soundscape.playChime(660, 0.08), 350);
+          setTimeout(() => Soundscape.playChime(880, 0.06), 700);
+          Soundscape.setMode('crystal');
+        },
+        onComplete: () => {
+          this.toast('Welcome to Eternity Valley Sanctuary', 4500, 'rainbow');
+          if (mode === 'tour' && this.world?.startDroneTour) {
+            this.world.startDroneTour(0);
+          } else if (this.world?.setMode) {
+            this.world.setMode(mode || 'tour');
+          }
+        }
+      });
+    } else {
+      if (mode === 'tour') {
+        if (this.world.startDroneTour) {
+          this.world.startDroneTour(0);
+        } else if (this.world.setMode) {
+          this.world.setMode('tour');
+        }
+      } else if (this.world.setMode) {
+        this.world.setMode(mode || 'orbit');
+      }
+    }
+
+    if (this.world.start) {
+      this.world.start();
+    }
+
+    const triggerResize = () => {
       this.world?._resize();
       this.world?.applyAmbience();
-    });
+    };
+    requestAnimationFrame(triggerResize);
+    setTimeout(triggerResize, 50);
+    setTimeout(triggerResize, 200);
+  },
+  /**
+   * Launch the Hollywood-grade Cinematic Drone Tour across Eternity Valley
+   */
+  async startDroneTour(stageIndex = 0) {
+    await this.show3D('tour');
+    if (this.world?.startDroneTour) {
+      this.world.startDroneTour(stageIndex);
+    } else if (this.world?.setMode) {
+      this.world.setMode('tour');
+      if (this.world.setTourStage) {
+        this.world.setTourStage(stageIndex);
+      }
+    }
   },
   async show2D() {
     if (!this.map) await this.ensureWorld();
     if (!this.map) return this.toast('The map could not be loaded. Check your connection and reload.', 6000, 'warning');
     this._setView({ view: 'view2d', btn: 'btn2d' });
-    this.map._resize(); this.map.draw();
     requestAnimationFrame(() => {
       this.map?._resize();
       this.map?.draw();
@@ -452,7 +691,13 @@ export const UI = {
     Tour.end();
     const box = $('#modalBox');
     box.innerHTML = html;
+    box.querySelectorAll('[data-close]').forEach(b => { b.onclick = () => this.closeModal(); });
     $('#modalRoot').classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    if (this.world?.keysDown) {
+      Object.keys(this.world.keysDown).forEach(k => this.world.keysDown[k] = false);
+      if (this.world.walkVelocity) this.world.walkVelocity.set(0, 0, 0);
+    }
     $('.modal-backdrop').onclick = () => this.closeModal();
     // Injected markup gets the same hover/tilt/ripple behaviour as
     // everything authored in index.html. Membership cards are the one
@@ -466,7 +711,11 @@ export const UI = {
   },
   closeModal() {
     $('#modalRoot').classList.add('hidden');
+    document.body.classList.remove('modal-open');
     if (this._escClose) document.removeEventListener('keydown', this._escClose);
+    if (this.world?.keysDown) {
+      Object.keys(this.world.keysDown).forEach(k => this.world.keysDown[k] = false);
+    }
   },
 
   authModal(afterLogin) {
@@ -714,19 +963,27 @@ export const UI = {
   //  GRIEF JOURNEY WIZARD — guided 4-step memorial creation
   //  The single most important conversion flow in the product.
   // ============================================================
-  griefWizardModal() {
-    const districtCards = Object.entries(DISTRICTS).map(([k, d]) =>
-      `<div class="gw-district-card" data-district="${k}">
+  griefWizardModal(initialType = 'sanctuary', presetData = null) {
+    const data = presetData || this._cachedWizardData || {};
+    const initialSpecies = data.species || 'dog';
+    const initialDistrict = data.district || 'meadows';
+    const initialPlaceType = data.placeType || initialType || 'sanctuary';
+
+    const districtCards = Object.entries(DISTRICTS).map(([k, d]) => {
+      const availCount = (this.plots || []).filter(p => p.status === 'available' && p.district === k).length;
+      return `
+      <div class="gw-district-card ${k === initialDistrict ? 'is-selected' : ''}" data-district="${k}">
         <div class="gw-district-icon">${icon(d.icon || 'sparkle', { size: 22 })}</div>
         <div class="gw-district-info">
           <b>${d.name}</b>
           <span>${d.blurb?.slice(0, 80) || 'A peaceful resting place'}${d.blurb?.length > 80 ? '…' : ''}</span>
+          ${availCount > 0 ? `<small style="display:block;margin-top:3px;color:var(--accent-hi-c);font-size:11px">${availCount} plots available · from $${d.base}</small>` : ''}
         </div>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
 
-    const charityCards = CHARITIES.map(c =>
-      `<div class="gw-charity-card" data-charity="${c.id}">
+    const charityCards = CHARITIES.map((c) =>
+      `<div class="gw-charity-card ${c.id === (data.charity || CHARITIES[0]?.id) ? 'is-selected' : ''}" data-charity="${c.id}">
         <div class="gw-charity-name">${icon('heart', { size: 14 })} ${c.name}</div>
         <div class="gw-charity-desc">${c.mission?.slice(0, 90) || 'Helping animals in need'}${c.mission?.length > 90 ? '…' : ''}</div>
       </div>`
@@ -746,32 +1003,74 @@ export const UI = {
 
         <!-- Step 1: About Your Companion -->
         <div class="gw-step is-active" data-step="1">
-          <div class="gw-step-icon">${speciesIcon('dog', { size: 42 })}</div>
+          <div class="gw-step-icon">${speciesIcon(initialSpecies, { size: 42 })}</div>
           <h2>Tell us about your companion</h2>
           <p class="gw-step-sub">They deserve to be remembered beautifully. We'll create a memorial that honors their life.</p>
           <label>Their name</label>
-          <input id="gwName" placeholder="e.g. Luna, Max, Biscuit…" maxlength="24" autofocus>
+          <input id="gwName" placeholder="e.g. Luna, Max, Biscuit…" maxlength="24" value="${esc(data.name || '')}" autofocus>
           <label>Species</label>
-          <select id="gwSpecies">${speciesOptionsHTML()}</select>
+          <select id="gwSpecies">${speciesOptionsHTML(initialSpecies)}</select>
           <label>Years (e.g. 2012 – 2025)</label>
-          <input id="gwYears" placeholder="2012 – 2025" maxlength="16">
+          <input id="gwYears" placeholder="2012 – 2025" maxlength="16" value="${esc(data.years || '')}">
           <label>Their photo (optional — you can add more later)</label>
           <input id="gwPhoto" type="file" accept="image/*">
           <button class="btn btn-gold btn-block gw-next-btn" data-to="2">Continue — choose their resting place →</button>
         </div>
 
-        <!-- Step 2: Choose District -->
+        <!-- Step 2: Choose Sanctuary Plot or Global Earth Location -->
         <div class="gw-step" data-step="2">
           <div class="gw-step-icon">${icon('sparkle', { size: 38 })}</div>
           <h2>Choose their resting place</h2>
-          <p class="gw-step-sub">Each district has its own character. Click one to preview it in the 3D Sanctuary.</p>
-          <div class="gw-district-grid" id="gwDistrictGrid">
-            ${districtCards}
+          <p class="gw-step-sub">Consecrate a sacred 3D plot in the Sanctuary Valley, or place an eternal memorial pin anywhere on Earth.</p>
+
+          <div class="gw-place-toggle">
+            <button type="button" class="gw-pt-btn ${initialPlaceType === 'sanctuary' ? 'is-active' : ''}" id="gwPtSanctuary" data-pt="sanctuary">
+              <span class="gw-pt-icon">${icon('sparkle', { size: 18 })}</span>
+              <div class="gw-pt-text">
+                <b>Sanctuary 3D Plot</b>
+                <span>Sacred districts in the living Rainbow Bridge valley</span>
+              </div>
+            </button>
+            <button type="button" class="gw-pt-btn ${initialPlaceType === 'globe' ? 'is-active' : ''}" id="gwPtGlobe" data-pt="globe">
+              <span class="gw-pt-icon">${icon('globe', { size: 18 })}</span>
+              <div class="gw-pt-text">
+                <b>Global Memorial on Earth</b>
+                <span>Pin their favorite park, trail, beach, or home</span>
+              </div>
+            </button>
           </div>
-          <input type="hidden" id="gwDistrict" value="">
-          <div class="gw-nav-row">
+          <input type="hidden" id="gwPlaceType" value="${initialPlaceType}">
+
+          <!-- Sanctuary District Picker -->
+          <div id="gwSanctuarySection" class="${initialPlaceType === 'globe' ? 'hidden' : ''}">
+            <div class="gw-district-grid" id="gwDistrictGrid">
+              ${districtCards}
+            </div>
+            <input type="hidden" id="gwDistrict" value="${initialDistrict}">
+          </div>
+
+          <!-- Earth Location Picker -->
+          <div id="gwGlobeSection" class="${initialPlaceType === 'sanctuary' ? 'hidden' : ''}">
+            <label>Location on Earth (City, Park, Beach, or Home)</label>
+            <input id="gwEarthLoc" placeholder="e.g. Crissy Field Beach, San Francisco, CA" maxlength="60" value="${esc(data.earthLoc || 'Pacific Coast Trail, CA')}">
+            <div class="two-col" style="margin-top:6px">
+              <div>
+                <label>Latitude</label>
+                <input id="gwEarthLat" type="number" step="0.0001" value="${data.earthLat || 37.8024}">
+              </div>
+              <div>
+                <label>Longitude</label>
+                <input id="gwEarthLng" type="number" step="0.0001" value="${data.earthLng || -122.4665}">
+              </div>
+            </div>
+            <div class="district-blurb" style="margin-top:10px">
+              🌍 <b>Tip:</b> You can also explore the 3D Globe at any time and click directly on the Earth to drop a memorial pin anywhere in the world.
+            </div>
+          </div>
+
+          <div class="gw-nav-row" style="margin-top:16px">
             <button class="btn btn-outline gw-back-btn" data-to="1">← Back</button>
-            <button class="btn btn-gold gw-next-btn" data-to="3" id="gwStep2Next" disabled>Continue →</button>
+            <button class="btn btn-gold gw-next-btn" data-to="3" id="gwStep2Next">Continue →</button>
           </div>
         </div>
 
@@ -779,19 +1078,19 @@ export const UI = {
         <div class="gw-step" data-step="3">
           <div class="gw-step-icon">${icon('dove', { size: 38 })}</div>
           <h2>Write something from the heart</h2>
-          <p class="gw-step-sub">These words will appear on their headstone for every visitor to read.</p>
+          <p class="gw-step-sub">These words will appear on their headstone and memorial profile for every visitor to read.</p>
           <label>Epitaph</label>
-          <textarea id="gwEpitaph" rows="3" maxlength="120" placeholder="Forever chasing butterflies in the sunlight…"></textarea>
+          <textarea id="gwEpitaph" rows="3" maxlength="120" placeholder="Forever chasing butterflies in the sunlight…">${esc(data.epitaph || '')}</textarea>
           <div class="gw-prompts">
-            <span class="gw-prompt" data-txt="Forever loved, forever remembered.">💛</span>
-            <span class="gw-prompt" data-txt="You were the best part of every day.">🌅</span>
-            <span class="gw-prompt" data-txt="Until we meet again at the Rainbow Bridge.">🌈</span>
-            <span class="gw-prompt" data-txt="The house is quieter without you.">🏡</span>
-            <span class="gw-prompt" data-txt="You taught me what unconditional love means.">❤️</span>
+            <span class="gw-prompt" data-txt="Forever loved, forever remembered.">💛 Loved</span>
+            <span class="gw-prompt" data-txt="You were the best part of every day.">🌅 Joy</span>
+            <span class="gw-prompt" data-txt="Until we meet again at the Rainbow Bridge.">🌈 Bridge</span>
+            <span class="gw-prompt" data-txt="The house is quieter without you.">🏡 Home</span>
+            <span class="gw-prompt" data-txt="You taught me what unconditional love means.">❤️ Grace</span>
           </div>
           <label>Headstone style</label>
           <select id="gwHeadstone">
-            ${HEADSTONE_STYLES.map(h => `<option value="${h.id}">${h.label}</option>`).join('')}
+            ${HEADSTONE_STYLES.map(h => `<option value="${h.id}" ${h.id === (data.headstone || 'classic') ? 'selected' : ''}>${h.label}</option>`).join('')}
           </select>
           <div class="gw-nav-row">
             <button class="btn btn-outline gw-back-btn" data-to="2">← Back</button>
@@ -807,12 +1106,12 @@ export const UI = {
           <div class="gw-charity-grid" id="gwCharityGrid">
             ${charityCards}
           </div>
-          <input type="hidden" id="gwCharity" value="${CHARITIES[0]?.id || ''}">
+          <input type="hidden" id="gwCharity" value="${data.charity || CHARITIES[0]?.id || ''}">
           <div class="gw-summary" id="gwSummary"></div>
           <button class="btn btn-gold btn-block btn-lg" id="gwCreateBtn">
             ${icon('crest')} Create Their Memorial
           </button>
-          <p class="fine" style="margin-top:8px;text-align:center">${IS_DEMO ? 'Demo mode — no real payment.' : 'You\'ll be redirected to Stripe for secure payment.'}</p>
+          <p class="fine" style="margin-top:8px;text-align:center">${IS_DEMO ? 'Demo mode — simulated payment.' : 'You will be redirected to Stripe for secure payment.'}</p>
           <div class="gw-nav-row" style="margin-top:6px">
             <button class="btn btn-outline gw-back-btn" data-to="3">← Back</button>
           </div>
@@ -829,10 +1128,14 @@ export const UI = {
         d.classList.toggle('is-active', ds === n);
         d.classList.toggle('is-done', ds < n);
       });
-      // Fly camera to selected district on step 2
+      // Fly camera to selected district on step 2 if in sanctuary mode
       if (n === 2) {
-        const sel = document.getElementById('gwDistrict').value;
-        if (sel) this.world?.flyToDistrict(sel);
+        const pt = document.getElementById('gwPlaceType')?.value;
+        const sel = document.getElementById('gwDistrict')?.value;
+        if (pt === 'sanctuary' && sel) {
+          const mappedDistrict = DISTRICT_FLY_MAP[sel] || sel;
+          this.world?.flyToDistrict(mappedDistrict);
+        }
       }
       // Update summary on step 4
       if (n === 4) this._gwUpdateSummary();
@@ -845,30 +1148,46 @@ export const UI = {
       btn.onclick = (e) => { e.preventDefault(); goStep(Number(btn.dataset.to)); };
     });
 
+    // --- Place Type Toggle (Sanctuary vs Globe) ---
+    const ptBtns = wiz.querySelectorAll('.gw-pt-btn');
+    ptBtns.forEach(btn => {
+      btn.onclick = () => {
+        ptBtns.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const pt = btn.dataset.pt;
+        document.getElementById('gwPlaceType').value = pt;
+        document.getElementById('gwSanctuarySection').classList.toggle('hidden', pt !== 'sanctuary');
+        document.getElementById('gwGlobeSection').classList.toggle('hidden', pt !== 'globe');
+        if (pt === 'sanctuary') {
+          const sel = document.getElementById('gwDistrict')?.value || 'meadows';
+          const mappedDistrict = DISTRICT_FLY_MAP[sel] || sel;
+          this.world?.flyToDistrict(mappedDistrict);
+        }
+      };
+    });
+
     // --- District selection ---
     const distGrid = document.getElementById('gwDistrictGrid');
-    distGrid.addEventListener('click', (e) => {
+    distGrid?.addEventListener('click', (e) => {
       const card = e.target.closest('.gw-district-card');
       if (!card) return;
       distGrid.querySelectorAll('.gw-district-card').forEach(c => c.classList.remove('is-selected'));
       card.classList.add('is-selected');
-      document.getElementById('gwDistrict').value = card.dataset.district;
-      document.getElementById('gwStep2Next').disabled = false;
-      // Preview fly
-      this.world?.flyToDistrict(card.dataset.district);
+      const dist = card.dataset.district;
+      document.getElementById('gwDistrict').value = dist;
+      const mappedDistrict = DISTRICT_FLY_MAP[dist] || dist;
+      this.world?.flyToDistrict(mappedDistrict);
     });
 
     // --- Charity selection ---
     const charGrid = document.getElementById('gwCharityGrid');
-    charGrid.addEventListener('click', (e) => {
+    charGrid?.addEventListener('click', (e) => {
       const card = e.target.closest('.gw-charity-card');
       if (!card) return;
       charGrid.querySelectorAll('.gw-charity-card').forEach(c => c.classList.remove('is-selected'));
       card.classList.add('is-selected');
       document.getElementById('gwCharity').value = card.dataset.charity;
     });
-    // Default: first charity selected
-    charGrid.querySelector('.gw-charity-card')?.classList.add('is-selected');
 
     // --- Epitaph quick-fill prompts ---
     wiz.querySelectorAll('.gw-prompt').forEach(p => {
@@ -876,7 +1195,7 @@ export const UI = {
     });
 
     // --- Species icon preview update ---
-    document.getElementById('gwSpecies').addEventListener('change', (e) => {
+    document.getElementById('gwSpecies')?.addEventListener('change', (e) => {
       const stepIcon = wiz.querySelector('.gw-step[data-step="1"] .gw-step-icon');
       if (stepIcon) stepIcon.innerHTML = speciesIcon(e.target.value, { size: 42 });
     });
@@ -888,8 +1207,10 @@ export const UI = {
   _gwUpdateSummary() {
     const name = document.getElementById('gwName')?.value?.trim() || 'Beloved Friend';
     const sp = document.getElementById('gwSpecies')?.value || 'dog';
-    const district = document.getElementById('gwDistrict')?.value;
+    const pt = document.getElementById('gwPlaceType')?.value || 'sanctuary';
+    const district = document.getElementById('gwDistrict')?.value || 'meadows';
     const d = DISTRICTS[district];
+    const earthLoc = document.getElementById('gwEarthLoc')?.value?.trim() || 'Earth Memorial';
     const charity = charityName(document.getElementById('gwCharity')?.value) || 'Animal Rescue Fund';
     const el = document.getElementById('gwSummary');
     if (el) {
@@ -898,32 +1219,99 @@ export const UI = {
           <div class="gw-summary-icon">${speciesIcon(sp, { size: 28 })}</div>
           <div class="gw-summary-body">
             <b>${esc(name)}</b>
-            <span>${d?.name || 'Sanctuary'} · ${icon('heart', { size: 12 })} ${esc(charity)}</span>
+            <span>${pt === 'sanctuary' ? (d?.name || 'Sanctuary 3D Valley') : esc(earthLoc)} · ${icon('heart', { size: 12 })} ${esc(charity)}</span>
           </div>
         </div>`;
     }
   },
 
-  async _gwCreate() {
-    if (!Auth.user || Auth.user.isGuest) return this.authModal(() => this._gwCreate());
+  async _gwCreate(cached = null) {
+    const rawPhoto = cached?.photo || await readPhoto(document.getElementById('gwPhoto'));
+    const formData = {
+      name: cached?.name || document.getElementById('gwName')?.value?.trim() || 'Beloved Friend',
+      species: cached?.species || document.getElementById('gwSpecies')?.value || 'dog',
+      years: cached?.years || document.getElementById('gwYears')?.value?.trim() || String(new Date().getFullYear()),
+      epitaph: cached?.epitaph || document.getElementById('gwEpitaph')?.value?.trim() || 'Forever loved.',
+      headstone: cached?.headstone || document.getElementById('gwHeadstone')?.value || 'classic',
+      photo: rawPhoto,
+      placeType: cached?.placeType || document.getElementById('gwPlaceType')?.value || 'sanctuary',
+      district: cached?.district || document.getElementById('gwDistrict')?.value || 'meadows',
+      charity: cached?.charity || document.getElementById('gwCharity')?.value || CHARITIES[0]?.id,
+      earthLoc: cached?.earthLoc || document.getElementById('gwEarthLoc')?.value?.trim() || 'Sacred Memorial Spot',
+      earthLat: cached?.earthLat != null ? cached.earthLat : (Number(document.getElementById('gwEarthLat')?.value) || 37.8024),
+      earthLng: cached?.earthLng != null ? cached.earthLng : (Number(document.getElementById('gwEarthLng')?.value) || -122.4665),
+    };
+
+    if (!Auth.user || Auth.user.isGuest) {
+      this._cachedWizardData = formData;
+      return this.authModal(() => this._gwCreate(this._cachedWizardData));
+    }
     if (!State.hasMembership()) {
-      this.toast('A membership is needed to own plots.');
-      return this.membershipModal(() => this._gwCreate());
+      this._cachedWizardData = formData;
+      this.toast('A membership is needed to own plots and memorials.');
+      return this.membershipModal(() => this._gwCreate(this._cachedWizardData));
     }
 
-    const name = document.getElementById('gwName')?.value?.trim() || 'Beloved Friend';
-    const sp = document.getElementById('gwSpecies')?.value || 'dog';
-    const years = document.getElementById('gwYears')?.value?.trim() || String(new Date().getFullYear());
-    const epitaph = document.getElementById('gwEpitaph')?.value?.trim() || 'Forever loved.';
-    const headstone = document.getElementById('gwHeadstone')?.value || 'classic';
-    const photo = await readPhoto(document.getElementById('gwPhoto'));
-    const district = document.getElementById('gwDistrict')?.value;
-    const charity = document.getElementById('gwCharity')?.value || CHARITIES[0]?.id;
+    const { name, species: sp, years, epitaph, headstone, photo, placeType: pt, district, charity, earthLoc, earthLat, earthLng } = formData;
 
-    // Find the best available plot in the chosen district
-    const availPlots = this.plots?.filter(p => p.status === 'available' && p.district === district) || [];
+    const btn = document.getElementById('gwCreateBtn');
+    if (btn) { btn.textContent = 'Creating memorial…'; btn.disabled = true; }
+
+    if (pt === 'globe') {
+      // Create Global Earth Memorial
+      const memId = 'em_' + Date.now();
+      const earthMemorial = {
+        id: memId,
+        ownerUid: Auth.user.uid,
+        petName: cleanText(name),
+        species: sp,
+        years,
+        epitaph: cleanText(epitaph),
+        photo,
+        place: earthLoc,
+        lat: earthLat,
+        lng: earthLng,
+        charity: charity || null,
+        gifts: 0,
+        created: Date.now(),
+      };
+
+      try {
+        const r = await checkout({
+          kind: 'plot',
+          name: `Earth Memorial — ${name} (${earthLoc})`,
+          amount: 15,
+          meta: { memorialId: memId, uid: Auth.user.uid, charity: earthMemorial.charity || State.data.charity || CHARITIES[0].id },
+        });
+        if (r.ok) {
+          State.addEarthMemorial(earthMemorial);
+          await State.save(Auth.user);
+          this._cachedWizardData = null;
+          this.closeModal();
+          await this.showGlobe();
+          this.globe?.addPin({ lat: earthLat, lng: earthLng, name: earthLoc, memorial: earthMemorial });
+          this.globe?.focus(earthLat, earthLng);
+
+          Soundscape.playChime(528, 0.08);
+          setTimeout(() => Soundscape.playChime(660, 0.06), 400);
+          setTimeout(() => Soundscape.playChime(880, 0.05), 800);
+          this.toast(`${name}'s memorial is consecrated on Earth at ${earthLoc}. 🌍💛`, 8000, 'globe');
+        }
+      } catch (e) {
+        this.toast(String(e.message || e), 'warning');
+        if (btn) { btn.innerHTML = `${icon('crest')} Create Their Memorial`; btn.disabled = false; }
+      }
+      return;
+    }
+
+    // Otherwise: Consecrate 3D Sanctuary Valley Plot
+    let availPlots = this.plots?.filter(p => p.status === 'available' && p.district === district) || [];
     if (!availPlots.length) {
-      this.toast(`No available plots in ${DISTRICTS[district]?.name || 'that district'} — try another.`);
+      availPlots = this.plots?.filter(p => p.status === 'available') || [];
+    }
+    if (!availPlots.length) {
+      this.toast(`No available plots found at this time.`);
+      if (btn) { btn.innerHTML = `${icon('crest')} Create Their Memorial`; btn.disabled = false; }
       return;
     }
     const plot = availPlots[0];
@@ -935,19 +1323,17 @@ export const UI = {
       charity: charity || null,
     };
 
-    const btn = document.getElementById('gwCreateBtn');
-    if (btn) { btn.textContent = 'Creating memorial…'; btn.disabled = true; }
-
     try {
       const r = await checkout({
         kind: 'plot',
-        name: `Rainbow Bridge — Plot ${plot.id} (${d.name})`,
+        name: `Rainbow Bridge — Plot ${plot.id} (${d?.name || 'Sanctuary'})`,
         amount: plot.price,
         meta: { plotId: plot.id, uid: Auth.user.uid, charity: memorial.charity || State.data.charity || CHARITIES[0].id },
       });
       if (r.ok) {
         State.buyPlot(plot, memorial);
         await State.save(Auth.user);
+        this._cachedWizardData = null;
         this.closeModal();
         this.refreshWorld();
         await this.show3D();
@@ -957,11 +1343,11 @@ export const UI = {
         Soundscape.playChime(528, 0.08);
         setTimeout(() => Soundscape.playChime(660, 0.06), 400);
         setTimeout(() => Soundscape.playChime(880, 0.05), 800);
-        this.toast(`${name}'s memorial is consecrated forever in ${d.name}. 💛`, 8000, 'crest');
+        this.toast(`${name}'s memorial is consecrated forever in ${d?.name || 'the Sanctuary'}. 💛`, 8000, 'crest');
       }
     } catch (e) {
-      this.toast(String(e.message), 'warning');
-      if (btn) { btn.textContent = `${icon('crest')} Create Their Memorial`; btn.disabled = false; }
+      this.toast(String(e.message || e), 'warning');
+      if (btn) { btn.innerHTML = `${icon('crest')} Create Their Memorial`; btn.disabled = false; }
     }
   },
 
@@ -1608,33 +1994,29 @@ export const UI = {
   },
 
   _initEarthUI() {
-    const earth = this.earth;
-    earth.onMemorialClick = (m) => this.openEarthMemorial(m);
-    earth.onRBVClick = () => this.rbvPanel();
-    earth.onPlaceAt = (pos) => { this._exitPlacement(); this.beginMemorialAt(pos); };
-
     const doSearch = async () => {
-      const q = $('#earthSearch').value.trim();
+      const q = $('#earthSearch')?.value?.trim();
       if (!q) return;
       // The bar is reachable from every view, so make sure the map
       // exists before asking it to find anything.
       this.toast('Searching…', 2500, 'search');
       await this.showEarth();
       try {
-        const r = await earth.geocode(q);
+        if (!this.earth) throw new Error('Earth view unavailable');
+        const r = await this.earth.geocode(q);
         this._lastPos = { lat: r.lat, lng: r.lng };
         this.flyToPlace({ lat: r.lat, lng: r.lng, range: 380 }, { announce: false });
         this.toast(`${r.name.split(',').slice(0, 2).join(',')} — glowing spots are available. Try Ground or Street to stand there.`, 7000);
         // show clear placement spots around the destination
-        setTimeout(() => earth.showCandidateSpots(r), 1800);
+        setTimeout(() => this.earth?.showCandidateSpots(r), 1800);
       } catch { this.toast('Could not find that place — try a fuller address.'); }
     };
-    $('#earthGo').onclick = () => { this._closeSuggest(); doSearch(); };
+    if ($('#earthGo')) $('#earthGo').onclick = () => { this._closeSuggest(); doSearch(); };
     this._placeSearch = doSearch;
     this._initMemorialSearch(doSearch);
 
     // Fly to the user's current location
-    $('#locBtn').onclick = () => {
+    if ($('#locBtn')) $('#locBtn').onclick = () => {
       if (!navigator.geolocation) return this.toast('Your browser does not support location.');
       this.toast('Finding you…', 'pin');
       navigator.geolocation.getCurrentPosition(async (p) => {
@@ -1642,8 +2024,8 @@ export const UI = {
         const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
         this._lastPos = pos;
         this.flyToPlace({ ...pos, range: 380 }, { announce: false });
-        setTimeout(() => earth.showCandidateSpots(pos), 1800);
-        const name = await earth.reverseGeocode(pos.lat, pos.lng);
+        setTimeout(() => this.earth?.showCandidateSpots(pos), 1800);
+        const name = (await this.earth?.reverseGeocode(pos.lat, pos.lng)) || `${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`;
         this.toast(`${name.split(',').slice(0, 2).join(',')} — glowing spots are available here. Try Ground to stand in it.`, 7000);
       }, (err) => {
         this.toast(err.code === 1
@@ -1652,38 +2034,49 @@ export const UI = {
       }, { timeout: 10000, maximumAge: 60000 });
     };
 
-    $('#orbitBtn').onclick = () => { this._lastPos = null; this.returnToOrbit(); };
-    $('#homeBtn').onclick = async () => {
+    if ($('#orbitBtn')) $('#orbitBtn').onclick = () => { this._lastPos = null; this.returnToOrbit(); };
+    if ($('#homeBtn')) $('#homeBtn').onclick = async () => {
       this._lastPos = null;
       await this.showEarth();
       this.flyToPlace({ lat: RBV.lat, lng: RBV.lng, range: 2800, name: 'Rainbow Bridge Valley' });
     };
 
     // Ground-level & Street View
-    $('#groundBtn').onclick = async () => {
+    if ($('#groundBtn')) $('#groundBtn').onclick = async () => {
       await this.showEarth();
-      const pos = this._lastPos || earth.getCenter();
-      const ok = earth.groundView(pos);
+      const pos = this._lastPos || this.earth?.getCenter() || { lat: RBV.lat, lng: RBV.lng };
+      const ok = this.earth?.groundView(pos);
       if (ok) this.toast('Standing at the place — the camera will slowly circle it. Drag to look around.');
       else this.toast('Satellite mode is top-down only — click Enable 3D for the full ground-level recreation (buildings, trees, yards).', 7000);
     };
-    $('#streetBtn').onclick = async () => { await this.showEarth(); this.streetViewOpen(this._lastPos || earth.getCenter()); };
-    $('#streetClose').onclick = () => {
-      $('#streetPanel').classList.add('hidden');
-      $('#streetContainer').innerHTML = '';
+    if ($('#streetBtn')) $('#streetBtn').onclick = async () => {
+      await this.showEarth();
+      this.streetViewOpen(this._lastPos || this.earth?.getCenter() || { lat: RBV.lat, lng: RBV.lng });
     };
-    $('#placeBtn').onclick = async () => { await this.showEarth(); this.startPlacement(); };
-    $('#placeCancel').onclick = () => this._exitPlacement();
-    $('#placeCenter').onclick = () => { const c = earth.getCenter(); this._exitPlacement(); this.earthMemorialForm(c); };
+    if ($('#streetClose')) $('#streetClose').onclick = () => {
+      $('#streetPanel')?.classList.add('hidden');
+      const sc = $('#streetContainer');
+      if (sc) sc.innerHTML = '';
+    };
+    if ($('#placeBtn')) $('#placeBtn').onclick = async () => { await this.showEarth(); this.startPlacement(); };
+    if ($('#placeCancel')) $('#placeCancel').onclick = () => this._exitPlacement();
+    if ($('#placeCenter')) $('#placeCenter').onclick = () => {
+      const c = this.earth?.getCenter() || { lat: RBV.lat, lng: RBV.lng };
+      this._exitPlacement();
+      this.earthMemorialForm(c);
+    };
 
-    $('#feedBtn').onclick = () => this.toggleFeed();
-    $('#feedClose').onclick = () => $('#feedPanel').classList.add('hidden');
-    $('#browseBtn').onclick = () => this.toggleBrowse();
-    $('#browseClose').onclick = () => $('#browsePanel').classList.add('hidden');
-    $('#causeBtn').onclick = () => CharityUI.togglePanel(this);
-    $('#topbarCharityBtn').onclick = () => CharityUI.togglePanel(this);
-    $('#comfortBtn').onclick = () => this.comfortModal();
-    $('#partnerBtn').onclick = () => this.partnerModal();
+    if ($('#feedBtn')) $('#feedBtn').onclick = () => this.toggleFeed();
+    if ($('#feedClose')) $('#feedClose').onclick = () => $('#feedPanel').classList.add('hidden');
+    if ($('#browseBtn')) $('#browseBtn').onclick = () => this.toggleBrowse();
+    if ($('#browseClose')) $('#browseClose').onclick = () => $('#browsePanel').classList.add('hidden');
+    if ($('#causeBtn')) $('#causeBtn').onclick = () => CharityUI.togglePanel(this);
+    if ($('#topbarCharityBtn')) $('#topbarCharityBtn').onclick = () => CharityUI.togglePanel(this);
+    if ($('#comfortBtn')) $('#comfortBtn').onclick = () => this.comfortModal();
+    if ($('#partnerBtn')) $('#partnerBtn').onclick = () => this.partnerModal();
+    if ($('#navBrowseBtn')) $('#navBrowseBtn').onclick = () => this.toggleBrowse();
+    $('#membershipBtn')?.addEventListener('click', () => this.membershipModal());
+    $('#brandLogo')?.addEventListener('click', () => this.show3D());
     $('#keepsakesBtn')?.addEventListener('click', () => this.keepsakesModal());
     $('#keepsakeToolbarBtn')?.addEventListener('click', () => this.keepsakesModal());
     $('#soundBtn')?.addEventListener('click', () => this.soundModal());
@@ -1691,7 +2084,27 @@ export const UI = {
     $('#lettersBtn')?.addEventListener('click', () => this.lettersModal());
     $('#treeRibbonBtn')?.addEventListener('click', () => this.treeOfLifeModal());
     $('#candleVigilBtn')?.addEventListener('click', () => this.candleVigilModal());
-    $('#campaignClose').onclick = () => $('#campaignPanel').classList.add('hidden');
+    $('#tourBtn')?.addEventListener('click', () => Tour.start());
+    if ($('#campaignClose')) $('#campaignClose').onclick = () => $('#campaignPanel').classList.add('hidden');
+    
+    // Navigation dropdown
+    const ddToggle = $('#navDropdownToggle');
+    const ddMenu = $('#navDropdownMenu');
+    if (ddToggle && ddMenu) {
+      ddToggle.onclick = (e) => {
+        e.stopPropagation();
+        ddMenu.classList.toggle('hidden');
+      };
+      document.addEventListener('click', (e) => {
+        if (!ddMenu.contains(e.target) && !ddToggle.contains(e.target)) {
+          ddMenu.classList.add('hidden');
+        }
+      });
+      ddMenu.querySelectorAll('button').forEach(b => {
+        b.addEventListener('click', () => ddMenu.classList.add('hidden'));
+      });
+    }
+
     this.updateCharityTopbar();
 
     // 3D key: paste-in-app, stored in the browser — no code editing
@@ -1734,13 +2147,21 @@ export const UI = {
   },
 
   async mountEarth() {
+    if (!this.earth) {
+      const { EarthView } = await import('./earth.js');
+      this.earth = new EarthView(document.getElementById('earthMap'));
+    }
+    this.earth.onMemorialClick = (m) => this.openEarthMemorial(m);
+    this.earth.onRBVClick = () => this.rbvPanel();
+    this.earth.onPlaceAt = (pos) => { this._exitPlacement(); this.beginMemorialAt(pos); };
+    this.earth.onCharityClick = (ch) => this.shelterModal(ch);
+
     await this.earth.init();
     if (HAS_MAPS3D && this.earth.mode === 'satellite') {
       this.toast('Your Maps key was rejected (check APIs enabled & restrictions) — running satellite fallback. Click Enable 3D to update it.', 8000, 'warning');
     }
     for (const m of allMemorials(State.data)) this.earth.addMemorialMarker(m);
     for (const ch of CHARITIES) this.earth.addCharityMarker(ch);
-    this.earth.onCharityClick = (ch) => this.shelterModal(ch);
 
     if (!HAS_MAPS3D) this.toast('Satellite mode — click Enable 3D and paste a free Google Maps key for full photorealism', 7000);
   },
@@ -1857,6 +2278,115 @@ export const UI = {
       this.closeModal();
       this.showEarth().then(() => this.startPlacement());
     };
+  },
+
+  adminHudModal() {
+    this.modal(`
+      <div class="comfort-header">
+        <div class="comfort-crest" style="color:var(--gold-bright);">${icon('shield', { size: 38 })}</div>
+        <h2>⚡ Untethered Admin Console</h2>
+        <div class="modal-sub">Superuser Privileges Active · Instant 100% Free Comps · Unrestricted World Access</div>
+      </div>
+
+      <div class="admin-quick-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:20px 0;">
+        <div class="district-blurb" style="margin:0;padding:16px;">
+          <h4 style="font-family:var(--display);color:#fff;margin-bottom:6px;letter-spacing:0.08em;">✨ Instant Free Checkouts</h4>
+          <p style="font-size:12.5px;color:#d0c8b6;margin-bottom:12px;">Create memorials anywhere on Earth or in the 3D Sanctuary Valley with zero Stripe charges.</p>
+          <button class="btn btn-gold btn-block btn-sm" id="admCreateBtn">Create New Memorial</button>
+        </div>
+        <div class="district-blurb" style="margin:0;padding:16px;">
+          <h4 style="font-family:var(--display);color:#fff;margin-bottom:6px;letter-spacing:0.08em;">🌌 Sandbox Memorial Seeder</h4>
+          <p style="font-size:12.5px;color:#d0c8b6;margin-bottom:12px;">Seed 10 realistic companion memorials across all 7 districts &amp; Earth map.</p>
+          <button class="btn btn-outline btn-block btn-sm" id="admSeedBtn">Seed 10 Memorials</button>
+        </div>
+        <div class="district-blurb" style="margin:0;padding:16px;">
+          <h4 style="font-family:var(--display);color:#fff;margin-bottom:6px;letter-spacing:0.08em;">🌤️ Dynamic Atmosphere</h4>
+          <p style="font-size:12.5px;color:#d0c8b6;margin-bottom:10px;">Switch Sanctuary 3D lighting phase &amp; weather.</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm" id="admDawn">Dawn</button>
+            <button class="btn btn-outline btn-sm" id="admDay">Day</button>
+            <button class="btn btn-outline btn-sm" id="admDusk">Dusk</button>
+            <button class="btn btn-outline btn-sm" id="admNight">Night</button>
+            <button class="btn btn-outline btn-sm" id="admBlessing">Rain</button>
+          </div>
+        </div>
+        <div class="district-blurb" style="margin:0;padding:16px;">
+          <h4 style="font-family:var(--display);color:#fff;margin-bottom:6px;letter-spacing:0.08em;">📊 Telemetry &amp; Command Center</h4>
+          <p style="font-size:12.5px;color:#d0c8b6;margin-bottom:12px;">Review Stripe transaction logs, charity revenue, and event store.</p>
+          <button class="btn btn-outline btn-block btn-sm" id="admDashBtn">Open /admin.html</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:space-between;margin-top:20px;flex-wrap:wrap;">
+        <button class="btn btn-outline" id="admExitBtn" style="color:#ff7675;border-color:rgba(255,118,117,0.4);">Exit Admin Mode</button>
+        <button class="btn btn-gold" data-close>Resume Exploring</button>
+      </div>
+    `);
+
+    const box = $('#modalBox');
+    box.querySelector('#admCreateBtn').onclick = () => {
+      this.closeModal();
+      this.griefWizardModal();
+    };
+    box.querySelector('#admSeedBtn').onclick = async () => {
+      await this.seedDemoMemorials();
+      this.toast('✨ 10 sample companion memorials seeded across the Sanctuary & Earth!', 4000);
+      this.closeModal();
+    };
+    box.querySelector('#admDawn').onclick = () => { this.world?.forcePhase('dawn'); this.toast('Sanctuary time: Dawn'); };
+    box.querySelector('#admDay').onclick = () => { this.world?.forcePhase('day'); this.toast('Sanctuary time: Sunlit Noon'); };
+    box.querySelector('#admDusk').onclick = () => { this.world?.forcePhase('dusk'); this.toast('Sanctuary time: Amber Dusk'); };
+    box.querySelector('#admNight').onclick = () => { this.world?.forcePhase('night'); this.toast('Sanctuary time: Celestial Night'); };
+    box.querySelector('#admBlessing').onclick = () => {
+      if (this.world) { this.world.mood = 'blessing'; this.world.applyAmbience(); }
+      this.toast('Atmospheric Rain Blessing active');
+    };
+    box.querySelector('#admDashBtn').onclick = () => window.open('/admin.html', '_blank');
+    box.querySelector('#admExitBtn').onclick = () => {
+      try { localStorage.removeItem('ev_admin_mode'); } catch {}
+      location.href = '/';
+    };
+  },
+
+  async seedDemoMemorials() {
+    const demoPets = [
+      { name: 'Barnaby', species: 'Golden Retriever', years: '2012 — 2024', epitaph: 'The gentlest soul who loved the ocean and chasing morning shadows.', lat: 37.7749, lng: -122.4194, place: 'San Francisco, CA', district: 'memorial_meadows', plotId: 'p_101' },
+      { name: 'Cleo', species: 'Siamese Cat', years: '2009 — 2023', epitaph: 'Queen of the sunbeams and guardian of our quietest evenings.', lat: 40.7128, lng: -74.0060, place: 'New York, NY', district: 'whispering_pines', plotId: 'p_102' },
+      { name: 'Jasper', species: 'Australian Shepherd', years: '2014 — 2025', epitaph: 'Endless energy, brilliant eyes, and a heart full of boundless devotion.', lat: 51.5074, lng: -0.1278, place: 'London, UK', district: 'lakeside_rest', plotId: 'p_103' },
+      { name: 'Milo', species: 'Rescue Beagle', years: '2011 — 2024', epitaph: 'A joyful spirit who knew only kindness, peanut butter, and summer trails.', lat: 34.0522, lng: -118.2437, place: 'Los Angeles, CA', district: 'golden_shores', plotId: 'p_104' },
+      { name: 'Freya', species: 'Maine Coon', years: '2010 — 2023', epitaph: 'Silent elegance and sweet purrs that filled our home with peace.', lat: 48.8566, lng: 2.3522, place: 'Paris, France', district: 'summit_rest', plotId: 'p_105' },
+      { name: 'Atlas', species: 'Rescue Thoroughbred', years: '2005 — 2022', epitaph: 'Running wild and free across the infinite celestial meadows.', lat: -33.8688, lng: 151.2093, place: 'Sydney, Australia', district: 'desert_bloom', plotId: 'p_106' },
+    ];
+
+    State.data.earth ||= { memorials: [], activity: [] };
+    State.data.ownedPlots ||= {};
+
+    demoPets.forEach(p => {
+      const mem = {
+        id: 'seed_' + Math.random().toString(36).slice(2, 9),
+        petName: p.name,
+        species: p.species,
+        years: p.years,
+        epitaph: p.epitaph,
+        lat: p.lat,
+        lng: p.lng,
+        place: p.place,
+        owner: 'Admin',
+        headstone: 'classic',
+        at: Date.now() - Math.floor(Math.random() * 86400000 * 7),
+      };
+      State.data.earth.memorials.push(mem);
+      State.data.ownedPlots[p.plotId] = {
+        memorial: mem,
+        decor: [{ type: 'headstone', style: 'classic' }],
+        boughtAt: Date.now(),
+      };
+    });
+
+    await State.save(Auth.user);
+    if (this.globe) {
+      demoPets.forEach(p => this.globe.addPin({ lat: p.lat, lng: p.lng, name: p.place, memorial: p }));
+    }
   },
 
   candleVigilModal() {
@@ -2511,29 +3041,37 @@ export const UI = {
   },
 
   openEarthMemorial(m) {
+    const linkedPlot = m.plotId ? this.plots.find(p => p.id === m.plotId) : null;
     const gb = (m.guestbook || []).slice(-5).reverse();
     const own = !m.seeded && (IS_ADMIN || (Auth.user && m.ownerUid && m.ownerUid === Auth.user.uid));
     const body = $('#plotPanelBody');
+    const safePetName = esc(m.petName || 'Beloved Companion');
+    const safePlace = esc(m.place || '');
+    const safeSpecies = esc(m.species || '');
+    const safeYears = esc(m.years || '');
+    const safeEpitaph = esc(m.epitaph || '');
+    const safeOwner = esc(m.owner || 'a loving family');
+
     body.innerHTML = `
       <span class="badge badge-occ">MEMORIAL${own ? ' · YOURS' : ''}</span>
-      <h2>${speciesIcon(speciesKey(m.species || ''), { size: 26 })} ${m.petName}</h2>
-      <div class="sub">${m.place}</div>
+      <h2>${speciesIcon(speciesKey(m.species || ''), { size: 26 })} ${safePetName}</h2>
+      <div class="sub">${safePlace}</div>
       <div class="memorial">
         ${memorialArt(m, 52)}
-        <h3>${m.petName}</h3>
-        <div class="years">${m.species} · ${m.years}</div>
-        <p class="epitaph">“${m.epitaph}”</p>
-        <div class="gifts-count">${icon('gift')} ${m.gifts || 0} tributes from visitors · resting with ${m.owner}</div>
+        <h3>${safePetName}</h3>
+        <div class="years">${safeSpecies} · ${safeYears}</div>
+        <p class="epitaph">“${safeEpitaph}”</p>
+        <div class="gifts-count">${icon('gift')} ${m.gifts || 0} tributes from visitors · resting with ${safeOwner}</div>
         <div class="gifts-count" style="color:var(--accent-hi-c)">${icon('heart')} Supports verified rescue: <b>${charityName(m.charity || State.data.charity || CHARITIES[0].id)}</b></div>
-        ${m.socials && Object.values(m.socials).some(v => v) ? `<div class="gifts-count">${['instagram', 'x', 'tiktok', 'facebook'].filter(k => m.socials[k]).map(k => icon({ instagram: 'instagram', x: 'x', tiktok: 'tiktok', facebook: 'facebook' }[k]) + ' ' + m.socials[k]).join(' · ')}</div>` : ''}
+        ${m.socials && Object.values(m.socials).some(v => v) ? `<div class="gifts-count">${['instagram', 'x', 'tiktok', 'facebook'].filter(k => m.socials[k]).map(k => icon({ instagram: 'instagram', x: 'x', tiktok: 'tiktok', facebook: 'facebook' }[k]) + ' ' + esc(m.socials[k])).join(' · ')}</div>` : ''}
       </div>
       ${this.petProfileHTML(m, m.id, own)}
-      ${linkedPlot ? `<button class="btn btn-gold btn-block" id="ePlotVisitBtn" style="margin-bottom:8px">${icon('crest')} Visit ${m.petName}'s Resting Plot in the Sanctuary Valley</button>` : ''}
+      ${linkedPlot ? `<button class="btn btn-gold btn-block" id="ePlotVisitBtn" style="margin-bottom:8px">${icon('crest')} Visit ${safePetName}'s Resting Plot in the Sanctuary Valley</button>` : ''}
       <button class="btn btn-outline btn-block" id="evisitBtn">${icon('walk')} Visit at ground level</button>
       <button class="btn btn-outline btn-block" id="esvBtn">${icon('eye')} Street View here</button>
       <button class="btn btn-outline btn-block" id="eshareBtn">${icon('share')} Share this memorial</button>
       ${(m.decorations?.length ? `<div class="sub">At the memorial:</div>` + m.decorations.map(d =>
-        `<div class="guestbook-entry">${thumbImg(d.itemId, { size: 22, cls: 'thumb-inline' })} <b>${d.name}</b> — ${d.slotLabel}</div>`).join('') : '')}
+        `<div class="guestbook-entry">${thumbImg(d.itemId, { size: 22, cls: 'thumb-inline' })} <b>${esc(d.name)}</b> — ${esc(d.slotLabel)}</div>`).join('') : '')}
       <button class="btn btn-gold btn-block" id="egiftBtn">${icon('candle')} Leave a gift at the base</button>
       <button class="btn btn-outline btn-block" id="eCertBtn">${icon('scroll')} Memorial Certificate &amp; Plaque</button>
       <button class="btn btn-outline btn-block" id="ekeepsakeBtn">${icon('photo')} Order Physical Keepsakes</button>
@@ -2543,7 +3081,7 @@ export const UI = {
         ✦ <b>Earth Sacred Footprint Pin:</b> Maintained permanently by Eternity Valley. All consecrated resting plots reside in our 3D Virtual Sanctuary.
       </div>
       ${gb.length ? '<div class="sub" style="margin-top:14px">Guestbook:</div>' + gb.map(g =>
-        `<div class="guestbook-entry"><b>${g.from}</b> · ${timeAgo(g.at)}<br>${g.msg}</div>`).join('') : ''}`;
+        `<div class="guestbook-entry"><b>${esc(g.from)}</b> · ${timeAgo(g.at)}<br>${esc(g.msg)}</div>`).join('') : ''}`;
     if ($('#ePlotVisitBtn') && linkedPlot) {
       $('#ePlotVisitBtn').onclick = async () => {
         this.closePanel();
@@ -3026,4 +3564,177 @@ export const UI = {
     this.world?.rebuildPlots();
     if (this.map) { this.map._bg = null; this.map.draw(); }
   },
+
+
+
+  showDevotionalModal(templeKey = 'cathedral') {
+    const TEMPLE_DATA = {
+      cathedral: {
+        badge: 'Universal Cathedral · Highland Plateau',
+        title: 'Grand Universal Cathedral',
+        sub: 'Sagrada Família Spires & Sistine Nave Vaults',
+        actionName: 'Light a Votive Candle & Offer Prayer',
+        iconKey: 'candle',
+        actionSound: 'playHarmonicChord',
+        intents: [
+          { name: 'Hail Mary', text: 'Holy Mary, Mother of Grace, watch over our beloved companion in eternal light and radiant peace.' },
+          { name: 'Eternal Peace & Light', text: 'May perpetual light shine upon them, forever safe, joyful and running free across the celestial hills.' },
+          { name: 'Comfort for Grieving Hearts', text: 'Send gentle comfort and healing to our family, knowing love transcends all physical space.' },
+          { name: 'In Loving Memory', text: 'Honoring a noble life filled with unconditional loyalty, gentle purrs, and wagging tails.' }
+        ]
+      },
+      baal: {
+        badge: 'Highland Promontory · Solomonic Spire',
+        title: 'The Sacred Temple of Baal',
+        sub: 'Monumental Fluted Pillars & Solomonic Spire of Strength',
+        actionName: 'Ignite Sacred Incense & Flame of Strength',
+        iconKey: 'fire',
+        actionSound: 'playHarmonicChord',
+        intents: [
+          { name: 'Flame of Eternal Strength', text: 'May their fierce, noble spirit run eternal across the endless golden meadows of strength.' },
+          { name: 'Guardian Protection for Animals', text: 'Invoking ancient guardian power to protect, heal and shelter all living creatures.' },
+          { name: 'Valiant Warrior Companion', text: 'In honor of our brave protector who guarded our family with boundless courage and love.' },
+          { name: 'Sacred Beast Blessing', text: 'Honoring the untamed grace, loyalty, and wild spirit of nature that lives in every animal.' }
+        ]
+      },
+      pagoda: {
+        badge: 'Eastern Mountain Sanctuary · Zen Rock Garden',
+        title: 'Buddhist Zen Pagoda & Sanctuary',
+        sub: '5-Tiered Hinoki Pagoda, Golden Buddha & 528Hz Solfeggio Bell',
+        actionName: 'Light Sandalwood Incense & Strike 528Hz Bell',
+        iconKey: 'lotus',
+        actionSound: 'playHarmonicChord',
+        intents: [
+          { name: 'Metta — Loving-Kindness', text: 'May all living beings everywhere be happy, peaceful, and free from suffering and fear.' },
+          { name: 'Pure Land Rebirth', text: 'May our beloved companion dwell in tranquil serenity among blooming lotus blossoms and gentle breezes.' },
+          { name: 'Compassion for All Beings', text: 'A circle of endless compassion spanning all realms of existence and life.' },
+          { name: 'Gratitude for Shared Life', text: 'Deep bowing in gratitude for the sacred years and profound unconditional love we shared.' }
+        ]
+      },
+      mosque: {
+        badge: 'Western Ridge Promontory · Court of Lions',
+        title: 'Moorish Mosque & Court of Lions',
+        sub: 'Alhambra Double Arches, Muqarnas Mihrab & Sacred Fanous Lanterns',
+        actionName: 'Illuminate Sacred Fanous Lamp & Float Rose Petal',
+        iconKey: 'sparkle',
+        actionSound: 'playHarmonicChord',
+        intents: [
+          { name: 'Bismillah — Divine Mercy', text: 'In the name of the Most Merciful, grant eternal serenity and cool shade to our companion.' },
+          { name: 'Light of Divine Peace (Noor)', text: 'May their spirit be bathed in radiant celestial illumination and eternal warmth.' },
+          { name: 'Gentle Care for All Creatures', text: 'Honoring the sacred duty of stewardship and gentle care for the innocent souls of the earth.' },
+          { name: 'Garden of Eternal Bliss (Firdaws)', text: 'Resting peacefully beside crystal waters, sweet dates, and everlasting comfort.' }
+        ]
+      }
+    };
+
+    const cfg = TEMPLE_DATA[templeKey] || TEMPLE_DATA.cathedral;
+    let selectedIntent = cfg.intents[0];
+    let selectedAmount = 15;
+
+    const render = () => {
+      this.modal(`
+        <div class="devotional-modal-header">
+          <div class="devotional-modal-badge">${cfg.badge}</div>
+          <h2>${cfg.title}</h2>
+          <div class="modal-sub">${cfg.sub}</div>
+        </div>
+
+        <label style="margin-top:0;">Select Devotional Intention / Prayer</label>
+        <div class="devotional-intent-grid">
+          ${cfg.intents.map((it, i) => `
+            <button class="devotional-intent-btn ${it.name === selectedIntent.name ? 'is-selected' : ''}" data-idx="${i}">
+              <span class="devotional-intent-title">${it.name}</span>
+              <span class="devotional-intent-sub">${it.text.slice(0, 52)}…</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <label>Selected Prayer / Dedication Text</label>
+        <textarea id="devotionalPrayerText" rows="2" style="width:100%;padding:10px;border-radius:var(--r-md);background:rgba(0,0,0,0.4);border:1px solid rgba(212,175,55,0.3);color:#f4f0e6;font-family:var(--serif);font-size:14px;line-height:1.5;">${selectedIntent.text}</textarea>
+
+        <label>Dedicated in Memory of (Companion's Name)</label>
+        <input id="devotionalPetName" placeholder="e.g. Bella, Kaya, Toby..." style="width:100%;padding:10px;border-radius:var(--r-md);background:rgba(0,0,0,0.4);border:1px solid rgba(212,175,55,0.3);color:#fff;font-size:14px;">
+
+        <label>Devotional Offering &amp; Charity Donation</label>
+        <div class="devotional-amount-row">
+          <button class="devotional-amount-btn ${selectedAmount === 5 ? 'is-selected' : ''}" data-amt="5">$5</button>
+          <button class="devotional-amount-btn ${selectedAmount === 15 ? 'is-selected' : ''}" data-amt="15">$15</button>
+          <button class="devotional-amount-btn ${selectedAmount === 25 ? 'is-selected' : ''}" data-amt="25">$25</button>
+          <button class="devotional-amount-btn ${selectedAmount === 50 ? 'is-selected' : ''}" data-amt="50">$50</button>
+          <button class="devotional-amount-btn ${selectedAmount === 100 ? 'is-selected' : ''}" data-amt="100">$100</button>
+        </div>
+
+        <div class="devotional-charity-badge">
+          <i class="ico-slot" data-icon="heart"></i>
+          <span><b>100% Transparency:</b> Every cent is published in the cryptographic ledger and directly supports verified 501(c)(3) animal shelters &amp; wildlife rescues.</span>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:24px;">
+          <button class="btn btn-outline" data-close style="flex:1;">Cancel</button>
+          <button class="btn btn-gold btn-lg" id="devotionalSubmitBtn" style="flex:2;">
+            <i class="ico-slot" data-icon="${cfg.iconKey}"></i> ${cfg.actionName} ($${selectedAmount})
+          </button>
+        </div>
+      `);
+
+      const box = $('#modalBox');
+      box.querySelectorAll('.devotional-intent-btn').forEach(btn => {
+        btn.onclick = () => {
+          const idx = parseInt(btn.dataset.idx, 10);
+          selectedIntent = cfg.intents[idx];
+          render();
+        };
+      });
+
+      box.querySelectorAll('.devotional-amount-btn').forEach(btn => {
+        btn.onclick = () => {
+          selectedAmount = parseInt(btn.dataset.amt, 10);
+          render();
+        };
+      });
+
+      const submitBtn = box.querySelector('#devotionalSubmitBtn');
+      if (submitBtn) {
+        submitBtn.onclick = async () => {
+          const petName = box.querySelector('#devotionalPetName')?.value?.trim() || 'Beloved Companion';
+          const prayer = box.querySelector('#devotionalPrayerText')?.value?.trim() || selectedIntent.text;
+
+          // Trigger Soundscape
+          try {
+            if (window.Soundscape?.[cfg.actionSound]) {
+              window.Soundscape[cfg.actionSound]();
+            } else if (window.Soundscape?.playHarmonicChord) {
+              window.Soundscape.playHarmonicChord(432);
+            }
+          } catch (_) {}
+
+          // Record in cryptographic ledger
+          try {
+            if (window.Ledger?.record) {
+              await window.Ledger.record({
+                kind: 'temple_offering',
+                temple: templeKey,
+                petName,
+                prayer,
+                amount: selectedAmount,
+                charity: 'best_friends',
+                at: Date.now()
+              });
+            }
+          } catch (_) {}
+
+          // Visual spark celebration in 3D
+          if (this.world?._triggerTempleCelebration) {
+            this.world._triggerTempleCelebration(templeKey);
+          }
+
+          this.closeModal();
+          this.toast(`✦ Offering consecrated in ${cfg.title} for ${petName}!`, 4500, 'sparkle');
+        };
+      }
+    };
+
+    render();
+  },
 };
+
