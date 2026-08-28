@@ -32,16 +32,10 @@ const CACHE_KEY = 'rbv_thumbs_v1';
 // treated as though it does not exist.
 const PHOTO_DIR = 'images/catalog/';
 let photoSet = null;
-export const photosReady = Promise.race([
-  fetch(PHOTO_DIR + 'manifest.json')
-    .then(r => (r.ok ? r.json() : []))
-    .then(list => { photoSet = new Set(list); return photoSet; })
-    .catch(() => { photoSet = new Set(); return photoSet; }),
-  new Promise(resolve => setTimeout(() => {
-    if (!photoSet) photoSet = new Set();
-    resolve(photoSet);
-  }, 1000)),
-]);
+export const photosReady = fetch(PHOTO_DIR + 'manifest.json')
+  .then(r => (r.ok ? r.json() : []))
+  .then(list => { photoSet = new Set(list); return photoSet; })
+  .catch(() => { photoSet = new Set(); return photoSet; });
 
 /** Path to a real photograph for this id, or null. */
 export function photoFor(id) {
@@ -72,63 +66,57 @@ export async function loadLibs() {
   return loadingLibs;
 }
 
-let studioFailed = false;
-
 function studio() {
   if (R) return R;
-  if (studioFailed) return null;
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = SIZE;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(1);
-    renderer.setSize(SIZE, SIZE, false);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(1);
+  renderer.setSize(SIZE, SIZE, false);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    const scene = new THREE.Scene();
-    scene.background = null;
+  const scene = new THREE.Scene();
+  scene.background = null;
 
-    // A neutral room probe is what makes a product shot read as a
-    // photograph: every surface picks up soft bounce from all sides.
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environment = env;
-    scene.environmentIntensity = 0.85;
+  // A neutral room probe is what makes a product shot read as a
+  // photograph: every surface picks up soft bounce from all sides.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environment = env;
+  scene.environmentIntensity = 0.85;
 
-    const key = new THREE.DirectionalLight(0xfff2dc, 2.6);
-    key.position.set(4, 7, 6);
-    key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 0.5, far: 40 });
-    key.shadow.bias = -0.0012;
-    scene.add(key);
+  const key = new THREE.DirectionalLight(0xfff2dc, 2.6);
+  key.position.set(4, 7, 6);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 0.5, far: 40 });
+  key.shadow.bias = -0.0012;
+  scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0xbcd4ff, 1.5);
-    rim.position.set(-6, 4, -5);
-    scene.add(rim);
+  const rim = new THREE.DirectionalLight(0xbcd4ff, 1.5);
+  rim.position.set(-6, 4, -5);
+  scene.add(rim);
 
-    // Ground shadow receiver
-    const floorGeo = new THREE.PlaneGeometry(16, 16);
-    const floorMat = new THREE.ShadowMaterial({ opacity: 0.28 });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
+  // A soft shadow catcher so objects sit on something
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 60),
+    new THREE.ShadowMaterial({ opacity: 0.26 }),
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
 
-    R = { renderer, scene, camera, key, rim, floor, pmrem };
-    return R;
-  } catch (e) {
-    studioFailed = true;
-    console.log('[thumbs] studio renderer init failed:', e);
-    return null;
-  }
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
+
+  R = { renderer, scene, camera, key, rim, floor, pmrem };
+  return R;
 }
 
 // ---------------------------------------------------------------
@@ -170,73 +158,39 @@ function slab(w, h, d, mat, bevel = 0.04) {
   return mesh(geo, mat);
 }
 
-function createCurvedLeafCardGeo(w, h, curveDepth = 0.45) {
-  const geo = new THREE.PlaneGeometry(w, h, 2, 2);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i);
-    const u = x / (w * 0.5), v = y / (h * 0.5);
-    pos.setZ(i, (1.0 - u * u) * curveDepth * (1.0 - v * 0.25));
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-function leafyCrown(mat, r = 1, isWeeping = false, seedOff = 0) {
+function leafyCrown(mat, r = 1, clumps = 7, seedOff = 0) {
   const g = new THREE.Group();
-  const numCards = isWeeping ? 28 : 24;
-  for (let i = 0; i < numCards; i++) {
-    const phi = Math.acos(1 - 2 * ((i + 0.5) / numCards));
-    const theta = i * 2.39996 + seedOff; // golden angle
-    const rad = r * (0.35 + 0.55 * Math.sin((i * 1.7) % Math.PI));
-    const x = Math.sin(phi) * Math.cos(theta) * rad;
-    const y = Math.cos(phi) * (rad * (isWeeping ? 0.65 : 0.85));
-    const z = Math.sin(phi) * Math.sin(theta) * rad;
-    
-    const cardW = r * (isWeeping ? 0.45 : 0.85);
-    const cardH = r * (isWeeping ? 1.45 : 0.95);
-    const cardGeo = createCurvedLeafCardGeo(cardW, cardH, 0.45);
-    const m = mesh(cardGeo, mat, [x, y, z], [
-      (Math.sin(i * 1.3) - 0.5) * 0.8,
-      theta + Math.PI * 0.5,
-      (Math.cos(i * 1.7) - 0.5) * 0.5
-    ]);
+  const geo = new THREE.IcosahedronGeometry(r * 0.58, 2);
+  for (let i = 0; i < clumps; i++) {
+    const a = (i / clumps) * Math.PI * 2 + seedOff;
+    const y = Math.sin(i * 2.3 + seedOff) * r * 0.34;
+    const rad = r * (0.52 + 0.3 * Math.abs(Math.cos(i * 1.7)));
+    const m = mesh(geo, mat, [Math.cos(a) * rad, y, Math.sin(a) * rad], [0, a, 0],
+      0.75 + 0.4 * Math.abs(Math.sin(i * 1.3 + seedOff)));
     g.add(m);
   }
+  g.add(mesh(geo, mat, [0, r * 0.18, 0], [0, 0, 0], 1.25));
   return g;
 }
 
 function tree(crownColor, { trunkH = 1.5, crownR = 1.35, weeping = false } = {}) {
   const g = new THREE.Group();
   const bark = Surfaces.bark(1.2);
-  // Organic flared trunk
-  const trunkGeo = new THREE.CylinderGeometry(0.09, 0.22, trunkH, 14);
-  g.add(mesh(trunkGeo, bark, [0, trunkH / 2, 0]));
-  
-  // Scaffold branchlets
-  for (let b = 0; b < 4; b++) {
-    const bAng = (b / 4) * Math.PI * 2 + 0.3;
-    const bLen = crownR * 0.55;
-    const br = new THREE.CylinderGeometry(0.035, 0.07, bLen, 6);
-    br.rotateZ(0.68);
-    br.rotateY(bAng);
-    br.translate(Math.cos(bAng) * (bLen * 0.4), trunkH * 0.85, Math.sin(bAng) * (bLen * 0.4));
-    g.add(mesh(br, bark));
-  }
-
+  g.add(mesh(new THREE.CylinderGeometry(0.11, 0.19, trunkH, 14), bark, [0, trunkH / 2, 0]));
   const foliage = Surfaces.foliage(1.4, crownColor);
-  const crown = leafyCrown(foliage, crownR, weeping);
-  crown.position.y = trunkH + crownR * 0.45;
+  const crown = leafyCrown(foliage, crownR, weeping ? 9 : 7);
+  crown.position.y = trunkH + crownR * 0.55;
   if (weeping) {
-    // Cascading willow tendril ribbons
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const rad = crownR * (0.75 + (i % 3) * 0.22);
-      const tendrilH = crownR * (1.2 + (i % 2) * 0.4);
-      const tGeo = createCurvedLeafCardGeo(crownR * 0.38, tendrilH, 0.35);
-      tGeo.rotateY(a + Math.PI * 0.5);
-      tGeo.translate(Math.cos(a) * rad, trunkH + crownR * 0.2 - tendrilH * 0.35, Math.sin(a) * rad);
-      g.add(mesh(tGeo, foliage));
+    crown.scale.set(1.15, 0.78, 1.15);
+    // trailing fronds
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const curve = new THREE.CatmullRomCurve3([
+        new V3(Math.cos(a) * crownR * 0.9, trunkH + crownR * 0.5, Math.sin(a) * crownR * 0.9),
+        new V3(Math.cos(a) * crownR * 1.15, trunkH + crownR * 0.05, Math.sin(a) * crownR * 1.15),
+        new V3(Math.cos(a) * crownR * 1.05, trunkH - crownR * 0.35, Math.sin(a) * crownR * 1.05),
+      ]);
+      g.add(mesh(new THREE.TubeGeometry(curve, 10, 0.045, 6), foliage));
     }
   }
   g.add(crown);
@@ -871,9 +825,7 @@ export function renderThumb(id) {
   // image is patched in by warmThumbs() once the libraries arrive.
   if (!THREE) { loadLibs().then(() => warmThumbs()); return null; }
 
-  const s = studio();
-  if (!s) return null;
-  const { renderer, scene, camera, floor } = s;
+  const { renderer, scene, camera, floor } = studio();
   const group = build();
   scene.add(group);
 
@@ -905,15 +857,8 @@ export async function warmThumbs(ids = Object.keys(BUILDERS), onProgress) {
   let done = 0;
   for (const id of ids) {
     if (!mem.has(id) && !store[id]) {
-      try { renderThumb(id); } catch (e) { console.log('[thumbs]', id, e); }
-      // Yield to main thread with idle callback / breather between 3D thumbnail renders
-      await new Promise(r => {
-        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-          window.requestIdleCallback(r, { timeout: 100 });
-        } else {
-          setTimeout(r, 40);
-        }
-      });
+      try { renderThumb(id); } catch (e) { console.warn('[thumbs]', id, e); }
+      await new Promise(r => setTimeout(r, 0));
     }
     onProgress?.(++done / ids.length, id);
   }

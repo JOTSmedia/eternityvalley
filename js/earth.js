@@ -54,9 +54,7 @@ export class EarthView {
     this.mode = HAS_MAPS3D ? 'google3d' : 'satellite';
     this.placement = false;
     this.markers = new Map(); // memorial.id -> marker
-    this.charityMarkers = new Map(); // charity.id -> marker
     this.onMemorialClick = null;
-    this.onCharityClick = null;
     this.onPlaceAt = null;
     this.onRBVClick = null;
     this._ready = null;
@@ -65,7 +63,7 @@ export class EarthView {
   init() {
     this._ready ||= (this.mode === 'google3d' ? this._initGoogle() : this._initLeaflet())
       .catch(err => {
-        console.log('Earth: Google 3D failed, falling back to satellite —', err.message);
+        console.warn('Earth: Google 3D failed, falling back to satellite —', err.message);
         this.mode = 'satellite';
         return this._initLeaflet();
       });
@@ -77,7 +75,7 @@ export class EarthView {
     if (window.google?.maps?.importLibrary) return;
     // Official bootstrap loader
     /* eslint-disable */
-    (g => { var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window; b = b[c] || (b[c] = {}); var d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => { await (a = m.createElement("script")); e.set("libraries", [...r] + ""); for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]); e.set("callback", c + ".maps." + q); a.src = `https://maps.${c}apis.com/maps/api/js?` + e; d[q] = f; a.onerror = () => h = n(Error(p + " could not load.")); a.nonce = m.querySelector("script[nonce]")?.nonce || ""; m.head.append(a) })); d[l] ? console.log(p + " only loads once.") : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)) })({ key: GOOGLE_MAPS_API_KEY, v: 'alpha' });
+    (g => { var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window; b = b[c] || (b[c] = {}); var d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => { await (a = m.createElement("script")); e.set("libraries", [...r] + ""); for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]); e.set("callback", c + ".maps." + q); a.src = `https://maps.${c}apis.com/maps/api/js?` + e; d[q] = f; a.onerror = () => h = n(Error(p + " could not load.")); a.nonce = m.querySelector("script[nonce]")?.nonce || ""; m.head.append(a) })); d[l] ? console.warn(p + " only loads once.") : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)) })({ key: GOOGLE_MAPS_API_KEY, v: 'alpha' });
     /* eslint-enable */
   }
 
@@ -293,50 +291,6 @@ export class EarthView {
     const marker = L.marker([mem.lat, mem.lng], { icon }).addTo(this.leaflet);
     marker.on('click', () => this.onMemorialClick?.(mem));
     return marker;
-  }
-
-  // ---------------- Charity Sanctuaries ----------------
-  async _addCharityMarkerGoogle(ch) {
-    if (!ch.lat || !ch.lng) return null;
-    const { Marker3DInteractiveElement } = await google.maps.importLibrary('maps3d');
-    const { PinElement } = await google.maps.importLibrary('marker');
-    const pin = new PinElement({
-      glyph: glyphNode(uiIcon('heart', { size: 16 }), '#ffffff'),
-      glyphColor: '#ffffff',
-      scale: 1.5,
-      background: '#2ecc71',
-      borderColor: '#27ae60',
-    });
-    const marker = new Marker3DInteractiveElement({
-      position: { lat: ch.lat, lng: ch.lng, altitude: 25 },
-      altitudeMode: 'RELATIVE_TO_GROUND', extruded: true,
-      label: `Rescue: ${ch.name}`,
-    });
-    marker.append(pin);
-    marker.addEventListener('gmp-click', () => this.onCharityClick?.(ch));
-    this.map3d.append(marker);
-    return marker;
-  }
-
-  _addCharityMarkerLeaflet(ch) {
-    if (!ch.lat || !ch.lng) return null;
-    const icon = L.divIcon({
-      className: '',
-      html: `<div class="em-marker em-charity-pin" title="${ch.name}">${uiIcon('heart', { size: 18 })}</div>`,
-      iconSize: [36, 36], iconAnchor: [18, 32],
-    });
-    const marker = L.marker([ch.lat, ch.lng], { icon }).addTo(this.leaflet);
-    marker.bindTooltip(`<b>${ch.name}</b><br><span style="font-size:11px;color:#ffd700">${ch.cat}</span>`, { direction: 'top' });
-    marker.on('click', () => this.onCharityClick?.(ch));
-    return marker;
-  }
-
-  async addCharityMarker(ch) {
-    if (!ch.lat || !ch.lng || this.charityMarkers.has(ch.id)) return;
-    const marker = this.mode === 'google3d'
-      ? await this._addCharityMarkerGoogle(ch)
-      : this._addCharityMarkerLeaflet(ch);
-    if (marker) this.charityMarkers.set(ch.id, marker);
   }
 
   // ---------------- Shared API ----------------

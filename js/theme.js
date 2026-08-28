@@ -198,7 +198,7 @@ export const Theme = {
     r.dataset.season = this.season;
     r.dataset.mood = this.mood;
 
-    this._subs.forEach(fn => { try { fn(snap); } catch (e) { console.log('[theme]', e); } });
+    this._subs.forEach(fn => { try { fn(snap); } catch (e) { console.warn('[theme]', e); } });
     return snap;
   },
 

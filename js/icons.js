@@ -122,10 +122,6 @@ const UI_ICONS = {
   power: '<path d="M12 3.6v8"/><path d="M6.9 6.9a7.2 7.2 0 1 0 10.2 0"/>',
   calendar: '<rect x="3.6" y="5.4" width="16.8" height="15" rx="2.2"/><path d="M3.6 10h16.8M8.4 3.4v4M15.6 3.4v4"/>',
   music: '<path d="M9 18.4V5.6l10-1.8v12.6"/><ellipse cx="6.6" cy="18.4" rx="2.4" ry="2"/><ellipse cx="16.6" cy="16.4" rx="2.4" ry="2"/>',
-  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-  rainbow: '<path d="M3.4 19.4a8.6 8.6 0 0 1 17.2 0"/><path d="M6.2 19.4a5.8 5.8 0 0 1 11.6 0"/><path d="M9 19.4a3 3 0 0 1 6 0"/>',
-  photo: '<rect x="3.4" y="4.4" width="17.2" height="15.2" rx="2.4"/><circle cx="8.5" cy="9.5" r="2"/><path d="m20.6 15.6-4.6-4.6a2.1 2.1 0 0 0-3 0l-7.6 7.6"/>',
-  tree: '<path d="M12 21v-4.5M12 3l-6 7.5h4.2L5.4 16.5h13.2l-4.8-6h4.2Z"/>',
 };
 
 // ---------------------------------------------------------------
@@ -263,7 +259,7 @@ export function speciesKey(text = '') {
 export function icon(name, opts = {}) {
   const body = UI_ICONS[name];
   if (!body) {
-    console.log(`[icons] unknown icon "${name}"`);
+    console.warn(`[icons] unknown icon "${name}"`);
     return '';
   }
   const { size = '1em', cls = '', title = '', stroke = 1.6 } = opts;

@@ -55,42 +55,8 @@ function mulberry(seed) {
   };
 }
 
-/** Fallback procedural textures in case an image asset fails to load */
-function createFallbackTexture(name, srgb = false) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const ctx = c.getContext('2d');
-  const strName = String(name || '');
-  if (strName.includes('normal')) {
-    ctx.fillStyle = '#8080ff';
-    ctx.fillRect(0, 0, 256, 256);
-  } else if (strName.includes('specular')) {
-    ctx.fillStyle = '#404040';
-    ctx.fillRect(0, 0, 256, 256);
-  } else if (strName.includes('lights')) {
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, 256, 256);
-  } else if (strName.includes('clouds')) {
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.fillRect(0, 0, 256, 256);
-  } else if (strName.includes('moon')) {
-    ctx.fillStyle = '#888888';
-    ctx.fillRect(0, 0, 256, 256);
-  } else {
-    ctx.fillStyle = '#0c2340';
-    ctx.fillRect(0, 0, 256, 256);
-    ctx.fillStyle = '#225533';
-    ctx.fillRect(40, 60, 100, 80);
-    ctx.fillRect(160, 80, 70, 90);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.needsUpdate = true;
-  if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 function loadTexture(file, { srgb = false, aniso = 8 } = {}) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     new THREE.TextureLoader().load(
       TEX_PATH + file,
       (t) => {
@@ -99,10 +65,7 @@ function loadTexture(file, { srgb = false, aniso = 8 } = {}) {
         resolve(t);
       },
       undefined,
-      (err) => {
-        console.log(`[globe] Texture ${file} failed to load, using resilient fallback`, err);
-        resolve(createFallbackTexture(file, srgb));
-      },
+      () => reject(new Error('could not load ' + file)),
     );
   });
 }
@@ -126,7 +89,7 @@ export class Globe {
 
   async init() {
     const renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -145,12 +108,8 @@ export class Globe {
     controls.dampingFactor = 0.05;
     controls.enablePan = false;
     controls.minDistance = R_EARTH * 1.35;
-    // On touch devices allow zooming out more — the globe starts further
-    // back anyway and users want to see the full planet in their palm
-    controls.maxDistance = R_EARTH * 12;
-    // Faster rotate on touch for snappier response
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    controls.rotateSpeed = isTouchDevice ? 0.65 : 0.45;
+    controls.maxDistance = R_EARTH * 9;
+    controls.rotateSpeed = 0.45;
     // The planet turns.
     //
     // The camera orbits rather than the Earth mesh spinning, and that
@@ -211,26 +170,7 @@ export class Globe {
     addEventListener('resize', this._onResize = () => this.resize());
     this.resize();
     this._pickSetup();
-    this.warmup();
     return this;
-  }
-
-  /**
-   * Pre-compiles all Earth shaders and executes warmup frames
-   * so globe entrance and rotation are completely lag-free.
-   */
-  warmup() {
-    if (!this.renderer || !this.scene || !this.camera) return;
-    try {
-      this.renderer.compile(this.scene, this.camera);
-      if (this.composer) {
-        this.composer.render();
-      } else {
-        this.renderer.render(this.scene, this.camera);
-      }
-    } catch (e) {
-      console.log('[globe] warmup error:', e);
-    }
   }
 
   _buildEarth() {
@@ -269,7 +209,7 @@ export class Globe {
         .replace('#include <dithering_fragment>', `
           #include <dithering_fragment>
           // Cities appear as the terminator passes, not all at once.
-          float night = 1.0 - smoothstep(-0.22, 0.10, dot(normalize(vWorldNrm), uSunDir));
+          float night = smoothstep(0.10, -0.22, dot(vWorldNrm, uSunDir));
           vec3 lamps = texture2D(uLights, vMapUv).rgb;
           gl_FragColor.rgb += lamps * night * 1.9;
         `);
@@ -329,9 +269,8 @@ export class Globe {
         varying vec3 vNormalW; varying vec3 vViewDir;
         void main(){
           // Back faces, so the normal points inward — flip it.
-          vec3 n = -normalize(vNormalW);
-          vec3 v = normalize(vViewDir);
-          float rim = pow(1.0 - abs(dot(n, v)), 3.2);
+          vec3 n = -vNormalW;
+          float rim = pow(1.0 - abs(dot(n, vViewDir)), 3.2);
           float lit = max(0.0, dot(n, uSunDir));
           // Scatter forward along the limb, brightest where lit
           float glow = rim * (0.16 + pow(lit, 0.6) * 1.5);
@@ -380,7 +319,7 @@ export class Globe {
             return 0.55 + 0.45 * cos(6.28318 * (t + vec3(0.00, 0.33, 0.67)));
           }
           void main(){
-            vec2 p = vUv - vec2(0.5);
+            vec2 p = vUv - 0.5;
             float r = length(p) * 2.0;              // 0 at centre, 1 at edge
             // Rise just outside the planet's silhouette, then fall away
             float band = smoothstep(uInner * 0.86, uInner * 1.05, r)
@@ -592,16 +531,19 @@ export class Globe {
 
   _buildComposer() {
     const composer = new EffectComposer(this.renderer);
-    composer.setPixelRatio(this.renderer.getPixelRatio());
     composer.addPass(new RenderPass(this.scene, this.camera));
     // Strength down, radius up, threshold up.
-    const w = this.canvas.clientWidth || window.innerWidth || 800;
-    const h = this.canvas.clientHeight || window.innerHeight || 600;
-    const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.52, 0.95, 0.80);
+    //
+    // The sun's glint off the ocean was bright enough that the bloom's
+    // separable blur saturated across its whole kernel and drew a hard
+    // SQUARE of white around the highlight — the horizontal pass then
+    // the vertical one, both clipping. A wider, gentler kernel that
+    // only catches genuinely bright pixels spreads the same light
+    // without the plateau.
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.52, 0.95, 0.80);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     this.composer = composer;
-    this.bloomPass = bloom;
     this.bloom = bloom;
   }
 
@@ -614,44 +556,37 @@ export class Globe {
 
     // --- sun: direction of the sub-solar point in world space ---
     const dir = latLngToVec(sky.sun.lat, sky.sun.lng, 1);
-    if (this._sunUniform) this._sunUniform.value.copy(dir);
-    if (this.sunLight) {
-      this.sunLight.position.copy(dir).multiplyScalar(R_EARTH * 40);
-      this.sunLight.target.position.set(0, 0, 0);
-      this.sunLight.target.updateMatrixWorld();
-    }
+    this._sunUniform.value.copy(dir);
+    this.sunLight.position.copy(dir).multiplyScalar(R_EARTH * 40);
+    this.sunLight.target.position.set(0, 0, 0);
+    this.sunLight.target.updateMatrixWorld();
 
     // --- moon: along the ecliptic, at its real distance ratio ---
-    if (this.moon) {
-      const md = 60 * R_EARTH / 6.0;       // compressed, or it is off-screen
-      const ml = sky.moon.lambda * RAD;
-      const mb = sky.moon.beta * RAD;
-      this.moon.position.set(
-        Math.cos(ml) * Math.cos(mb) * md,
-        Math.sin(mb) * md,
-        Math.sin(ml) * Math.cos(mb) * md,
-      );
-    }
+    const md = 60 * R_EARTH / 6.0;       // compressed, or it is off-screen
+    const ml = sky.moon.lambda * RAD;
+    const mb = sky.moon.beta * RAD;
+    this.moon.position.set(
+      Math.cos(ml) * Math.cos(mb) * md,
+      Math.sin(mb) * md,
+      Math.sin(ml) * Math.cos(mb) * md,
+    );
 
     // --- planets ---
     // `magnitude` here is a brightness proxy (radius / distance²), not
     // an astronomical magnitude, so bigger really is brighter. The
     // square root keeps Venus at closest approach from swamping the
     // sky — the eye's response to brightness is compressive too.
-    if (this.planetMeshes) {
-      sky.planets.forEach((p, i) => {
-        const sprite = this.planetMeshes[i];
-        if (!sprite) return;
-        const d = 26000;
-        const l = p.lambda * RAD;
-        sprite.position.set(Math.cos(l) * d, Math.sin(l * 0.13) * d * 0.06, Math.sin(l) * d);
-        const bright = Math.min(1, Math.sqrt(p.magnitude) * 0.42);
-        sprite.scale.setScalar(700 + bright * 1500);
-        sprite.material.color.set(p.color);
-        sprite.material.opacity = 0.5 + bright * 0.5;
-        sprite.visible = true;
-      });
-    }
+    sky.planets.forEach((p, i) => {
+      const sprite = this.planetMeshes[i];
+      const d = 26000;
+      const l = p.lambda * RAD;
+      sprite.position.set(Math.cos(l) * d, Math.sin(l * 0.13) * d * 0.06, Math.sin(l) * d);
+      const bright = Math.min(1, Math.sqrt(p.magnitude) * 0.42);
+      sprite.scale.setScalar(700 + bright * 1500);
+      sprite.material.color.set(p.color);
+      sprite.material.opacity = 0.5 + bright * 0.5;
+      sprite.visible = true;
+    });
 
     return sky;
   }
@@ -661,108 +596,34 @@ export class Globe {
   /**
    * Drop a marker on a real place. `pin` needs { lat, lng } and may
    * carry anything else — it is handed straight back on click.
-   * If pin.rbv is true, renders the glowing Rainbow Bridge Valley beacon.
    */
   addPin(pin) {
-    const isRbv = !!pin.rbv;
     const p = latLngToVec(pin.lat, pin.lng, R_EARTH * 1.005);
     const group = new THREE.Group();
 
-    let head, beam, ring, flare;
-
-    if (isRbv) {
-      // Rainbow Bridge Valley — the sacred glowing beacon
-      const beamHeight = R_EARTH * 0.16;
-      beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(R_EARTH * 0.005, R_EARTH * 0.007, beamHeight, 16),
-        new THREE.MeshBasicMaterial({ color: 0xf2d04a, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending }),
-      );
-      beam.position.y = beamHeight / 2;
-
-      head = new THREE.Mesh(
-        new THREE.SphereGeometry(R_EARTH * 0.022, 24, 18),
-        new THREE.MeshBasicMaterial({ color: 0xfffae0 }),
-      );
-      head.position.y = beamHeight + R_EARTH * 0.01;
-
-      // Base sanctum ring on the surface
-      const ringGeo = new THREE.RingGeometry(R_EARTH * 0.008, R_EARTH * 0.038, 32);
-      ring = new THREE.Mesh(
-        ringGeo,
-        new THREE.MeshBasicMaterial({
-          color: 0xe8c96a,
-          transparent: true,
-          opacity: 0.65,
-          side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }),
-      );
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = R_EARTH * 0.002;
-
-      // Luminous beacon flare
-      const flareMat = new THREE.SpriteMaterial({
-        map: glintTexture(),
-        color: 0xffe270,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      flare = new THREE.Sprite(flareMat);
-      flare.position.y = head.position.y;
-      flare.scale.setScalar(R_EARTH * 0.12);
-
-      group.add(ring, beam, head, flare);
-    } else {
-      // Memorial pin
-      const beamHeight = R_EARTH * 0.075;
-      beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(R_EARTH * 0.0035, R_EARTH * 0.0035, beamHeight, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffd76a, transparent: true, opacity: 0.55 }),
-      );
-      beam.position.y = beamHeight / 2;
-
-      head = new THREE.Mesh(
-        new THREE.SphereGeometry(R_EARTH * 0.012, 16, 12),
-        new THREE.MeshBasicMaterial({ color: 0xffd76a }),
-      );
-      head.position.y = beamHeight + R_EARTH * 0.003;
-
-      group.add(beam, head);
-    }
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(R_EARTH * 0.012, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffd76a }),
+    );
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(R_EARTH * 0.0035, R_EARTH * 0.0035, R_EARTH * 0.075, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffd76a, transparent: true, opacity: 0.55 }),
+    );
+    beam.position.y = R_EARTH * 0.037;
+    head.position.y = R_EARTH * 0.078;
+    group.add(beam, head);
 
     group.position.copy(p);
     group.lookAt(0, 0, 0);
     group.rotateX(Math.PI / 2);
     group.userData.pin = pin;
     this.scene.add(group);
-
-    const pinObj = {
-      group,
-      head,
-      beam,
-      ring,
-      flare,
-      pin,
-      isRbv,
-      phase: Math.random() * Math.PI * 2,
-    };
-    this.pins.push(pinObj);
+    this.pins.push({ group, head, pin });
     return group;
   }
 
   clearPins() {
-    for (const p of this.pins) {
-      this.scene.remove(p.group);
-      p.group.traverse(obj => {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-          else obj.material.dispose();
-        }
-      });
-    }
+    for (const p of this.pins) this.scene.remove(p.group);
     this.pins = [];
   }
 
@@ -771,46 +632,18 @@ export class Globe {
     const v = new THREE.Vector2();
     let down = null;
     this.canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
-    this.canvas.addEventListener('pointercancel', () => { down = null; });
     this.canvas.addEventListener('pointerup', e => {
       if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
       const r = this.canvas.getBoundingClientRect();
       v.x = ((e.clientX - r.left) / r.width) * 2 - 1;
       v.y = -((e.clientY - r.top) / r.height) * 2 + 1;
       ray.setFromCamera(v, this.camera);
-      const pinTargets = this.pins.map(p => p.group);
-      const pinHits = pinTargets.length ? ray.intersectObjects(pinTargets, true) : [];
-      const earthHits = this.earth ? ray.intersectObject(this.earth, false) : [];
-
-      if (pinHits.length && (!earthHits.length || pinHits[0].distance < earthHits[0].distance)) {
-        let o = pinHits[0].object;
+      const hits = ray.intersectObjects(this.pins.map(p => p.group), true);
+      if (hits.length) {
+        let o = hits[0].object;
         while (o && !o.userData.pin) o = o.parent;
         if (o) this.opts.onPinClick?.(o.userData.pin);
-      } else if (earthHits.length && earthHits[0].point) {
-        const { lat, lng } = vecToLatLng(earthHits[0].point);
-        this.opts.onGlobeClick?.({ lat, lng });
       }
-    });
-
-    // Hover cursor feedback for interactive feel
-    this.canvas.addEventListener('pointermove', e => {
-      const r = this.canvas.getBoundingClientRect();
-      v.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-      v.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-      ray.setFromCamera(v, this.camera);
-      const pinTargets = this.pins.map(p => p.group);
-      const pinHits = pinTargets.length ? ray.intersectObjects(pinTargets, true) : [];
-      const earthHits = this.earth ? ray.intersectObject(this.earth, false) : [];
-      if (pinHits.length && (!earthHits.length || pinHits[0].distance < earthHits[0].distance)) {
-        this.canvas.style.cursor = 'pointer';
-      } else if (earthHits.length) {
-        this.canvas.style.cursor = 'grab';
-      } else {
-        this.canvas.style.cursor = 'default';
-      }
-    });
-    this.canvas.addEventListener('pointerdown', () => {
-      if (this.canvas.style.cursor === 'grab') this.canvas.style.cursor = 'grabbing';
     });
   }
 
@@ -829,7 +662,7 @@ export class Globe {
    * where the land is. Rotating the globe from there still reaches
    * the night side, city lights and all.
    */
-  frameSunlit({ lngOffset = 46, latBias = 16, distance } = {}) {
+  frameSunlit({ lngOffset = 46, latBias = 16, distance = R_EARTH * 4.2 } = {}) {
     // Built straight from the sub-solar coordinates rather than by
     // rotating the sun vector about a derived axis. Both earlier
     // attempts at that quietly depended on the handedness of a cross
@@ -841,14 +674,6 @@ export class Globe {
     // frame, which is what gives the disc its roundness.
     const camLat = Math.max(-25, Math.min(48, s.lat + latBias));
     const camLng = s.lng + lngOffset;
-
-    // On portrait mobile screens pull back significantly so the globe
-    // doesn't fill the entire narrow viewport — the planet should be
-    // an orb in space, not a wall of blue.
-    if (distance == null) {
-      const isMobile = window.innerWidth < 760 && window.innerWidth < window.innerHeight;
-      distance = isMobile ? R_EARTH * 6.2 : R_EARTH * 4.6;
-    }
 
     this.camera.position.copy(latLngToVec(camLat, camLng, distance));
     this.camera.up.set(0, 1, 0);
@@ -872,54 +697,14 @@ export class Globe {
     };
   }
 
-  /**
-   * Smooth camera zoom and focus toward a target geographic location.
-   */
-  zoomTo(lat, lng, { targetDistance = R_EARTH * 1.55, duration = 1100 } = {}) {
-    return new Promise((resolve) => {
-      const targetVec = latLngToVec(lat, lng, targetDistance);
-      const from = this.camera.position.clone();
-      const t0 = performance.now();
-      if (this.controls) this.controls.autoRotate = false;
-      this._tween = () => {
-        const k = Math.min(1, (performance.now() - t0) / duration);
-        const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-        this.camera.position.copy(from).lerp(targetVec, e);
-        this.camera.lookAt(0, 0, 0);
-        if (this.controls) this.controls.target.set(0, 0, 0);
-        if (k >= 1) {
-          this._tween = null;
-          resolve();
-        }
-      };
-    });
-  }
-
   resize() {
-    const w = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || window.innerWidth || 0;
-    const h = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || window.innerHeight || 0;
+    const w = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || 0;
+    const h = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || 0;
     if (w < 1 || h < 1) return;
-    this.renderer.setSize(w, h, true);
-    if (this.composer) {
-      this.composer.setPixelRatio(this.renderer.getPixelRatio());
-      this.composer.setSize(w, h);
-      if (this.bloom) this.bloom.setSize(w, h);
-      if (this.bloomPass) this.bloomPass.setSize(w, h); // just in case
-    }
+    this.renderer.setSize(w, h, false);
+    this.composer?.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-
-    // Re-frame when orientation changes so the globe never fills the
-    // entire portrait viewport or looks tiny in landscape.
-    const isMobile = w < 760;
-    const isPortrait = h > w;
-    const targetDist = isMobile && isPortrait ? R_EARTH * 6.2 : R_EARTH * 4.6;
-    const currentDist = this.camera.position.length();
-    // Only re-frame if we're at a default distance (haven't been user-scrolled)
-    if (Math.abs(currentDist - R_EARTH * 4.6) < 15 || Math.abs(currentDist - R_EARTH * 6.2) < 15 || Math.abs(currentDist - R_EARTH * 4.2) < 15 || Math.abs(currentDist - R_EARTH * 5.8) < 15) {
-      this.camera.position.normalize().multiplyScalar(targetDist);
-      this.controls?.update();
-    }
   }
 
   start() {
@@ -935,28 +720,6 @@ export class Globe {
     this.stop();
     clearInterval(this._syncTimer);
     removeEventListener('resize', this._onResize);
-    this.controls?.dispose();
-    this.composer?.dispose();
-    this.scene?.traverse(obj => {
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) {
-        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-        mats.forEach(m => {
-          m.dispose();
-          for (const key of Object.keys(m)) {
-            if (m[key] && m[key].isTexture) m[key].dispose();
-          }
-          if (m.uniforms) {
-            for (const uKey of Object.keys(m.uniforms)) {
-              const val = m.uniforms[uKey]?.value;
-              if (val && val.isTexture) val.dispose();
-            }
-          }
-        });
-      }
-    });
-    this.renderer?.dispose();
-    this.renderer?.forceContextLoss();
   }
 
   _loop() {
@@ -965,13 +728,8 @@ export class Globe {
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    try {
-      this._update(dt);
-      if (this.composer) this.composer.render();
-      else this.renderer.render(this.scene, this.camera);
-    } catch (e) {
-      if (!this._warned) { this._warned = true; console.log('[globe]', e); }
-    }
+    try { this._update(dt); this.composer.render(); }
+    catch (e) { if (!this._warned) { this._warned = true; console.warn('[globe]', e); } }
   }
 
   _update(dt) {
@@ -985,20 +743,8 @@ export class Globe {
     if (this.haloMat) this.haloMat.uniforms.uTime.value = t;
 
     // Pins breathe so they read as live markers
-    for (const p of this.pins) {
-      if (p.isRbv) {
-        const rbvPulse = 1 + Math.sin(t * 3.0) * 0.22;
-        p.head.scale.setScalar(rbvPulse);
-        if (p.flare) p.flare.scale.setScalar(R_EARTH * 0.12 * (0.85 + Math.sin(t * 4.0) * 0.2));
-        if (p.ring) {
-          p.ring.rotation.z += dt * 0.6;
-          p.ring.scale.setScalar(1 + Math.sin(t * 2.2) * 0.18);
-        }
-      } else {
-        const pulse = 1 + Math.sin(t * 2.2 + p.phase) * 0.16;
-        p.head.scale.setScalar(pulse);
-      }
-    }
+    const pulse = 1 + Math.sin(t * 2.2) * 0.16;
+    for (const p of this.pins) p.head.scale.setScalar(pulse);
 
     this._updateShooting(dt);
   }
@@ -1049,8 +795,7 @@ export class Globe {
       });
     }
 
-    this._headV3 = this._headV3 || new THREE.Vector3();
-    const head = this._headV3;
+    const head = new THREE.Vector3();
     for (const s of this.shooting) {
       s.life += dt;
       const u = s.life / s.ttl;                 // 0 → 1 along the track
@@ -1096,18 +841,6 @@ export function latLngToVec(lat, lng, radius) {
   );
 }
 
-/** World-space vector on Earth sphere to geographic coordinates. */
-export function vecToLatLng(v) {
-  const r = v.length() || 1;
-  const phi = Math.acos(Math.max(-1, Math.min(1, v.y / r)));
-  const lat = 90 - (phi / RAD);
-  let theta = Math.atan2(v.z, -v.x);
-  let lng = (theta / RAD) - 180;
-  while (lng < -180) lng += 360;
-  while (lng > 180) lng -= 360;
-  return { lat: Math.round(lat * 10000) / 10000, lng: Math.round(lng * 10000) / 10000 };
-}
-
 function randomSpherePoint(r) {
   const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
   return new THREE.Vector3(Math.cos(a) * s * r, u * r, Math.sin(a) * s * r);
@@ -1120,9 +853,7 @@ function randomSpherePoint(r) {
  * a dot — they come from the eye's own optics, and leaving them out
  * is most of why rendered night skies look like dots on paper.
  */
-let _cachedGlintTex = null;
 function glintTexture() {
-  if (_cachedGlintTex) return _cachedGlintTex;
   const S = 128, c = document.createElement('canvas');
   c.width = c.height = S;
   const x = c.getContext('2d');
@@ -1159,13 +890,10 @@ function glintTexture() {
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  _cachedGlintTex = t;
   return t;
 }
 
-let _cachedDiscTex = null;
 function discTexture() {
-  if (_cachedDiscTex) return _cachedDiscTex;
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const x = c.getContext('2d');
@@ -1175,9 +903,7 @@ function discTexture() {
   g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g;
   x.fillRect(0, 0, 64, 64);
-  const t = new THREE.CanvasTexture(c);
-  _cachedDiscTex = t;
-  return t;
+  return new THREE.CanvasTexture(c);
 }
 
 export default Globe;

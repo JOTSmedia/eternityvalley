@@ -31,12 +31,12 @@ export function getDayPhase(date = new Date()) {
   return { key: 'night', t: h >= 20.5 ? (h - 20.5) / 8.5 : (h + 3.5) / 8.5 };
 }
 
-// Physically-Based Color Temperatures (Kelvin) & Palettes per Phase
+// Palette per phase: sky top/mid/horizon, sun color+intensity, fog, hemi
 export const PHASES = {
-  dawn:  { top: 0x1e2e54, mid: 0x8a6a8e, low: 0xf2b294, sun: 0xffe0ba, sunI: 2.8, fog: 0xb89084, hemi: 0.38, night: 0, kelvin: 3200 },
-  day:   { top: 0x0f4e9e, mid: 0x4896e0, low: 0x78bce8, sun: 0xfff4dc, sunI: 3.6, fog: 0x90b8d8, hemi: 0.45, night: 0, kelvin: 5600 },
-  dusk:  { top: 0x141a38, mid: 0x9e2b44, low: 0xe05630, sun: 0xff8a34, sunI: 2.8, fog: 0xa86854, hemi: 0.38, night: 0.25, kelvin: 2200 },
-  night: { top: 0x060e24, mid: 0x101e3c, low: 0x142848, sun: 0xcae2ff, sunI: 1.4, fog: 0x142236, hemi: 0.30, night: 1, kelvin: 8500 },
+  dawn:  { top: 0x6d8fc4, mid: 0xe8c8d8, low: 0xf7d9a8, sun: 0xffc9a0, sunI: 1.5, fog: 0xe8d3c8, hemi: 0.7, night: 0 },
+  day:   { top: 0x7fb2d9, mid: 0xd9e6ee, low: 0xf6dfc0, sun: 0xffe3b0, sunI: 2.1, fog: 0xd8e2e8, hemi: 0.85, night: 0 },
+  dusk:  { top: 0x4a5a8f, mid: 0xd88a6f, low: 0xf2b25f, sun: 0xff9d5c, sunI: 1.6, fog: 0xd8b8a8, hemi: 0.6, night: 0.25 },
+  night: { top: 0x101a33, mid: 0x27334f, low: 0x3d4668, sun: 0xa8bfe8, sunI: 0.5, fog: 0x2a3348, hemi: 0.35, night: 1 },
 };
 
 // WMO weather codes → paradise-grade mood
@@ -44,16 +44,16 @@ function moodFromCode(code) {
   if (code === 0) return 'clear';
   if (code <= 3) return 'soft';                    // partly cloudy → pearly light
   if (code >= 51 && code <= 67) return 'blessing'; // rain → vivid rainbow, silver mist
-  if (code >= 71 && code <= 77) return 'crystal';  // snow → bright mountain hush
+  if (code >= 71 && code <= 77) return 'crystal';  // snow → bright hush
   if (code >= 95) return 'blessing';
   return 'soft';
 }
 
 export const MOODS = {
-  clear:    { fogNear: 1800, fogFar: 18000, rainbow: 0.45, light: 1.00, label: 'Clear alpine skies' },
-  soft:     { fogNear: 1200, fogFar: 14000, rainbow: 0.60, light: 0.92, label: 'Pearl-soft light' },
-  blessing: { fogNear: 800,  fogFar: 9000,  rainbow: 1.00, light: 0.82, label: 'Rain blessing — prismatic spectral glow' },
-  crystal:  { fogNear: 1500, fogFar: 16000, rainbow: 0.75, light: 0.96, label: 'Crystal mountain hush' },
+  clear:    { fogNear: 900, fogFar: 2600, rainbow: 0.4, light: 1.0, label: 'Clear skies' },
+  soft:     { fogNear: 700, fogFar: 2200, rainbow: 0.55, light: 0.85, label: 'Pearl-soft light' },
+  blessing: { fogNear: 420, fogFar: 1700, rainbow: 1.0, light: 0.7, label: 'Rain blessing — the Bridge glows brightest' },
+  crystal:  { fogNear: 600, fogFar: 2000, rainbow: 0.7, light: 0.95, label: 'Crystal hush' },
 };
 
 // Live weather via open-meteo (keyless). Geolocation is optional and

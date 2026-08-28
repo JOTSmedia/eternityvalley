@@ -3,13 +3,13 @@
 // Same world data as the 3D engine: districts, roads, lake, plots.
 // Pan/zoom, hover tooltips, click-to-select.
 // ============================================================
-import { WORLD, DISTRICTS, ROADS, RIVER_INLET, RIVER_OUTLET, terrainHeight } from './terrain.js';
+import { WORLD, DISTRICTS, ROADS, terrainHeight } from './terrain.js';
 
 export class Map2D {
   constructor(canvas, plots, onPlotClick) {
-    this.cv = canvas || (typeof document !== 'undefined' ? (document.getElementById('canvas2d') || document.querySelector('canvas#canvas2d') || document.createElement('canvas')) : null);
-    this.ctx = this.cv?.getContext?.('2d');
-    this.plots = plots || [];
+    this.cv = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.plots = plots;
     this.onPlotClick = onPlotClick;
     this.scale = 0.34;
     this.cx = 0; this.cz = 60;       // world coords at canvas center
@@ -17,36 +17,21 @@ export class Map2D {
     this.selected = null;
     this._bind();
     this._bg = null;
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => { this._resize(); this.draw(); });
-    }
-    this._onResize = () => { this._resize(); this.draw(); };
-    if (typeof addEventListener === 'function') {
-      addEventListener('resize', this._onResize);
-    }
-  }
-
-  destroy() {
-    if (typeof removeEventListener === 'function') {
-      removeEventListener('resize', this._onResize);
-      removeEventListener('pointermove', this._onPointerMove);
-      removeEventListener('pointerup', this._onPointerUp);
-    }
-    this.cv?.removeEventListener?.('pointerdown', this._onPointerDown);
-    this.cv?.removeEventListener?.('wheel', this._onWheel);
+    requestAnimationFrame(() => { this._resize(); this.draw(); });
+    addEventListener('resize', () => { this._resize(); this.draw(); });
   }
 
   _resize() {
-    if (!this.cv) return;
-    const p = this.cv.parentElement;
-    const r = p ? p.getBoundingClientRect() : { width: (typeof window !== 'undefined' ? window.innerWidth : 800), height: (typeof window !== 'undefined' ? window.innerHeight : 600) };
+    const r = this.cv.parentElement.getBoundingClientRect();
+    // The 2D view boots hidden (display:none), so its box is 0×0 until
+    // it is first shown. Sizing a canvas to 0 makes every later
+    // drawImage throw InvalidStateError — keep the last good size.
     if (r.width < 1 || r.height < 1) return;
-    const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
-    this.cv.width = r.width * dpr;
-    this.cv.height = r.height * dpr;
+    this.cv.width = r.width * devicePixelRatio;
+    this.cv.height = r.height * devicePixelRatio;
     this.cv.style.width = r.width + 'px';
     this.cv.style.height = r.height + 'px';
-    this._bg = null;
+    this._bg = null; // re-render background layer
   }
 
   // world → screen (north = up, so world z increases downward on screen)
@@ -62,8 +47,8 @@ export class Map2D {
 
   _bind() {
     let drag = null;
-    this._onPointerDown = e => { drag = { x: e.clientX, y: e.clientY, cx: this.cx, cz: this.cz, moved: false }; };
-    this._onPointerMove = e => {
+    this.cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, cx: this.cx, cz: this.cz, moved: false }; });
+    addEventListener('pointermove', e => {
       if (drag) {
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
@@ -77,8 +62,8 @@ export class Map2D {
         if (p !== this.hover) { this.hover = p; this.draw(); }
         this.cv.style.cursor = p ? 'pointer' : 'grab';
       }
-    };
-    this._onPointerUp = e => {
+    });
+    addEventListener('pointerup', e => {
       if (drag && !drag.moved && e.target === this.cv) {
         const rect = this.cv.getBoundingClientRect();
         const [wx, wz] = this.s2w(e.clientX - rect.left, e.clientY - rect.top);
@@ -86,19 +71,14 @@ export class Map2D {
         if (p) { this.selected = p; this.onPlotClick?.(p); this.draw(); }
       }
       drag = null;
-    };
-    this._onWheel = e => {
+    });
+    this.cv.addEventListener('wheel', e => {
       e.preventDefault();
       const f = e.deltaY < 0 ? 1.15 : 0.87;
       this.scale = Math.min(3, Math.max(0.12, this.scale * f));
       this._bg = null;
       this.draw();
-    };
-
-    this.cv.addEventListener('pointerdown', this._onPointerDown);
-    addEventListener('pointermove', this._onPointerMove);
-    addEventListener('pointerup', this._onPointerUp);
-    this.cv.addEventListener('wheel', this._onWheel, { passive: false });
+    }, { passive: false });
   }
 
   _plotAt(wx, wz) {
@@ -139,18 +119,6 @@ export class Map2D {
         c.fillStyle = col;
         c.fillRect(px, py, step, step);
       }
-    }
-
-    // rivers
-    c.strokeStyle = '#6fa7c8'; c.lineCap = 'round'; c.lineJoin = 'round';
-    c.lineWidth = Math.max(4, 28 * this.scale * devicePixelRatio * 0.7);
-    for (const branch of [RIVER_INLET, RIVER_OUTLET]) {
-      c.beginPath();
-      branch.forEach(([x, z], i) => {
-        const [sx, sy] = this.w2s(x, z);
-        i ? c.lineTo(sx, sy) : c.moveTo(sx, sy);
-      });
-      c.stroke();
     }
 
     // roads
@@ -213,32 +181,19 @@ export class Map2D {
     const labels = {
       meadows: [0, 420], woodland: [-30, -480], lakefront: [150, -220],
       beach: [740, -200], summit: [-540, -450], desert: [-480, 330],
-      ocean_cove: [20, 1080], highland_sanctuary: [0, -640], kaya_island: [20, 2100],
     };
     c.font = `600 ${13 * devicePixelRatio}px system-ui, sans-serif`;
     for (const [k, [x, z]] of Object.entries(labels)) {
-      if (!DISTRICTS[k]) continue;
       const [sx, sy] = this.w2s(x, z);
       c.fillStyle = 'rgba(20,26,20,0.55)';
       const t = DISTRICTS[k].name.toUpperCase();
       c.fillText(t, sx, sy);
     }
-    // Landmark labels
+    // lake label
     const [lx, ly] = this.w2s(WORLD.lake.x, WORLD.lake.z);
     c.fillStyle = 'rgba(255,255,255,0.75)';
     c.font = `italic ${14 * devicePixelRatio}px Georgia, serif`;
     c.fillText('Mirror Lake', lx, ly);
-
-    const [cx, cy] = this.w2s(WORLD.cathedral.x, WORLD.cathedral.z);
-    c.fillStyle = 'rgba(244,212,120,0.85)';
-    c.font = `600 ${12 * devicePixelRatio}px Georgia, serif`;
-    c.fillText('✦ Grand Universal Cathedral', cx, cy - 18 * devicePixelRatio);
-
-    const [kx, ky] = this.w2s(WORLD.kayaIsland.x, WORLD.kayaIsland.z);
-    c.fillStyle = 'rgba(100,230,250,0.90)';
-    c.font = `600 ${12 * devicePixelRatio}px Georgia, serif`;
-    c.fillText('🐾 Guardian Husky Kaya Beacon', kx, ky - 18 * devicePixelRatio);
-
     return bg;
   }
 
