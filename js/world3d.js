@@ -1381,60 +1381,7 @@ export class World3D {
     geo.setAttribute('aCreviceAO', new THREE.BufferAttribute(creviceAOs, 1));
     geo.computeBoundingSphere();
     geo.computeBoundingBox();
-
-    // Streaming Close-Range Patch
-    this.patchSegs = 128;
-    this.patchSize = 1000;
-    this.terrainPatchGeo = new THREE.PlaneGeometry(this.patchSize, this.patchSize, this.patchSegs, this.patchSegs);
-    this.terrainPatchGeo.rotateX(-Math.PI / 2);
-    
-    const patchPos = this.terrainPatchGeo.attributes.position;
-    this.terrainPatchGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(patchPos.count * 3), 3));
-    this.terrainPatchGeo.setAttribute('aCreviceAO', new THREE.BufferAttribute(new Float32Array(patchPos.count), 1));
-    // Normal attribute is auto-created by PlaneGeometry, we'll compute it dynamically
-    
-    this.terrainPatch = new THREE.Mesh(this.terrainPatchGeo, mat);
-    this.terrainPatch.castShadow = true;
-    this.terrainPatch.receiveShadow = true;
-    // tiny polygon offset or vertical bump
-    this.terrainPatch.position.y = 0.15;
-    this.scene.add(this.terrainPatch);
-    this._lastPatchX = -999999;
-    this._lastPatchZ = -999999;
-    this._updateTerrainPatch = () => {
-      if (!this.terrainPatch || !this.camera) return;
-      const cx = Math.round(this.camera.position.x / 100) * 100;
-      const cz = Math.round(this.camera.position.z / 100) * 100;
-      if (this._lastPatchX === cx && this._lastPatchZ === cz) return;
-      this._lastPatchX = cx; this._lastPatchZ = cz;
-      
-      this.terrainPatch.position.set(cx, 0.15, cz);
-      const pPos = this.terrainPatchGeo.attributes.position;
-      const pCol = this.terrainPatchGeo.attributes.color;
-      const pAO = this.terrainPatchGeo.attributes.aCreviceAO;
-      const c = new THREE.Color();
-      for (let i = 0; i < pPos.count; i++) {
-        const x = pPos.getX(i) + cx;
-        const z = pPos.getZ(i) + cz;
-        const h = terrainHeight(x, z);
-        pPos.setY(i, h);
-        
-        // very simplified tinting for patch to match
-        c.setHex(0x2e5c1e);
-        if (h > 280) c.setHex(0xdce6f0);
-        else if (h > 18) c.lerp(new THREE.Color(0x565e68), Math.min(1.0, (h-18)/45));
-        pCol.setXYZ(i, c.r, c.g, c.b);
-        pAO.setX(i, 1.0);
-      }
-      this.terrainPatchGeo.computeVertexNormals();
-      pPos.needsUpdate = true;
-      pCol.needsUpdate = true;
-      pAO.needsUpdate = true;
-      if (this.renderer.shadowMap) this.renderer.shadowMap.needsUpdate = true;
-    };
-
-
-    const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 : 512;
+const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 : 512;
     const groundDetailTex = textures('groundDetail', isHigh);
     const orthophotoTex = textures('satelliteOrthophoto');
     const photoRockTex = textures('photogrammetryRock', isHigh);
@@ -1774,6 +1721,62 @@ export class World3D {
     mesh.frustumCulled = false;
     this.scene.add(mesh);
     this.terrainMesh = mesh;
+  
+    try {
+      // Streaming Close-Range Patch
+    this.patchSegs = 128;
+    this.patchSize = 1000;
+    this.terrainPatchGeo = new THREE.PlaneGeometry(this.patchSize, this.patchSize, this.patchSegs, this.patchSegs);
+    this.terrainPatchGeo.rotateX(-Math.PI / 2);
+    
+    const patchPos = this.terrainPatchGeo.attributes.position;
+    this.terrainPatchGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(patchPos.count * 3), 3));
+    this.terrainPatchGeo.setAttribute('aCreviceAO', new THREE.BufferAttribute(new Float32Array(patchPos.count), 1));
+    // Normal attribute is auto-created by PlaneGeometry, we'll compute it dynamically
+    
+    this.terrainPatch = new THREE.Mesh(this.terrainPatchGeo, mat.clone());
+    this.terrainPatch.castShadow = true;
+    this.terrainPatch.receiveShadow = true;
+    // tiny polygon offset or vertical bump
+    this.terrainPatch.position.y = 0.15;
+    this.scene.add(this.terrainPatch);
+    this._lastPatchX = -999999;
+    this._lastPatchZ = -999999;
+    this._updateTerrainPatch = () => {
+      if (!this.terrainPatch || !this.camera) return;
+      const cx = Math.round(this.camera.position.x / 100) * 100;
+      const cz = Math.round(this.camera.position.z / 100) * 100;
+      if (this._lastPatchX === cx && this._lastPatchZ === cz) return;
+      this._lastPatchX = cx; this._lastPatchZ = cz;
+      
+      this.terrainPatch.position.set(cx, 0.15, cz);
+      const pPos = this.terrainPatchGeo.attributes.position;
+      const pCol = this.terrainPatchGeo.attributes.color;
+      const pAO = this.terrainPatchGeo.attributes.aCreviceAO;
+      const c = new THREE.Color();
+      for (let i = 0; i < pPos.count; i++) {
+        const x = pPos.getX(i) + cx;
+        const z = pPos.getZ(i) + cz;
+        const h = terrainHeight(x, z);
+        pPos.setY(i, h);
+        
+        // very simplified tinting for patch to match
+        c.setHex(0x2e5c1e);
+        if (h > 280) c.setHex(0xdce6f0);
+        else if (h > 18) c.lerp(new THREE.Color(0x565e68), Math.min(1.0, (h-18)/45));
+        pCol.setXYZ(i, c.r, c.g, c.b);
+        pAO.setX(i, 1.0);
+      }
+      this.terrainPatchGeo.computeVertexNormals();
+      pPos.needsUpdate = true;
+      pCol.needsUpdate = true;
+      pAO.needsUpdate = true;
+      if (this.renderer.shadowMap) this.renderer.shadowMap.needsUpdate = true;
+    };
+    } catch(e) {
+      console.warn('Failed to build terrain patch:', e);
+      this.terrainPatch = null;
+    }
   }
 
   // ---------------- Water Features ----------------\n
@@ -11467,9 +11470,16 @@ export class World3D {
     for (const [zOffset, zEnd] of [[-60, -70], [60, 70]]) {
       const apronZ = bz + (zOffset + zEnd) * 0.5;
       const deckStart = (zOffset < 0) ? 21.65 : 26.65;
-      const apronGeo = applyOrganicWeathering(new THREE.BoxGeometry(34, 1.8, Math.abs(zEnd - zOffset) + 2), 0.06, 0.18, 42);
-      const apronMesh = new THREE.Mesh(apronGeo, stone);
-      apronMesh.position.set(bx, deckStart - 0.9, apronZ);
+      const terrAvg = terrainHeight(bx, apronZ);
+      const foundationHeight = Math.max(2.0, deckStart - terrAvg + 2.0); // +2 to sink into ground
+      const apronGeo = applyOrganicWeathering(new THREE.BoxGeometry(34, foundationHeight, Math.abs(zEnd - zOffset) + 2), 0.06, 0.18, 42);
+      const apronMesh = new THREE.Mesh(apronGeo, stoneDark); // darker stone for wet abutments
+      apronMesh.position.set(bx, terrAvg + foundationHeight * 0.5 - 1.0, apronZ);
+      
+      // Add subtle contact shadow on the water / ground
+      const contactShadow = createContactShadow(42.0);
+      contactShadow.position.set(bx, terrAvg + 0.1, apronZ);
+      g.add(contactShadow);
       apronMesh.receiveShadow = apronMesh.castShadow = true;
       g.add(apronMesh);
 
@@ -11685,7 +11695,7 @@ export class World3D {
     // 5. THE KAYA STARLIGHT BEACON PAVILION (Overlooking the Rainbow River & Arch Vista)
     // Cantilevered Belvedere Rotunda Platform at the Bridge Apex (x = +24.0, z = bz = 440, y = deckY)
     const apexY = this._deckY ? this._deckY(bz) : 14.8;
-    const terrY = typeof terrainElevation === 'function' ? terrainElevation(bx + 24.0, bz) : 10.0;
+    const terrY = terrainHeight(bx + 24.0, bz);
     const pavGroup = new THREE.Group();
     pavGroup.position.set(bx + 24.0, apexY, bz);
 
@@ -13341,93 +13351,16 @@ export class World3D {
 
     const pineCanopyGeo = (() => {
       const parts = [];
-      const NUM_WHORLS = 10;
-      const rngP = mulberry32(99231);
-      for (let w = 0; w < NUM_WHORLS; w++) {
-        const frac = w / (NUM_WHORLS - 1); // 0 at bottom, 1 at top
-        const y = 3.4 + frac * 20.2;
-        const radius = (9.2 * (1.0 - Math.pow(frac, 0.72)) + 0.65);
-        const numBranches = Math.max(6, Math.round(11 - frac * 5));
-        const droopBase = 0.36 + (1.0 - frac) * 0.48;
-
-        for (let b = 0; b < numBranches; b++) {
-          const ang = (b / numBranches) * Math.PI * 2 + (w % 2) * (Math.PI / numBranches) + (rngP() - 0.5) * 0.15;
-          const cardW = 5.2 * (1.0 - frac * 0.40);
-          const cardH = 5.8 * (1.0 - frac * 0.40);
-
-          const bDist = radius * 0.62;
-          const bx = Math.cos(ang) * bDist;
-          const bz = Math.sin(ang) * bDist;
-          const segmentDroop = droopBase + (rngP() - 0.5) * 0.08;
-          const by = y - Math.sin(segmentDroop) * bDist * 0.42;
-
-          // 1. Central drooping bough needle sprig
-          const qMain = createCurvedLeafCardGeo(cardW, cardH, 0.52);
-          qMain.rotateX(segmentDroop);
-          qMain.rotateY(ang + Math.PI * 0.5);
-          qMain.translate(bx, by, bz);
-          parts.push(qMain);
-
-          // 2. Left lateral drooping fan sprig
-          const qLeft = createCurvedLeafCardGeo(cardW * 0.78, cardH * 0.82, 0.42);
-          qLeft.rotateZ(0.24);
-          qLeft.rotateX(segmentDroop * 0.95);
-          qLeft.rotateY(ang + Math.PI * 0.5 - 0.32);
-          qLeft.translate(bx + Math.cos(ang - 0.4) * (cardW * 0.28), by + 0.15, bz + Math.sin(ang - 0.4) * (cardW * 0.28));
-          parts.push(qLeft);
-
-          // 3. Right lateral drooping fan sprig
-          const qRight = createCurvedLeafCardGeo(cardW * 0.78, cardH * 0.82, 0.42);
-          qRight.rotateZ(-0.24);
-          qRight.rotateX(segmentDroop * 0.95);
-          qRight.rotateY(ang + Math.PI * 0.5 + 0.32);
-          qRight.translate(bx + Math.cos(ang + 0.4) * (cardW * 0.28), by + 0.15, bz + Math.sin(ang + 0.4) * (cardW * 0.28));
-          parts.push(qRight);
-        }
-
-        // Inner mantle auxiliary filler sprigs to eliminate any hollow center
-        if (w < NUM_WHORLS - 2) {
-          const numInner = Math.max(4, Math.round(numBranches * 0.6));
-          for (let ib = 0; ib < numInner; ib++) {
-            const iAng = (ib / numInner) * Math.PI * 2 + w * 0.7;
-            const iDist = radius * 0.32;
-            const iCard = createCurvedLeafCardGeo(3.8 * (1.0 - frac * 0.35), 4.2 * (1.0 - frac * 0.35), 0.40);
-            iCard.rotateX(droopBase * 0.7);
-            iCard.rotateY(iAng + Math.PI * 0.5);
-            iCard.translate(Math.cos(iAng) * iDist, y + 0.4, Math.sin(iAng) * iDist);
-            parts.push(iCard);
-          }
-        }
+      const w = 15, h = 28;
+      for (let i = 0; i < 3; i++) {
+        const q = createCurvedLeafCardGeo(w, h, 0.2);
+        q.rotateY((i / 3) * Math.PI);
+        q.translate(0, h * 0.45 + 1.0, 0);
+        parts.push(q);
       }
-
-      // Apex Spire Needle Tip (6 Interlocking Cross-Planar Spire Cards)
-      for (let s = 0; s < 6; s++) {
-        const tip = createCurvedLeafCardGeo(2.6, 6.2, 0.28);
-        tip.rotateY((s / 6) * Math.PI);
-        tip.translate(0, 25.2, 0);
-        parts.push(tip);
-      }
-
-      const merged = mergeGeometries(parts, false) || parts[0];
-      // Organic spherical normal modification for soft continuous pine needle wrap lighting
-      if (merged && merged.attributes.position && merged.attributes.normal) {
-        const pos = merged.attributes.position;
-        const norm = merged.attributes.normal;
-        for (let i = 0; i < pos.count; i++) {
-          const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
-          const rad = Math.hypot(px, pz) || 1.0;
-          const nx = (px / rad) * 0.85 + norm.getX(i) * 0.15;
-          const ny = 0.28 + norm.getY(i) * 0.15;
-          const nz = (pz / rad) * 0.85 + norm.getZ(i) * 0.15;
-          const len = Math.hypot(nx, ny, nz) || 1.0;
-          norm.setXYZ(i, nx / len, ny / len, nz / len);
-        }
-        norm.needsUpdate = true;
-      }
-      return merged;
+      return mergeGeometries(parts, false) || new THREE.PlaneGeometry(w, h);
     })();
 
-    // 3. AAA Caliber Weeping Willow (Gnarled Leaning Trunk, Flared Base, 4 Structural Boughs, 3-Tier Weeping Tendril Cascades & Dome)
     const willowTrunkGeo = (() => {
       const parts = [];
       // Flared root base
@@ -14186,7 +14119,7 @@ export class World3D {
       list.forEach((p, i) => {
         const [w, d] = SIZE_DIMS[p.size] || [10, 14];
         const ph = terrainHeight(p.x, p.z);
-        tmp.position.set(p.x, ph, p.z);
+        tmp.position.set(p.x, ph + 0.15, p.z);
         tmp.quaternion.copy(p.quaternion);
         tmp.scale.set(w, 1, d);
         tmp.updateMatrix();
@@ -14208,7 +14141,7 @@ export class World3D {
         list.forEach((p, i) => {
           const [w, d] = SIZE_DIMS[p.size] || [10, 14];
           const ph = terrainHeight(p.x, p.z);
-          tmp.position.set(p.x, ph + 0.02, p.z);
+          tmp.position.set(p.x, ph + 0.18, p.z);
           tmp.quaternion.copy(p.quaternion);
           tmp.scale.set(w * 1.35, 1, d * 1.35);
           tmp.updateMatrix();
@@ -14221,15 +14154,15 @@ export class World3D {
         this._decorMeshes.push(shadowMesh);
 
         // Carved Caen limestone architectural curbing plinth
-        const plinthGeo = new THREE.BoxGeometry(1, 0.22, 1);
-        plinthGeo.translate(0, 0.08, 0);
+        const plinthGeo = new THREE.BoxGeometry(1, 0.35, 1);
+        plinthGeo.translate(0, 0.18, 0);
         plinthGeo.computeBoundingSphere();
         const plinthMat = Surfaces.agedCaenLimestone(2.0);
         const plinthMesh = new THREE.InstancedMesh(plinthGeo, plinthMat, list.length);
 
         // Rich dark garden loam earth bed
         const bedGeo = new THREE.BoxGeometry(1, 0.08, 1);
-        bedGeo.translate(0, 0.12, 0);
+        bedGeo.translate(0, 0.36, 0);
         bedGeo.computeBoundingSphere();
         const bedMat = Surfaces.groundDetail(2.0).clone();
         bedMat.color.setHex(0x2a2218); // Rich dark organic soil loam
@@ -14238,7 +14171,7 @@ export class World3D {
         list.forEach((p, i) => {
           const [w, d] = SIZE_DIMS[p.size] || [10, 14];
           const ph = terrainHeight(p.x, p.z);
-          tmp.position.set(p.x, ph, p.z);
+          tmp.position.set(p.x, ph + 0.15, p.z);
           tmp.quaternion.copy(p.quaternion);
           tmp.scale.set(w * 0.96, 1, d * 0.96);
           tmp.updateMatrix();
@@ -14291,7 +14224,7 @@ export class World3D {
           
           const [w, d] = SIZE_DIMS[p.size] || [10, 14];
           const ph = terrainHeight(p.x, p.z);
-          tmp.position.set(p.x, ph + 0.04, p.z);
+          tmp.position.set(p.x, ph + 0.20, p.z);
           tmp.quaternion.copy(p.quaternion);
           tmp.scale.set(Math.max(w, d) * 1.2, 1, Math.max(w, d) * 1.2);
           tmp.updateMatrix();
@@ -14304,7 +14237,7 @@ export class World3D {
             const rx = cx * Math.cos(p.rot) + cz * Math.sin(p.rot);
             const rz = -cx * Math.sin(p.rot) + cz * Math.cos(p.rot);
             const pinY = terrainHeight(p.x + rx, p.z + rz);
-            tmp.position.set(p.x + rx, pinY, p.z + rz);
+            tmp.position.set(p.x + rx, pinY + 0.15, p.z + rz);
             tmp.rotation.set(0, 0, 0);
             tmp.scale.set(1, 1, 1);
             tmp.updateMatrix();
@@ -16385,13 +16318,16 @@ export class World3D {
         const radZ = f.radiusZ || 32;
         const fx = f.center.x + Math.cos(currentAng) * radX;
         const fz = f.center.z + Math.sin(currentAng) * radZ;
-        const fy = f.center.y + f.yOffset + Math.sin(troutTime * f.speed * 2.2 + f.phase) * 0.45;
+        let groundH = terrainHeight(fx, fz);
+        const waterSurface = (f.center.z < -450 ? 179 : (f.center.z < -340 && f.center.x < 100 ? 5.2 : 12.4));
+        const safeCy = Math.min(waterSurface - 0.5, Math.max(groundH + 0.5, f.center.y));
+        const fy = safeCy + f.yOffset + Math.sin(troutTime * f.speed * 2.2 + f.phase) * 0.45;
 
         const dx = -Math.sin(currentAng) * radX;
         const dz = Math.cos(currentAng) * radZ;
         const heading = Math.atan2(dx, dz);
 
-        dummy.position.set(fx, fy, fz);
+        dummy.position.set(fx, Math.max(fy, terrainHeight(fx, fz) + 0.3), fz);
         dummy.rotation.set(
           Math.cos(troutTime * f.speed * 1.6 + f.phase) * 0.08,
           heading,
@@ -16446,7 +16382,11 @@ export class World3D {
         const radZ = f.radiusZ || 60;
         const fx = f.center.x + Math.cos(currentAng) * radX;
         const fz = f.center.z + Math.sin(currentAng) * radZ;
-        const fy = f.center.y + f.yOffset + Math.sin(fishTime * f.speed * 2.4 + f.phase) * 0.48;
+        let groundH = terrainHeight(fx, fz);
+        // Ensure fish never clip through terrain or fly above water
+        const waterSurface = (f.center.z > 1050) ? -2.2 : (f.center.z < -450 ? 179 : (f.center.z < -340 && f.center.x < 100 ? 5.2 : 12.4));
+        const safeCy = Math.min(waterSurface - 0.5, Math.max(groundH + 0.5, f.center.y));
+        const fy = safeCy + f.yOffset + Math.sin(fishTime * f.speed * 2.4 + f.phase) * 0.48;
 
         const dx = -Math.sin(currentAng) * radX;
         const dz = Math.cos(currentAng) * radZ;
@@ -16684,6 +16624,7 @@ export class World3D {
       if (this.useComposer && this.composer) {
         this.composer.render();
       } else {
+        if (this.terrainPatch && this._updateTerrainPatch) this._updateTerrainPatch();
         this.renderer.render(this.scene, this.camera);
       }
       if (!this._firstFrameRendered) {
@@ -16694,7 +16635,8 @@ export class World3D {
       console.log('[world3d] _animate error in frame, falling back to direct render:', err);
       try {
         if (this.renderer && this.scene && this.camera) {
-          this.renderer.render(this.scene, this.camera);
+          if (this.terrainPatch && this._updateTerrainPatch) this._updateTerrainPatch();
+        this.renderer.render(this.scene, this.camera);
         }
       } catch (e2) {}
     }
@@ -17028,65 +16970,42 @@ export class World3D {
     poolFoamMesh.position.set(0, 5.34, -360);
     g.add(poolFoamMesh);
 
-    // 5. Dynamic 3D Water Splash Droplet Particle Fountain
-    const splashCount = 500;
-    const splashGeo = new THREE.BufferGeometry();
-    const splashPos = new Float32Array(splashCount * 3);
-    const splashVel = new Float32Array(splashCount * 3);
-    const splashLife = new Float32Array(splashCount);
+    // 5. Cheap Additive Mist Sprites (Static planes rotating to face camera, or simple stationary clouds)
+    const mistCanvas = document.createElement('canvas');
+    mistCanvas.width = mistCanvas.height = 128;
+    const mctx = mistCanvas.getContext('2d');
+    const grd = mctx.createRadialGradient(64,64,0, 64,64,64);
+    grd.addColorStop(0, 'rgba(255,255,255,0.8)');
+    grd.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    mctx.fillStyle = grd;
+    mctx.fillRect(0,0,128,128);
+    const mistTex = new THREE.CanvasTexture(mistCanvas);
 
-    for (let i = 0; i < splashCount; i++) {
-      const ang = Math.random() * Math.PI * 2;
-      const spd = 8.0 + Math.random() * 20.0;
-      splashPos[i * 3]     = (Math.random() - 0.5) * 12.0;
-      splashPos[i * 3 + 1] = 5.3;
-      splashPos[i * 3 + 2] = -360 + (Math.random() - 0.5) * 12.0;
-
-      splashVel[i * 3]     = Math.cos(ang) * spd;
-      splashVel[i * 3 + 1] = 10.0 + Math.random() * 22.0; // energetic upward explosion
-      splashVel[i * 3 + 2] = Math.sin(ang) * spd + 6.0;  // forward splash into view
-      splashLife[i] = Math.random();
-    }
-    splashGeo.setAttribute('position', new THREE.BufferAttribute(splashPos, 3));
-    splashGeo.setAttribute('aVel', new THREE.BufferAttribute(splashVel, 3));
-    splashGeo.setAttribute('aLife', new THREE.BufferAttribute(splashLife, 1));
-
-    const splashMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 } },
-      vertexShader: `
-        attribute vec3 aVel;
-        attribute float aLife;
-        varying float vAlpha;
-        uniform float uTime;
-
-        void main() {
-          float t = mod(uTime * 1.6 + aLife, 1.0);
-          vec3 pos = position;
-          pos.x += aVel.x * t;
-          pos.z += aVel.z * t;
-          pos.y += aVel.y * t - 18.0 * t * t; // Parabolic gravity arc
-          
-          vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
-          gl_PointSize = min(48.0, 95.0 / -mvPos.z);
-          gl_Position = projectionMatrix * mvPos;
-          vAlpha = (1.0 - t) * smoothstep(0.0, 0.1, t) * 0.85;
-        }
-      `,
-      fragmentShader: `
-        varying float vAlpha;
-        void main() {
-          vec2 uv = gl_PointCoord - 0.5;
-          float dist = length(uv);
-          if (dist > 0.5) discard;
-          float soft = smoothstep(0.5, 0.05, dist);
-          gl_FragColor = vec4(vec3(0.95, 0.98, 1.0), soft * vAlpha);
-        }
-      `,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    const sideMistGeo = new THREE.PlaneGeometry(60, 45);
+    const sideMistMat = new THREE.MeshBasicMaterial({
+      map: mistTex,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      opacity: 0.15,
+      color: 0xeef5ff
     });
-    this._splashShader = splashMat;
-    const splashPoints = new THREE.Points(splashGeo, splashMat);
-    g.add(splashPoints);
+    for(let i=0; i<4; i++) {
+      const sm = new THREE.Mesh(sideMistGeo, sideMistMat);
+      sm.position.set((i%2===0 ? -1 : 1) * (18 + Math.random()*15), 18 + Math.random()*10, -360 + (Math.random()-0.5)*15);
+      sm.rotation.y = (Math.random()-0.5)*0.2;
+      g.add(sm);
+    }
+    
+    // 6. Thinner high-frequency sheet
+    const thinSheetMat = waterfallMat.clone();
+    const thinSheetGeo = buildChuteRibbon(fallCurve, 12, 32, 140);
+    const thinUvs = thinSheetGeo.attributes.uv;
+    for(let i=0; i<thinUvs.count; i++) thinUvs.setY(i, thinUvs.getY(i) * 2.0);
+    const thinSheet = new THREE.Mesh(thinSheetGeo, thinSheetMat);
+    thinSheet.position.z += 1.2;
+    g.add(thinSheet);
 
     // 6. Volumetric Aerosol Rising Mist Cloud at Plunge Impact Zone
     const mistGeo = new THREE.BufferGeometry();
