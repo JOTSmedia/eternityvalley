@@ -18,7 +18,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WORLD, DISTRICTS, ROADS, RIVER, RIVER_INLET, RIVER_OUTLET, terrainHeight, backgroundMountainElevation, distToRoads, distToRiver, riverWaterElevation, fbm, ridgeNoise, mulberry32, SIZE_DIMS } from './terrain.js';
 import { getSeason, SEASON_STYLE, getDayPhase, PHASES, MOODS, fetchWeather } from './ambience.js';
-import { Surfaces, waterNormalTexture, textures, material, createBotanicalFoliageMaterial } from './materials.js';
+import { Surfaces, waterNormalTexture, textures, material, createBotanicalFoliageMaterial, clearCache } from './materials.js';
 import { icon, speciesIcon, speciesKey } from './icons.js';
 import { charityName } from './catalog.js';
 import { DRONE_TOUR_LANDMARKS } from './tour.js';
@@ -181,7 +181,7 @@ export class World3D {
     });
     // High-performance 1.0x max pixel ratio — prevents high-DPI Retina thermal throttling
     // while keeping WebGL rendering at razor-sharp 60 FPS.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 768 ? 1.25 : 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth > 768 ? 1.5 : 1.25));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate = false;
@@ -247,11 +247,16 @@ export class World3D {
   async initAsync() {
     const yieldMain = () => new Promise(r => setTimeout(r, 0));
     const safe = async (name, fn) => {
+      console.log('[world3d] initAsync start', name);
+      const t0 = performance.now();
       try {
         await yieldMain();
+        if (this._disposed) return;
         fn();
       } catch (e) {
-        console.log(`[world3d] ${name} skipped:`, e.stack || e);
+        console.warn('[world3d]', name, 'skipped', e);
+      } finally {
+        console.log('[world3d] initAsync done', name, Math.round(performance.now()-t0)+'ms');
       }
     };
 
@@ -260,16 +265,8 @@ export class World3D {
     await safe('river', () => this._river());
     await safe('mountainWaterfall', () => this._mountainWaterfall());
     await safe('oceanWaterfall', () => this._oceanWaterfall());
-    await safe('underwaterWorld', () => this._underwaterWorld());
-    
     await safe('coastalCliff', () => this._coastalCliff());
-    await safe('kayaIsland', () => this._kayaIsland());
     await safe('highlandSanctuary', () => this._highlandSanctuary());
-    
-    await safe('universalCathedral', () => this._universalCathedral());
-    await safe('buddhistPagoda', () => this._buddhistPagoda());
-    await safe('moorishMosque', () => this._moorishMosque());
-    
     await safe('godRays', () => this._godRays());
     await safe('roads', () => this._roads());
     await safe('gate', () => this._gate());
@@ -287,6 +284,14 @@ export class World3D {
     await safe('celestialMotes', () => this._celestialMotes());
     await safe('plots', () => this._plots());
     
+    // Expensive architectural/monument builders moved to end
+    await safe('vegetation', () => this._vegetation()); // just in case it wasn't called yet? wait, vegetation is already above plots!
+    await safe('underwaterWorld', () => this._underwaterWorld());
+    await safe('universalCathedral', () => this._universalCathedral());
+    await safe('moorishMosque', () => this._moorishMosque());
+    await safe('buddhistPagoda', () => this._buddhistPagoda());
+    await safe('kayaIsland', () => this._kayaIsland());
+    
     await safe('picking', () => this._picking());
     await safe('composer', () => this._composer());
     await safe('initAmbienceControls', () => this._initAmbienceControls());
@@ -294,6 +299,8 @@ export class World3D {
     await safe('initWalkHUD', () => this._initWalkHUD());
     await safe('initFPSHUD', () => this._initFPSHUD());
     
+    if (this._disposed) return;
+
     this.applyAmbience();
 
     this._resize();
@@ -387,7 +394,7 @@ export class World3D {
   _resize() {
     const w = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || window.innerHeight;
-    if (w < 1 || h < 1) return;         // hidden view — keep the last good size
+    if (w < 100 || h < 100) return;         // hidden view — keep the last good size
     this.renderer.setSize(w, h, true);
     if (this.composer) {
       this.composer.setPixelRatio(this.renderer.getPixelRatio());
@@ -510,11 +517,15 @@ export class World3D {
 
     // Directional Sun, Hemisphere Fill, Aerial Perspective Fog & Exposure Matrix
     const LOOK = {
-      dawn:  { exposure: 0.85, sun: 2.8,  env: 0.70, hemi: 0.38, sunCol: 0xffe0ba, hemiSky: 0x6a5870, hemiGnd: 0x302820, fogCol: 0xb89084, fogDensity: 0.000075, stars: 0.0,  clouds: 0xf4dfd4, water: 0x1c4456 },
-      day:   { exposure: 0.92, sun: 3.6,  env: 1.15, hemi: 0.45, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874 },
-      dusk:  { exposure: 0.78, sun: 2.8,  env: 0.65, hemi: 0.38, sunCol: 0xff883c, hemiSky: 0x684848, hemiGnd: 0x2e201a, fogCol: 0xa86854, fogDensity: 0.000075, stars: 0.18, clouds: 0xfba680, water: 0x203848 },
-      night: { exposure: 0.50, sun: 1.4,  env: 0.18, hemi: 0.30, sunCol: 0xd4ecff, hemiSky: 0x1c2c3e, hemiGnd: 0x101814, fogCol: 0x142236, fogDensity: 0.000055, stars: 1.0,  clouds: 0x42587c, water: 0x142e48 },
-    }[p.key] || { exposure: 0.92, sun: 3.6, env: 1.15, hemi: 0.45, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874 };
+      dawn:  { exposure: 1.00, sun: 1.85,  env: 0.70, hemi: 1.15, sunCol: 0xffe0ba, hemiSky: 0x6a5870, hemiGnd: 0x302820, fogCol: 0xb89084, fogDensity: 0.000075, stars: 0.0,  clouds: 0xf4dfd4, water: 0x1c4456, bloom: 0.18 },
+      day:   { exposure: 1.05, sun: 1.95,  env: 1.10, hemi: 1.30, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874, bloom: 0.10 },
+      dusk:  { exposure: 1.00, sun: 1.85,  env: 0.60, hemi: 1.15, sunCol: 0xff883c, hemiSky: 0x684848, hemiGnd: 0x2e201a, fogCol: 0xa86854, fogDensity: 0.000075, stars: 0.18, clouds: 0xfba680, water: 0x203848, bloom: 0.22 },
+      night: { exposure: 1.18, sun: 0.65,  env: 0.15, hemi: 0.70, sunCol: 0xd4ecff, hemiSky: 0x1c2c3e, hemiGnd: 0x101814, fogCol: 0x142236, fogDensity: 0.000055, stars: 1.0,  clouds: 0x42587c, water: 0x142e48, bloom: 0.38 },
+    }[p.key] || { exposure: 1.05, sun: 1.95, env: 1.10, hemi: 1.30, sunCol: 0xfff4dc, hemiSky: 0x5078a0, hemiGnd: 0x384828, fogCol: 0x90b8d8, fogDensity: 0.000065, stars: 0.0,  clouds: 0xffffff, water: 0x185874, bloom: 0.10 };
+
+    if (this.bloomPass) {
+      this.bloomPass.strength = LOOK.bloom;
+    }
 
     if (!this.scene.background || !this.scene.background.isColor) {
       this.scene.background = new THREE.Color(SKY_PALETTE.zenith);
@@ -718,7 +729,7 @@ export class World3D {
 
     this._envRT?.dispose();
     this._envRT = this.pmrem.fromScene(this._envScene);
-    this.scene.environment = null;
+    this.scene.environment = this._envRT.texture;
     this.scene.environmentIntensity = this._envIntensity || 1.10;
   }
 
@@ -802,14 +813,81 @@ export class World3D {
     // 1. High-Fidelity Optical Bloom Pass (Peak specular solar glints, water crests, glowing rainbow, and lanterns)
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(Math.ceil(w / 2), Math.ceil(h / 2)),
-      0.12,   // strength — subtle natural glow on specular peaks, golden inscriptions & eternal flame braziers
-      0.38,   // radius — tight, physical highlight dispersion
-      0.90,   // threshold — only peak specular glints and emissive brazier flames bloom, zero milky haze
+      0.12,   // strength
+      0.50,   // radius
+      0.92,   // threshold
     );
     this.bloomPass = bloom;
     composer.addPass(bloom);
 
-    // 2. Hollywood ACES Filmic Tone Mapping & Accurate sRGB Output
+    // 2. 35mm Lens Imperfections Shader Pass
+    const CinematicLensShader = {
+      uniforms: {
+        tDiffuse: { value: null },
+        uTime: { value: 0 },
+        uResolution: { value: new THREE.Vector2(w, h) },
+        uChromaticDispersion: { value: 0.0018 },
+        uVignetteRoundness: { value: 0.85 },
+        uVignetteDarkness: { value: 0.38 },
+        uGrainIntensity: { value: 0.032 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uTime;
+        uniform vec2 uResolution;
+        uniform float uChromaticDispersion;
+        uniform float uVignetteRoundness;
+        uniform float uVignetteDarkness;
+        uniform float uGrainIntensity;
+        varying vec2 vUv;
+
+        float hash21(vec2 p) {
+          p = fract(p * vec2(234.34, 435.345));
+          p += dot(p, p + 34.23);
+          return fract(p.x * p.y);
+        }
+
+        void main() {
+          vec2 uv = vUv;
+          vec2 distFromCenter = uv - 0.5;
+          float distSq = dot(distFromCenter, distFromCenter);
+
+          // Radial Chromatic Dispersion (35mm Prime Lens)
+          vec2 rOffset = distFromCenter * (uChromaticDispersion * 1.6 * distSq);
+          vec2 bOffset = -distFromCenter * (uChromaticDispersion * 1.2 * distSq);
+          float r = texture2D(tDiffuse, uv + rOffset).r;
+          float g = texture2D(tDiffuse, uv).g;
+          float b = texture2D(tDiffuse, uv + bOffset).b;
+          vec3 col = vec3(r, g, b);
+
+          // Optical Lens Vignette
+          float vignette = 1.0 - smoothstep(0.4, 0.85, length(distFromCenter) * uVignetteRoundness) * uVignetteDarkness;
+          col *= vignette;
+
+          // Organic 35mm Film Grain
+          float grain = (hash21(uv * uResolution + fract(uTime * 43.12)) - 0.5) * uGrainIntensity;
+          col += vec3(grain);
+
+          // Screen-Space Ambient Grounding (micro-contact contrast)
+          col = pow(col, vec3(0.96));
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    };
+
+    const lensPass = new ShaderPass(CinematicLensShader);
+    composer.addPass(lensPass);
+    this._cinematicPass = lensPass;
+
+    // 3. Hollywood ACES Filmic Tone Mapping & Accurate sRGB Output
     composer.addPass(new OutputPass());
 
     this.composer = composer;
@@ -1720,60 +1798,11 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     this.scene.add(mesh);
     this.terrainMesh = mesh;
   
-    try {
-      // Streaming Close-Range Patch
-    this.patchSegs = 128;
-    this.patchSize = 1000;
-    this.terrainPatchGeo = new THREE.PlaneGeometry(this.patchSize, this.patchSize, this.patchSegs, this.patchSegs);
-    this.terrainPatchGeo.rotateX(-Math.PI / 2);
-    
-    const patchPos = this.terrainPatchGeo.attributes.position;
-    this.terrainPatchGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(patchPos.count * 3), 3));
-    this.terrainPatchGeo.setAttribute('aCreviceAO', new THREE.BufferAttribute(new Float32Array(patchPos.count), 1));
-    // Normal attribute is auto-created by PlaneGeometry, we'll compute it dynamically
-    
-    this.terrainPatch = new THREE.Mesh(this.terrainPatchGeo, mat.clone());
-    this.terrainPatch.castShadow = true;
-    this.terrainPatch.receiveShadow = true;
-    // tiny polygon offset or vertical bump
-    this.terrainPatch.position.y = 0.15;
-    this.scene.add(this.terrainPatch);
-    this._lastPatchX = -999999;
-    this._lastPatchZ = -999999;
-    this._updateTerrainPatch = () => {
-      if (!this.terrainPatch || !this.camera) return;
-      const cx = Math.round(this.camera.position.x / 100) * 100;
-      const cz = Math.round(this.camera.position.z / 100) * 100;
-      if (this._lastPatchX === cx && this._lastPatchZ === cz) return;
-      this._lastPatchX = cx; this._lastPatchZ = cz;
-      
-      this.terrainPatch.position.set(cx, 0.15, cz);
-      const pPos = this.terrainPatchGeo.attributes.position;
-      const pCol = this.terrainPatchGeo.attributes.color;
-      const pAO = this.terrainPatchGeo.attributes.aCreviceAO;
-      const c = new THREE.Color();
-      for (let i = 0; i < pPos.count; i++) {
-        const x = pPos.getX(i) + cx;
-        const z = pPos.getZ(i) + cz;
-        const h = terrainHeight(x, z);
-        pPos.setY(i, h);
-        
-        // very simplified tinting for patch to match
-        c.setHex(0x2e5c1e);
-        if (h > 280) c.setHex(0xdce6f0);
-        else if (h > 18) c.lerp(new THREE.Color(0x565e68), Math.min(1.0, (h-18)/45));
-        pCol.setXYZ(i, c.r, c.g, c.b);
-        pAO.setX(i, 1.0);
-      }
-      this.terrainPatchGeo.computeVertexNormals();
-      pPos.needsUpdate = true;
-      pCol.needsUpdate = true;
-      pAO.needsUpdate = true;
-      if (this.renderer.shadowMap) this.renderer.shadowMap.needsUpdate = true;
-    };
-    } catch(e) {
-      console.warn('Failed to build terrain patch:', e);
+        if (false) {
+      // Streaming Close-Range Patch disabled per P0-C Option 1
+    } else {
       this.terrainPatch = null;
+      this._updateTerrainPatch = () => {};
     }
   }
 
@@ -4466,34 +4495,13 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     poolDisc.frustumCulled = true;
     g.add(poolDisc);
 
-    // 3. Volumetric Spray & Rising Mist Particles with Physical Solar Rainbow Glints
-    const mistCount = 220;
-    const mistGeo = new THREE.BufferGeometry();
-    const mistPos = new Float32Array(mistCount * 3);
-    const mistPhase = new Float32Array(mistCount);
-    const mistVel = new Float32Array(mistCount * 3);
-    const mistScale = new Float32Array(mistCount);
-    const mistRange = new Float32Array(mistCount);
-    for (let i = 0; i < mistCount; i++) {
-      mistPos[i * 3]     = cliffX + 2.5 + (Math.random() - 0.5) * 28;
-      mistPos[i * 3 + 1] = bottomY + Math.random() * (fallHeight * 0.85);
-      mistPos[i * 3 + 2] = cliffZ + 36 + (Math.random() - 0.5) * 28;
-      mistPhase[i] = Math.random() * Math.PI * 2;
-      mistVel[i * 3]     = (Math.random() - 0.5) * 6.0;
-      mistVel[i * 3 + 1] = 3.5 + Math.random() * 5.0;
-      mistVel[i * 3 + 2] = (Math.random() - 0.5) * 6.0;
-      mistScale[i]       = 0.6 + Math.random() * 0.8;
-      mistRange[i]       = 18.0 + Math.random() * 12.0;
-    }
-    mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos, 3));
-    mistGeo.setAttribute('aPhase', new THREE.BufferAttribute(mistPhase, 1));
-    mistGeo.setAttribute('aVel', new THREE.BufferAttribute(mistVel, 3));
-    mistGeo.setAttribute('aScale', new THREE.BufferAttribute(mistScale, 1));
-    mistGeo.setAttribute('aRange', new THREE.BufferAttribute(mistRange, 1));
-    mistGeo.computeBoundingSphere();
-    const mistPoints = new THREE.Points(mistGeo, this._mistShader);
-    mistPoints.frustumCulled = false;
-    g.add(mistPoints);
+    // 3. Small plunge-pool foam disc at the base (No GPU particles)
+    const foamDiscGeo = new THREE.CircleGeometry(6, 16);
+    const foamDiscMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false });
+    const foamDisc = new THREE.Mesh(foamDiscGeo, foamDiscMat);
+    foamDisc.rotation.x = -Math.PI / 2;
+    foamDisc.position.set(cliffX + 2.5, bottomY + 0.16, cliffZ + 36);
+    g.add(foamDisc);
 
     // 4. Crystal Stream draining from plunge pool across beach sand into the ocean bay
     const streamPts = [
@@ -6044,6 +6052,62 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
   // and verdigris copper roofs with gilded ridge cresting.
   // Interior: Walkable 3D vaulted nave, Gaudí helicoidal branching tree piers, Sistine celestial fresco ceiling,
   // stained glass clerestory lancets, carved walnut pews, High Celestial Altar, and glowing votive candle alcoves.
+
+  _buildVines(g, radius, height) {
+    const ivyMat = Surfaces.leafCard(0x355a20);
+    const parts = [];
+    for (let i = 0; i < 200; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = radius + (Math.random() - 0.5) * 2;
+      const y = Math.random() * height;
+      const geo = new THREE.PlaneGeometry(1.5, 1.5);
+      geo.translate(Math.cos(a) * r, y, Math.sin(a) * r);
+      geo.rotateX((Math.random() - 0.5) * 0.5);
+      geo.rotateY(Math.random() * Math.PI);
+      geo.rotateZ((Math.random() - 0.5) * 0.5);
+      parts.push(geo);
+    }
+    const merged = mergeGeometries(parts, false) || parts[0];
+    const mesh = new THREE.Mesh(merged, ivyMat);
+    mesh.castShadow = true;
+    g.add(mesh);
+  }
+
+
+  _buildVines(g, radiusX, radiusZ, height, count, mat) {
+    if (!mat) mat = Surfaces.leafCard(0x355a20);
+    const parts = [];
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      // random depth for ivy clustering
+      const depth = (Math.random() - 0.5) * 3;
+      const rx = radiusX + depth;
+      const rz = radiusZ + depth;
+      const y = Math.random() * height * (0.2 + 0.8 * Math.random());
+      const geo = new THREE.PlaneGeometry(2.5, 2.5);
+      // stick to walls
+      let px = Math.cos(a) * rx;
+      let pz = Math.sin(a) * rz;
+      // square off for buildings instead of pure circle
+      if (Math.abs(Math.cos(a)) > Math.abs(Math.sin(a))) {
+         px = Math.sign(Math.cos(a)) * rx;
+         pz = Math.sin(a) * rz;
+      } else {
+         px = Math.cos(a) * rx;
+         pz = Math.sign(Math.sin(a)) * rz;
+      }
+      geo.translate(px, y, pz);
+      geo.rotateX((Math.random() - 0.5) * 0.4);
+      geo.rotateY(a + Math.PI/2 + (Math.random() - 0.5) * 0.4);
+      geo.rotateZ((Math.random() - 0.5) * 0.4);
+      parts.push(geo);
+    }
+    const merged = mergeGeometries(parts, false) || parts[0];
+    const mesh = new THREE.Mesh(merged, mat);
+    mesh.castShadow = true;
+    g.add(mesh);
+  }
+
   _universalCathedral() {
     const g = new THREE.Group();
     const cx = WORLD.cathedral.x, cz = WORLD.cathedral.z;
@@ -6065,15 +6129,15 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     gold.clearcoat = 0.8;
     gold.clearcoatRoughness = 0.1;
     const darkWood = Surfaces.wood(2.4);
-    const marble = Surfaces.honedCarraraMarble(2.5);
+    const marble = material('honedCarraraMarble', { repeat: 2.5, color: 0xffffff, roughness: 0.05, metalness: 0.1, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, envMapIntensity: 2.0 });
     const stainedGlassRose = Surfaces.stainedGlassRose();
     
     // Multi-layer chromatic refraction and iridescent liquid glass
     const stainedGlassLancet = new THREE.MeshPhysicalMaterial({
       color: 0x1848a4,
-      emissive: 0x123684,
-      emissiveIntensity: 1.6,
-      roughness: 0.02, transmission: 0.98, thickness: 3.0, ior: 1.6, reflectivity: 0.85, clearcoat: 1.0, clearcoatRoughness: 0.01, dispersion: 0.035, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x1848a4), attenuationDistance: 1.5
+      emissive: 0x2458d4,
+      emissiveIntensity: 4.5,
+      roughness: 0.05, transmission: 0.98, thickness: 3.0, ior: 1.6, reflectivity: 0.95, clearcoat: 1.0, clearcoatRoughness: 0.01, dispersion: 0.045, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x1848a4), attenuationDistance: 1.5
     });
     const leadCame = new THREE.MeshStandardMaterial({ color: 0x101214, roughness: 0.75, metalness: 0.95 });
 
@@ -8577,6 +8641,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     });
 
     g.add(pagodaGroup);
+        this._buildVines(g, 22, 50, 40, 800);
     this.scene.add(g);
   }
 
@@ -12881,6 +12946,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
   }
 
   applyAmbience() {
+    if (this._disposed) return;
     const phase = this._forcedPhase || getDayPhase();
     const P = PHASES[phase.key];
     const M = MOODS[this.mood] || MOODS.clear;
@@ -12999,10 +13065,13 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
     const place = (x, z) => {
       const h = terrainHeight(x, z);
+      const rDist = distToRiver(x, z);
+      const rElev = riverWaterElevation(x, z);
+      if (rDist < 45 && h < rElev + 1.2) return null;
       if (h < WORLD.waterLevel + 1 || h > 170) return null;
       if (distToRoads(x, z) < 15) return null; // Increased to 15 to keep all roads clear
       if (Math.hypot(x, z - (-360)) < 68 && h < 19.0) return null; // Keep plunge pool clear of trees
-      if (distToRiver(x, z) < 12) return null; // keep river channels clear of tree trunks
+      if (rDist < 12) return null; // keep river channels clear of tree trunks
       if (Math.abs(x) < 36 && z < -240) return null; // keep entire northern waterfall gorge & plunge pool 100% open and visible!
       if (z <= -450 && Math.abs(x) < 180) return null; // keep Highland Cathedral terrace & promenade open!
       if (Math.hypot(x - WORLD.buddhistTemple.x, z - WORLD.buddhistTemple.z) < 120) return null; // keep Buddhist Zen garden & panorama 100% clear!
@@ -13136,15 +13205,15 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
     const inst = (geo, mat, mats, yOff = 0, castShadow = true) => {
       if (!mats.length) return;
-      if (geo.computeBoundingSphere) geo.computeBoundingSphere();
       const m = new THREE.InstancedMesh(geo, mat, mats.length);
       const t = new THREE.Matrix4(), off = new THREE.Matrix4().makeTranslation(0, yOff, 0);
       mats.forEach((mx, i) => { t.copy(mx).multiply(off); m.setMatrixAt(i, t); });
       m.instanceMatrix.needsUpdate = true;
+      m.geometry.computeBoundingSphere();
       if (typeof m.computeBoundingSphere === 'function') m.computeBoundingSphere();
       m.castShadow = castShadow;
       m.receiveShadow = true;
-      m.frustumCulled = false;
+      m.frustumCulled = true;
       this.scene.add(m);
     };
 
@@ -13330,10 +13399,10 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const pineCanopyGeo = (() => {
       const parts = [];
       const w = 15, h = 28;
-      for (let i = 0; i < 3; i++) {
-        const q = createCurvedLeafCardGeo(w, h, 0.2);
-        q.rotateY((i / 3) * Math.PI);
-        q.translate(0, h * 0.45 + 1.0, 0);
+      for (let i = 0; i < 2; i++) {
+        const q = new THREE.PlaneGeometry(w, h);
+        q.rotateY((i / 2) * Math.PI);
+        q.translate(0, h * 0.45, 0);
         parts.push(q);
       }
       return mergeGeometries(parts, false) || new THREE.PlaneGeometry(w, h);
@@ -13666,17 +13735,9 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       return applyOrganicWeathering(mergeGeometries([stone1, stone2], false) || stone1, 0.12, 0.32, 91);
     })();
 
-    const pineTex = textures('pineNeedles');
-    const pineMat = createBotanicalFoliageMaterial(0x284f24, pineTex.map, {
-      isTree: true,
-      normalMap: pineTex.normalMap,
-      normalScale: 1.2,
-      roughness: 0.76,
-      sssColor: new THREE.Color(0x62c828),
-      shadowColor: new THREE.Color(0x1a4414),
-      sssIntensity: 0.78,
-      windIntensity: 0.9,
-    });
+    const pineMat = Surfaces.pineNeedles(0x284f24);
+    pineMat.alphaTest = 0.5;
+    pineMat.depthWrite = true;
 
     const oakTex = textures('leafCard');
     const oakMat = createBotanicalFoliageMaterial(0x487d32, oakTex.map, {
@@ -13736,7 +13797,6 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     }
 
     // Instanced Valley Trees
-    inst(pineTrunkGeo, barkMat, pine.trunks, 0, true);
     inst(pineCanopyGeo, pineMat, pine.crowns, 0, false);
     inst(pineBedGeo, fallenPineNeedlesMat, pine.clutter, 0.06, false);
 
@@ -13752,7 +13812,6 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     inst(sakuraCanopyGeo, sakuraMat, sakura.crowns, 0, false);
 
     // Dense Living Mountain Forest Blanket (Alpine Spruces & Mountain Oaks)
-    inst(pineTrunkGeo, barkMat, mountainPineMatrices, 0, true);
     inst(pineCanopyGeo, pineMat, mountainPineMatrices, 0, false);
     inst(oakTrunkGeo, barkMat, mountainOakMatrices, 0, true);
     inst(oakCanopyGeo, oakMat, mountainOakMatrices, 0, false);
@@ -13929,15 +13988,36 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       this.scene.add(m);
     };
 
-    // 3-blade interlocking cross-fan grass tuft geometry for rich volume
+    // Instanced grass blades for photorealistic volume and depth (replacing flat texture cards)
     const grassGeo = (() => {
       const parts = [];
-      for (let b = 0; b < 3; b++) {
-        const a = (b / 3) * Math.PI;
-        const q = new THREE.PlaneGeometry(0.95, 1.05);
-        q.translate(0, 0.525, 0);
-        q.rotateY(a);
-        parts.push(q);
+      const rngG = mulberry32(842);
+      for (let b = 0; b < 24; b++) {
+        const width = 0.03 + rngG() * 0.04;
+        const height = 0.4 + rngG() * 0.7;
+        const blade = new THREE.PlaneGeometry(width, height, 1, 3);
+        const pos = blade.attributes.position;
+        const curveDir = rngG() * Math.PI * 2;
+        const curveAmt = 0.15 + rngG() * 0.35;
+        const r = rngG() * 0.25;
+        const cx = Math.cos(rngG() * Math.PI * 2) * r;
+        const cz = Math.sin(rngG() * Math.PI * 2) * r;
+        
+        for (let i = 0; i < pos.count; i++) {
+          let x = pos.getX(i);
+          const y = pos.getY(i) + height * 0.5; // base at 0
+          const yFrac = y / height;
+          
+          x *= (1.0 - Math.pow(yFrac, 1.5)); // Taper
+          const zOffset = Math.pow(yFrac, 2.0) * curveAmt; // Curve
+          
+          const fx = x * Math.cos(curveDir) - zOffset * Math.sin(curveDir);
+          const fz = x * Math.sin(curveDir) + zOffset * Math.cos(curveDir);
+          
+          pos.setXYZ(i, fx + cx, y, fz + cz);
+        }
+        blade.computeVertexNormals();
+        parts.push(blade);
       }
       return mergeGeometries(parts, false) || parts[0];
     })();
@@ -13974,9 +14054,13 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       return applyOrganicWeathering(g, 0.2, 0.25, 47);
     })();
 
-    const grassMat = Surfaces.grassTuft(0x56963e);
-    grassMat.roughness = 0.92;
-    grassMat.alphaTest = 0.5;
+    const grassMat = createBotanicalFoliageMaterial(0x56963e, null, {
+      isTree: false,
+      roughness: 0.92,
+      sssColor: 0x8ce045,
+      sssIntensity: 0.75,
+      windIntensity: 0.8
+    });
     grassMat.depthWrite = true;
     grassMat.transparent = false;
 
@@ -16607,7 +16691,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       }
       if (!this._firstFrameRendered) {
         this._firstFrameRendered = true;
-        console.log('[world3d] first frame');
+        console.log("[world3d] first frame"); window.__rbvBooted = true;
       }
     } catch (err) {
       console.log('[world3d] _animate error in frame, falling back to direct render:', err);
@@ -16985,53 +17069,13 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     thinSheet.position.z += 1.2;
     g.add(thinSheet);
 
-    // 6. Volumetric Aerosol Rising Mist Cloud at Plunge Impact Zone
-    const mistGeo = new THREE.BufferGeometry();
-    const mistCount = 400;
-    const mistPos = new Float32Array(mistCount * 3);
-    const mistPhase = new Float32Array(mistCount);
-    for (let i = 0; i < mistCount; i++) {
-      mistPos[i * 3]     = (Math.random() - 0.5) * 52;
-      mistPos[i * 3 + 1] = Math.random() * 42;
-      mistPos[i * 3 + 2] = -360 + (Math.random() - 0.5) * 48;
-      mistPhase[i] = Math.random() * Math.PI * 2;
-    }
-    mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos, 3));
-    mistGeo.setAttribute('aPhase', new THREE.BufferAttribute(mistPhase, 1));
-    
-    const mistMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 } },
-      vertexShader: `
-        attribute float aPhase;
-        varying float vAlpha;
-        uniform float uTime;
-        void main() {
-          vec3 pos = position;
-          pos.y = mod(pos.y + uTime * 4.5 + aPhase * 8.0, 42.0);
-          pos.x += sin(uTime * 2.0 + aPhase) * 4.5;
-          pos.z += cos(uTime * 1.5 + aPhase) * 3.5;
-          
-          vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
-          gl_PointSize = min(85.0, 170.0 / -mvPos.z);
-          gl_Position = projectionMatrix * mvPos;
-          vAlpha = smoothstep(42.0, 26.0, pos.y) * smoothstep(0.0, 4.0, pos.y) * 0.22;
-        }
-      `,
-      fragmentShader: `
-        varying float vAlpha;
-        void main() {
-          vec2 uv = gl_PointCoord - 0.5;
-          float dist = length(uv);
-          if (dist > 0.5) discard;
-          float soft = smoothstep(0.5, 0.08, dist);
-          gl_FragColor = vec4(vec3(0.88, 0.94, 1.0), soft * vAlpha);
-        }
-      `,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-    });
-    this._mistShader = mistMat;
-    const mistPoints = new THREE.Points(mistGeo, mistMat);
-    g.add(mistPoints);
+    // 6. Small plunge-pool foam disc at the base (No GPU particles)
+    const foamDiscGeo = new THREE.CircleGeometry(14, 24);
+    const foamDiscMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false });
+    const foamDisc = new THREE.Mesh(foamDiscGeo, foamDiscMat);
+    foamDisc.rotation.x = -Math.PI / 2;
+    foamDisc.position.set(0, 5.36, -360);
+    g.add(foamDisc);
 
     this.scene.add(g);
   }
@@ -17043,6 +17087,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
 
   dispose() {
+    this._disposed = true;
     this._running = false;
     if (this._raf) cancelAnimationFrame(this._raf);
     this.controls?.dispose();
@@ -17084,6 +17129,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     this.pmrem?.dispose();
     this.composer?.dispose();
     this.renderer?.dispose();
+    clearCache();
     if (this._fpsPill && this._fpsPill.parentNode) {
       this._fpsPill.remove();
       this._fpsPill = null;

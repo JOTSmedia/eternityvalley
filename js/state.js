@@ -115,9 +115,9 @@ export const State = {
       }
     };
 
-    if (immediate) return doSave();
+    if (immediate) return doSave().catch(e => console.error('[state] immediate save error', e));
     if (this._saveTimeout) clearTimeout(this._saveTimeout);
-    this._saveTimeout = setTimeout(doSave, 1500);
+    this._saveTimeout = setTimeout(() => doSave().catch(e => console.error('[state] delayed save error', e)), 1500);
   },
 
   membershipInfo() {

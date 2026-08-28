@@ -124,8 +124,14 @@ function startWorld(plots) {
           canvas = document.querySelector('canvas#canvas3d');
         }
         const world = new World3D(canvas, plots, (p) => UI.openPlot(p));
-        console.log('[startWorld] World3D created, yielding to background init...');
+        
+        window.world = world;
+        window.UI = window.UI || UI;
+        window.UI.world = world;
+        console.log('[boot] window.world assigned');
+        
         await world.initAsync();
+        
         console.log('[startWorld] World3D initAsync complete, creating Map2D...');
         world.onAmbience = (w, season) => {
           Theme.setMood(w.mood);
@@ -135,9 +141,7 @@ function startWorld(plots) {
           (p) => { UI.openPlot(p); world.selectPlot(p); });
         console.log('[startWorld] Map2D created, attaching to UI...');
         UI.attachWorld(world, map);
-        window.world = world;
-        window.UI = UI;
-        window.UI.world = world;
+        
         console.log('[startWorld] done!');
         return { world, map };
       } catch (e) {
@@ -256,11 +260,6 @@ export async function enter(mode = '3d') {
         stage.classList.remove('hidden');
         stage.style.display = 'block';
       }
-      const view3d = document.getElementById('view3d');
-      if (view3d) {
-        view3d.classList.remove('hidden');
-        view3d.style.display = 'block';
-      }
 
       setTimeout(() => {
         document.getElementById('earthToolbar')?.classList.remove('is-waiting');
@@ -270,9 +269,19 @@ export async function enter(mode = '3d') {
       if (mode === '3d' || mode === 'tour') {
         try {
           console.log('[enter] starting/awaiting startWorld...');
-          await startWorld(plots);
+          const p = startWorld(plots);
+          
+          if (window.world) {
+            if (window.world.start) window.world.start();
+            if (window.world._resize) window.world._resize();
+            if (window.UI && window.UI.show3D) {
+              window.UI.show3D('orbit');
+            }
+          }
+          
+          await p;
           console.log('[enter] startWorld resolved, showing 3D in tour mode...');
-          await UI.show3D('tour', false);
+          await UI.show3D(mode === 'tour' ? 'tour' : 'orbit', false);
           console.log('[enter] show3D resolved, world ready:', !!UI.world);
         } catch (e) {
           console.log('[enter] 3D world failed, falling back to Globe:', e);

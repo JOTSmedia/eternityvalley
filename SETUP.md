@@ -9,6 +9,8 @@ The app runs in demo mode until you complete these steps. Each is ~10 minutes.
    - **Email/Password**
    - **Google** (one click)
    - **Facebook** — needs a Facebook Developer app: create one at [developers.facebook.com](https://developers.facebook.com), copy the App ID/Secret into Firebase, and paste Firebase's OAuth redirect URL back into the Facebook app settings.
+   - **Apple** — needs an Apple Developer Account: Register an App ID with 'Sign In with Apple' enabled, create a Service ID, configure your domains and return URLs, create a private key, and enter these details into Firebase Auth settings.
+   - **X (Twitter)** — needs a Twitter Developer account: create an app at [developer.twitter.com](https://developer.twitter.com), enable OAuth 1.0a or 2.0, set the Callback URI to Firebase's OAuth redirect URL, and paste the API Key and API Secret Key into Firebase Auth settings.
 3. **Build → Firestore Database → Create database** (production mode).
 4. **Rules** tab → paste the contents of `firestore.rules` → Publish.
 5. Project settings (gear) → **Your apps → Web app** (</> icon) → register. Copy the `firebaseConfig` object it shows into **`js/config.js`**, replacing the placeholders.

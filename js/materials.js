@@ -4021,7 +4021,17 @@ export function waterCausticsTexture() {
 }
 
 export function clearCache() {
+  for (const t of texCache.values()) {
+    if (t.map) t.map.dispose();
+    if (t.normalMap) t.normalMap.dispose();
+    if (t.roughnessMap) t.roughnessMap.dispose();
+    if (t.aoMap) t.aoMap.dispose();
+    if (t.isTexture) t.dispose();
+  }
   texCache.clear();
+  for (const m of matCache.values()) {
+    if (m.dispose) m.dispose();
+  }
   matCache.clear();
 }
 

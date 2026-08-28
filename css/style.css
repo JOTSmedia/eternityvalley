@@ -1328,7 +1328,7 @@ body.has-entered .stage {
    TOAST
    ============================================================ */
 .toast {
-  position: fixed; bottom: 92px; left: 50%; z-index: 90;
+  position: fixed; bottom: 144px; left: 50%; z-index: 90;
   transform: translateX(-50%);
   background: rgba(9, 14, 23, 0.92);
   border: 1px solid rgba(244, 211, 104, 0.35);
@@ -1560,7 +1560,7 @@ body.has-entered .demo-chip.is-admin:hover {
    ============================================================ */
 @media (max-width: 760px) {
   .districts {
-    top: 56px;
+    top: 76px;
     padding: 4px 6px;
     gap: 4px;
   }
@@ -1858,7 +1858,7 @@ input::placeholder, textarea::placeholder { letter-spacing: 0.05em; }
 
   /* --- the search bar --- */
   .earth-toolbar {
-    top: 56px; width: calc(100vw - 16px); left: 8px; right: 8px;
+    top: 76px; width: calc(100vw - 16px); left: 8px; right: 8px;
     transform: none; padding: 12px 12px 10px; border-radius: var(--r-lg);
   }
   .earth-toolbar.is-waiting { transform: translateY(-12px); }
@@ -3753,7 +3753,7 @@ input::placeholder, textarea::placeholder { letter-spacing: 0.05em; }
 
   .topbar-right .nav-dropdown-menu {
     position: fixed;
-    top: 56px;
+    top: 76px;
     right: 12px;
     z-index: 120;
     max-height: 80vh;

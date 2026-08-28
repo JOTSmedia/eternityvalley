@@ -159,6 +159,18 @@ export const UI = {
       }
     });
 
+    // 3D Ambience & Lighting Control Pill
+    $('#sanctuaryAmbiencePill')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.sap-btn');
+      if (!btn) return;
+      $('#sanctuaryAmbiencePill').querySelectorAll('.sap-btn').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      if (window.RBV) {
+        if (btn.dataset.phase) window.RBV.setPhase(btn.dataset.phase);
+        if (btn.dataset.mood) window.RBV.setMood(btn.dataset.mood);
+      }
+    });
+
     if ($('#btnGlobe')) $('#btnGlobe').onclick = () => this.showGlobe();
     if ($('#enterValleyBtn')) $('#enterValleyBtn').onclick = (e) => {
       const r = e.currentTarget.getBoundingClientRect();
@@ -726,6 +738,7 @@ export const UI = {
         <button class="btn" id="pGoogle" style="background:#fff;color:#1a1a1a;font-weight:700">${icon('google')} Continue with Google</button>
         <button class="btn" id="pApple" style="background:#000;color:#fff;border-color:#444;font-weight:700"> Continue with Apple</button>
         <button class="btn" id="pFacebook" style="background:#1877f2;color:#fff;font-weight:700">ⓕ Continue with Facebook</button>
+        <button class="btn" id="pTwitter" style="background:#000;color:#fff;border-color:#444;font-weight:700">𝕏 Continue with X</button>
       </div>
       <div class="divider">or use email</div>
       <label>Name (for new accounts)</label><input id="aName" placeholder="Your name">
@@ -742,6 +755,7 @@ export const UI = {
     $('#pGoogle').onclick = () => guard(() => Auth.signInGoogle(), 'Welcome! Signed in with Google.');
     $('#pApple').onclick = () => guard(() => Auth.signInApple(), 'Welcome! Signed in with Apple.');
     $('#pFacebook').onclick = () => guard(() => Auth.signInFacebook(), 'Welcome! Signed in with Facebook.');
+    $('#pTwitter').onclick = () => guard(() => Auth.signInTwitter(), 'Welcome! Signed in with X.');
     $('#pEmailIn').onclick = () => guard(() => Auth.signInEmail($('#aEmail').value, $('#aPass').value), 'Welcome back.');
     $('#pEmailUp').onclick = () => guard(() => Auth.signUpEmail($('#aName').value, $('#aEmail').value, $('#aPass').value), 'Account created — welcome to paradise.');
     $('#pGuest').onclick = () => { Auth.continueAsGuest(true); done('Browsing anonymously. You can still leave gifts.'); };
