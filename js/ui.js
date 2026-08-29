@@ -527,10 +527,12 @@ export const UI = {
       });
     } else {
       if (mode === 'tour') {
-        if (this.world.startDroneTour) {
-          this.world.startDroneTour(0);
-        } else if (this.world.setMode) {
-          this.world.setMode('tour');
+        if (!this.world.tourMode) {
+          if (this.world.startDroneTour) {
+            this.world.startDroneTour(0);
+          } else if (this.world.setMode) {
+            this.world.setMode('tour');
+          }
         }
       } else if (this.world.setMode) {
         this.world.setMode(mode || 'orbit');

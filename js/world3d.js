@@ -405,8 +405,10 @@ export class World3D {
       }
     });
 
-    // Default to panoramic Orbit Map view of the sanctuary
-    this.setMode('orbit');
+    // Keep active camera mode if tour or walk was already requested
+    if (!this.tourMode && !this.walkMode) {
+      this.setMode('tour');
+    }
     this._optimizeScene();
     console.log('[world3d] initAsync complete');
     if (this.renderer.shadowMap) this.renderer.shadowMap.needsUpdate = true;
@@ -4282,7 +4284,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     g.add(buildCliffSection(52, 260, 28));
 
     // 1b. Volumetric 3D Rocky Buttresses & Overhangs along the cliff face flanks
-    const buttressPositions = [-160, -115, -75, -55, 55, 85, 135, 185, 235];
+    const buttressPositions = [-180, -145, -115, -85, 85, 115, 145, 185, 235];
     buttressPositions.forEach((bx, idx) => {
       const bHeight = terrainHeight(bx, 915) - 0.5;
       const bGeo = new THREE.DodecahedronGeometry(8.5 + (idx % 3) * 3.2, 1);
@@ -16308,7 +16310,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       if (dYaw > Math.PI) dYaw -= Math.PI * 2;
       if (dYaw < -Math.PI) dYaw += Math.PI * 2;
       
-      const targetRoll = Math.max(-0.35, Math.min(0.35, dYaw * 12.0));
+      const isStraightLeg = (t <= 0.182); // Stage 1 & Stage 2 straight grand approach
+      const targetRoll = isStraightLeg ? 0.0 : Math.max(-0.25, Math.min(0.25, dYaw * 8.0));
       const rollDamp = 1.0 - Math.exp(-5.0 * safeDt);
       this._currentRoll = (this._currentRoll || 0.0) + (targetRoll - (this._currentRoll || 0.0)) * rollDamp;
       
@@ -17321,8 +17324,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     };
 
     // Build both river branches with continuous, physical water flow
-    this._riverInletCurve = buildRiverRibbon(RIVER_INLET, 46, 8, 16);
-    this._riverOutletCurve = buildRiverRibbon(RIVER_OUTLET, 52, 10, 22);
+    this._riverInletCurve = buildRiverRibbon(RIVER_INLET, 22, 3.5, 16);
+    this._riverOutletCurve = buildRiverRibbon(RIVER_OUTLET, 24, 4.0, 22);
   }
 
   _mountainWaterfall() {
@@ -17468,8 +17471,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       new V3(0, 138, -440),
       new V3(0, 83.9, -410),  
       new V3(0, 42.0, -385),  
-      new V3(0, 15.0, -368),
-      new V3(0, 5.3, -360),   
+      new V3(0, 24.0, -368),
+      new V3(0, 18.0, -360),   
     ];
     const fallCurve = new THREE.CatmullRomCurve3(fallPoints);
 
@@ -17483,7 +17486,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       new V3(0, 81.9, -412),
       new V3(0, 40.0, -387),
       new V3(0, 13.0, -370),
-      new V3(0, 3.3, -362),
+      new V3(0, 16.0, -362),
     ];
     const bedrockCurve = new THREE.CatmullRomCurve3(bedrockPoints);
     let bedrockGeo = buildChuteRibbon(bedrockCurve, 38, 75, 140);
@@ -17513,7 +17516,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const poolGeo = new THREE.CircleGeometry(56, 48);
     const poolDisc = new THREE.Mesh(poolGeo, this.waterMat);
     poolDisc.rotation.x = -Math.PI / 2;
-    poolDisc.position.set(0, 5.3, -360);
+    poolDisc.position.set(0, 18.0, -360);
     poolDisc.receiveShadow = true;
     g.add(poolDisc);
 

@@ -69,10 +69,7 @@ export function buildGrandBoulevard() {
       // Camber arch (water drainage profile across boulevard crown)
       const crown = (1.0 - Math.pow((u - 0.5) * 2.0, 2.0)) * 0.08;
 
-      // Ensure proper clearance above water/river and terrain
-      const localWater = (zCur > 915) ? (WORLD.oceanLevel || 0.35) : WORLD.waterLevel;
-      groundY = Math.max(groundY, localWater + 0.3);
-      const yPos = groundY + 0.10 + crown;
+      const yPos = groundY + 0.25 + crown;
 
       positions.push(xPos, yPos, zCur);
       uvs.push(u, t * vScale);
@@ -143,8 +140,8 @@ export function buildGrandBoulevard() {
       const outerX = cx + side.x * (curbWidth * 0.5 * sideSign);
       const outerZ = cz + side.z * (curbWidth * 0.5 * sideSign);
 
-      const topY = groundY + curbHeight;
-      const bottomY = groundY - 0.25; // Embedded into sub-base
+      const topY = groundY + 0.48;
+      const bottomY = groundY - 0.65; // Embedded into sub-base
 
       // 4 profile vertices per slice: [outerBottom, outerTop, innerTop, innerBottom]
       curbPositions.push(outerX, bottomY, outerZ);
