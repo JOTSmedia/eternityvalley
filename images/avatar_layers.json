@@ -1,0 +1,21 @@
+{
+  "source": "photorealistic_avatar_transparent.png",
+  "canvas": [
+    1024,
+    1024
+  ],
+  "pivots": {
+    "wingLeft": [
+      404,
+      300
+    ],
+    "wingRight": [
+      652,
+      300
+    ],
+    "train": [
+      596,
+      620
+    ]
+  }
+}
