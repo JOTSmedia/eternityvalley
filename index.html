@@ -524,6 +524,7 @@
       <span class="brand-sub">Somewhere Over the Rainbow Bridge</span>
     </div>
   </div>
+  <button id="menuToggle" class="btn btn-outline" style="display:none;" aria-label="Toggle Menu"><i class="ico-slot" data-icon="menu"></i></button>
 
   <!-- Primary View Switcher -->
   <div class="view-toggle">
@@ -721,41 +722,17 @@
 <script type="module" src="js/main.js"></script>
 <script>
 setTimeout(function() {
-  if (!window.world && !window.__rbvBooted) {
-    console.warn('[watchdog] Safety timeout (20s) reached. Executing graceful 3D Sanctuary entry.');
-    window.__rbvBooted = true;
-    window.__appBootReady = true;
-    if (typeof window.enter === 'function') {
-      window.enter('3d');
-    } else if (typeof window.__finishPreloader === 'function') {
-      window.__finishPreloader();
+  if (!window.__rbvBooted) {
+    console.warn('[watchdog] Safety timeout (20s) reached. App failed to boot.');
+    var wordEl = document.getElementById('preloaderWord');
+    if (wordEl) {
+      wordEl.textContent = 'Connection Timeout / Please Reload';
+      wordEl.style.color = '#ff6b6b';
     }
-    var preloader = document.getElementById('preloader');
-    if (preloader) {
-      preloader.classList.add('is-done');
-      preloader.style.display = 'none';
-      if (preloader.parentNode) preloader.remove();
-    }
-    var welcome = document.getElementById('welcome');
-    if (welcome && welcome.parentNode) welcome.remove();
-    document.body.classList.add('has-entered');
-    var stage = document.getElementById('stage');
-    if (stage) {
-      stage.classList.remove('hidden');
-      stage.style.display = 'block';
-    }
-    var topbar = document.getElementById('topbar');
-    if (topbar) topbar.classList.remove('hidden');
-    var view3d = document.getElementById('view3d');
-    if (view3d) {
-      view3d.classList.remove('hidden');
-      view3d.style.display = 'block';
-    }
-    window.dispatchEvent(new Event('resize'));
-    if (window.world && typeof window.world._resize === 'function') {
-      window.world._resize();
-      if (typeof window.world.start === 'function') window.world.start();
-    }
+    var pctEl = document.getElementById('preloaderPct');
+    if (pctEl) pctEl.style.display = 'none';
+    var barEl = document.getElementById('preloaderBarFill');
+    if (barEl) barEl.style.backgroundColor = '#ff6b6b';
   }
 }, 20000);
 </script>

@@ -190,6 +190,13 @@ export class World3D {
     this._lastFpsHudUpdate = 0;
     this._fpsPill = null;
     this._fpsTextEl = null;
+    this._renderScale = 1.0;
+    this._qualityTier = localStorage.getItem('ev_quality') || 'auto';
+    this._qualityLocked = this._qualityTier !== 'auto';
+    if (!this._qualityLocked) this._qualityTier = 'high'; // Default assumption for benchmark
+    this._benchFrames = 0;
+    this._benchTime = 0;
+    this._lastScaleChange = 0;
     this._init();
   }
 
@@ -221,7 +228,7 @@ export class World3D {
     scene.fog = new THREE.FogExp2(0x90b8d8, 0.000065);
     this.scene = scene;
 
-    const cam = new THREE.PerspectiveCamera(35, 1, 1, 28000.0);
+    const cam = new THREE.PerspectiveCamera(35, 1, 1, 6500.0);
     cam.position.set(0, 48.0, 960);
     cam.lookAt(0, 36.0, 600);
     cam.far = 28000.0;
@@ -273,10 +280,16 @@ export class World3D {
     const safe = async (name, fn) => {
       console.log('[world3d] initAsync start', name);
       const t0 = performance.now();
+      const prevChildrenCount = this.scene.children.length;
       try {
         await yieldMain();
         if (this._disposed) return;
-        fn();
+        await fn();
+        // Step 6: Name the scene groups automatically
+        for (let i = prevChildrenCount; i < this.scene.children.length; i++) {
+          const c = this.scene.children[i];
+          if (!c.name && c.isGroup) c.name = name;
+        }
       } catch (e) {
         console.warn('[world3d]', name, 'skipped', e);
       } finally {
@@ -358,6 +371,7 @@ export class World3D {
 
     // Default to panoramic Orbit Map view of the sanctuary
     this.setMode('orbit');
+    this._optimizeScene();
     console.log('[world3d] initAsync complete');
     if (this.renderer.shadowMap) this.renderer.shadowMap.needsUpdate = true;
   }
@@ -419,15 +433,29 @@ export class World3D {
     const w = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || window.innerHeight;
     if (w < 100 || h < 100) return;         // hidden view — keep the last good size
+    
+    let maxDpr = 1.0;
+    if (this._qualityTier === 'ultra') maxDpr = 2.0;
+    else if (this._qualityTier === 'high') maxDpr = 1.5;
+    else if (this._qualityTier === 'med') maxDpr = 1.0;
+    else maxDpr = 0.75;
+    
+    const targetDpr = Math.min(window.devicePixelRatio, maxDpr) * this._renderScale;
+    this.renderer.setPixelRatio(targetDpr);
     this.renderer.setSize(w, h, true);
+    
+    const allowPost = (this._qualityTier === 'high' || this._qualityTier === 'ultra');
+    if (allowPost && !this.composer) {
+       this._composer();
+    }
+    this.useComposer = allowPost && !!this.composer;
+
     if (this.composer) {
-      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setPixelRatio(targetDpr);
       this.composer.setSize(w, h);
       if (this.bloomPass) this.bloomPass.setSize(Math.ceil(w / 2), Math.ceil(h / 2));
       if (this.gtaoPass) {
-        try {
-          this.gtaoPass.setSize(w, h);
-        } catch (e) {}
+        try { this.gtaoPass.setSize(w, h); } catch (e) {}
       }
     }
     this.camera.aspect = w / h;
@@ -822,7 +850,7 @@ export class World3D {
 
   // ---------------- Post-processing ----------------
   _composer() {
-    const isHigh = typeof window !== 'undefined' && window.innerWidth > 768;
+    const isHigh = true;
     if (!isHigh) {
       this.useComposer = false;
       return;
@@ -3204,9 +3232,9 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     // =========================================================================
     const tarnBoulderGeo = applyOrganicWeathering(new THREE.DodecahedronGeometry(1.6, 1), 0.14, 0.45, 88);
     bakeVertexCreviceOcclusion(tarnBoulderGeo, 175.0, 0.55);
-    const tarnBoulderMat = Surfaces.photogrammetryRock(1.5).clone();
+    const tarnBoulderMat = Surfaces.photogrammetryRock(1.5);
     tarnBoulderMat.vertexColors = true;
-    tarnBoulderMat.roughness = 0.35;
+//     tarnBoulderMat.roughness = 0.35;
 
     const tarnBoulderCount = 56;
     const tarnBoulderMesh = new THREE.InstancedMesh(tarnBoulderGeo, tarnBoulderMat, tarnBoulderCount);
@@ -4181,8 +4209,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const g = new THREE.Group();
     const rockMat = Surfaces.rockCliff(3.5);
     rockMat.side = THREE.DoubleSide;
-    const darkStone = Surfaces.weatheredTravertine(2.2).clone();
-    darkStone.color.setHex(0x8a7c68);
+    const darkStone = Surfaces.weatheredTravertine(2.2);
+//     darkStone.color.setHex(0x8a7c68);
     const wood = Surfaces.timber(1.5);
     const bronze = Surfaces.bronze(1.0);
 
@@ -4503,9 +4531,9 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const rockGeo = new THREE.TubeGeometry(rockCurve, 16, 7.0, 8, false);
     rockGeo.scale(1.9, 0.4, 1.0);
     rockGeo.computeBoundingSphere();
-    const wetRockMat = Surfaces.photogrammetryRock(3.0).clone();
-    wetRockMat.color.setHex(0x181a1c);
-    wetRockMat.roughness = 0.25;
+    const wetRockMat = Surfaces.photogrammetryRock(3.0);
+//     wetRockMat.color.setHex(0x181a1c);
+//     wetRockMat.roughness = 0.25;
     const rockMesh = new THREE.Mesh(rockGeo, wetRockMat);
     rockMesh.frustumCulled = false;
     g.add(rockMesh);
@@ -5306,8 +5334,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const stone = Surfaces.flagstone(2.4);
     const crystalColMat = Surfaces.crystalColumn();
     const starlightOrbMat = Surfaces.starlightCrystal();
-    const palmBark = Surfaces.bark(2.2).clone();
-    if (palmBark && palmBark.color) palmBark.color.setHex(0xa88e6e);
+    const palmBark = Surfaces.bark(2.2);
+//     if (palmBark && palmBark.color) palmBark.color.setHex(0xa88e6e);
 
     // 1. Classical Guardian Husky Kaya Starlight Pavilion on Island Peak
     const peakY = terrainHeight(ix, iz); // ~32m
@@ -5539,11 +5567,11 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const ancientTravertine = material('weatheredTravertine', { repeat: 2.5, color: 0x9c9284, roughness: 0.9, metalness: 0.0, normalScale: 2.5, aoMapIntensity: 1.8 });
     const cedarWood = material('timber', { repeat: 1.5, color: 0x3d2416, roughness: 0.8, metalness: 0.0, normalScale: 1.5 });
     const templeBronze = material('bronze', { repeat: 1.2, color: 0x8a6e45, roughness: 0.4, metalness: 0.85, physical: true, clearcoat: 0.2, clearcoatRoughness: 0.5 });
-    const sunGold = Surfaces.gold(1.0).clone();
-    sunGold.color.setHex(0xffd700);
-    sunGold.roughness = 0.1;
-    sunGold.clearcoat = 0.9;
-    sunGold.clearcoatRoughness = 0.05;
+    const sunGold = Surfaces.gold(1.0);
+//     sunGold.color.setHex(0xffd700);
+//     sunGold.roughness = 0.1;
+//     sunGold.clearcoat = 0.9;
+//     sunGold.clearcoatRoughness = 0.05;
     const blackGranite = material('granite', { repeat: 1.8, color: 0x12100e, roughness: 0.2, metalness: 0.05, physical: true, clearcoat: 0.5, clearcoatRoughness: 0.3, normalScale: 1.2 });
     const tyrianPurple = new THREE.MeshStandardMaterial({ color: 0x4a0515, roughness: 0.85, metalness: 0.05 });
 
@@ -6147,11 +6175,11 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const slateRoof = Surfaces.pagodaTile(4.0);
     // Enhanced celestially reflective bronze & gold
     const bronze = Surfaces.verdigrisBronze(1.4);
-    const gold = Surfaces.gold(1.0).clone();
-    gold.color.setHex(0xffd700);
-    gold.roughness = 0.15;
-    gold.clearcoat = 0.8;
-    gold.clearcoatRoughness = 0.1;
+    const gold = Surfaces.gold(1.0);
+//     gold.color.setHex(0xffd700);
+//     gold.roughness = 0.15;
+//     gold.clearcoat = 0.8;
+//     gold.clearcoatRoughness = 0.1;
     const darkWood = Surfaces.wood(2.4);
     const marble = material('honedCarraraMarble', { repeat: 2.5, color: 0xffffff, roughness: 0.05, metalness: 0.1, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, envMapIntensity: 2.0 });
     const stainedGlassRose = Surfaces.stainedGlassRose();
@@ -6510,10 +6538,10 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     // AUTHENTIC FRENCH HIGH GOTHIC CARVED TWIN PORTAL DOORS (West Portal, z = 40.6 local)
     // Swung open at an inviting ~38° ceremonial angle with clear >6.0m drone passage
     // =========================================================================
-    const bogOak = Surfaces.wood(3.0).clone();
-    bogOak.color.setHex(0x241911); // Deep ancient bog-oak / dark walnut
-    bogOak.roughness = 0.82;
-    bogOak.metalness = 0.04;
+    const bogOak = Surfaces.wood(3.0);
+//     bogOak.color.setHex(0x241911); // Deep ancient bog-oak / dark walnut
+//     bogOak.roughness = 0.82;
+//     bogOak.metalness = 0.04;
 
     const forgedIron = new THREE.MeshStandardMaterial({ color: 0x141619, roughness: 0.65, metalness: 0.85 });
 
@@ -8544,8 +8572,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const cherryBlossomMat = Surfaces.sakuraBlossom(0xffffff);
     if (this._windMaterials) this._windMaterials.push(cherryBlossomMat);
 
-    const cherryBark = Surfaces.bark(1.5).clone();
-    cherryBark.color.setHex(0x382820);
+    const cherryBark = Surfaces.bark(1.5);
+//     cherryBark.color.setHex(0x382820);
 
     const createCurvedBlossomCardGeo = (w, h, curveDepth = 0.42) => {
       const geo = new THREE.PlaneGeometry(w, h, 2, 2);
@@ -8684,11 +8712,11 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const turquoiseTile = material('moorishZellij', {
       repeat: 6.0, color: 0x1292a2, roughness: 0.04, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.01, ior: 1.65, reflectivity: 0.95, clearcoatNormalScale: 0.5
     });
-    const gold = Surfaces.gold(1.0).clone();
-    gold.color.setHex(0xffd700);
-    gold.roughness = 0.15;
-    gold.clearcoat = 0.8;
-    gold.clearcoatRoughness = 0.1;
+    const gold = Surfaces.gold(1.0);
+//     gold.color.setHex(0xffd700);
+//     gold.roughness = 0.15;
+//     gold.clearcoat = 0.8;
+//     gold.clearcoatRoughness = 0.1;
     const darkCedar = material('timber', { repeat: 3.0, color: 0x2e1a10, roughness: 0.7, metalness: 0.0, physical: true, clearcoat: 0.1, clearcoatRoughness: 0.5, normalScale: 1.4 });
     const brass = material('bronze', { repeat: 2.0, color: 0xb5a642, roughness: 0.3, metalness: 0.8, physical: true, clearcoat: 0.3, clearcoatRoughness: 0.4 });
 
@@ -8811,7 +8839,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     });
 
     // Sunken Parterres with Geometric Myrtle Hedges & Stately Columnar Mediterranean Cypresses
-    const cypressBark = Surfaces.bark(1.5).clone();
+    const cypressBark = Surfaces.bark(1.5);
     const cypressFoliageMat = Surfaces.cypressFoliage();
     if (this._windMaterials) this._windMaterials.push(cypressFoliageMat);
 
@@ -9522,8 +9550,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       sssIntensity: 0.85,
       windIntensity: 0.9,
     });
-    const soilMat = Surfaces.limestoneDark(2.0).clone();
-    soilMat.color.setHex(0x3e3224);
+    const soilMat = Surfaces.limestoneDark(2.0);
+//     soilMat.color.setHex(0x3e3224);
 
     const roseColors = [0xc4223d, 0xfceee9, 0xf6d365, 0xe85d75, 0xb072d6];
     const roseMats = roseColors.map(c => new THREE.MeshStandardMaterial({
@@ -11482,28 +11510,28 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     // Luminous Classical & PBR Materials
     const marble = material('honedCarraraMarble', { repeat: 1.5, color: 0xfffef8, roughness: 0.1, metalness: 0.05, physical: true, clearcoat: 0.5, clearcoatRoughness: 0.15 });
     
-    const stone = Surfaces.flagstone(3.2).clone();
-    stone.color.setHex(0xc4b7a6);
-    stone.roughness = 0.85;
+    const stone = Surfaces.flagstone(3.2);
+//     stone.color.setHex(0xc4b7a6);
+//     stone.roughness = 0.85;
     if (stone.normalScale) stone.normalScale.set(2.0, 2.0);
-    stone.aoMapIntensity = 1.5;
+//     stone.aoMapIntensity = 1.5;
     
-    const stoneDark = Surfaces.limestoneDark(1.8).clone(); stoneDark.color.setHex(0x847966); stoneDark.roughness = 0.9; stoneDark.metalness = 0.0; stoneDark.normalScale.set(2.5, 2.5); stoneDark.aoMapIntensity = 1.8;
+// // // //     const stoneDark = Surfaces.limestoneDark(1.8); stoneDark.color.setHex(0x847966); stoneDark.roughness = 0.9; stoneDark.metalness = 0.0; stoneDark.normalScale.set(2.5, 2.5); stoneDark.aoMapIntensity = 1.8;
     
-    const gold = Surfaces.gold(1.0).clone();
-    gold.color.setHex(0xffe270);
-    gold.roughness = 0.1;
-    gold.clearcoat = 1.0;
-    gold.clearcoatRoughness = 0.05;
-    gold.roughness = 0.16;
-    gold.metalness = 0.96;
+    const gold = Surfaces.gold(1.0);
+//     gold.color.setHex(0xffe270);
+//     gold.roughness = 0.1;
+//     gold.clearcoat = 1.0;
+//     gold.clearcoatRoughness = 0.05;
+//     gold.roughness = 0.16;
+//     gold.metalness = 0.96;
 
     const goldTrim = gold;
 
-    const darkBronze = Surfaces.verdigrisBronze(1.0).clone();
-    if (darkBronze && darkBronze.color) darkBronze.color.setHex(0x3e3224);
-    darkBronze.roughness = 0.28;
-    darkBronze.metalness = 0.88;
+    const darkBronze = Surfaces.verdigrisBronze(1.0);
+//     if (darkBronze && darkBronze.color) darkBronze.color.setHex(0x3e3224);
+//     darkBronze.roughness = 0.28;
+//     darkBronze.metalness = 0.88;
 
     // Ultra-Pure Optical Physical Crystal for Balustrade Balusters
     const crystalBalusterMat = new THREE.MeshPhysicalMaterial({
@@ -12439,8 +12467,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     };
 
     // Willow trunk: AAA gnarled leaning timber with flared buttress roots and 4 structural scaffold boughs
-    const willowBark = Surfaces.bark(1.5).clone();
-    willowBark.color.setHex(0x948268);
+    const willowBark = Surfaces.bark(1.5);
+//     willowBark.color.setHex(0x948268);
 
     const willowTrunkGeo = (() => {
       const parts = [];
@@ -12576,8 +12604,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     inst(grassTuftGeo, Surfaces.grassTuft(), seaGrass, 0);
 
     // Driftwood: weathered sun-bleached logs
-    const driftwoodMat = Surfaces.bark(1).clone();
-    driftwoodMat.color.setHex(0xb8aa96);
+    const driftwoodMat = Surfaces.bark(1);
+//     driftwoodMat.color.setHex(0xb8aa96);
     inst(new THREE.CapsuleGeometry(0.35, 3.8, 6, 10), driftwoodMat, driftwood, 0.25);
 
     // Ferns: botanical curved frond ribbons with leaf textures
@@ -13224,10 +13252,10 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     };
 
     const barkMat = Surfaces.bark(1.6);
-    const palmBark = Surfaces.bark(2).clone();
-    palmBark.color.setHex(0xb09472);
-    const cherryBark = Surfaces.bark(1.5).clone();
-    cherryBark.color.setHex(0x382820);
+    const palmBark = Surfaces.bark(2);
+//     palmBark.color.setHex(0xb09472);
+    const cherryBark = Surfaces.bark(1.5);
+//     cherryBark.color.setHex(0x382820);
 
     // Procedural curved leaf card generator with normal curvature for 100% volumetric depth
     const createCurvedLeafCardGeo = (w, h, curveDepth = 0.45) => {
@@ -14232,8 +14260,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         const bedGeo = new THREE.BoxGeometry(1, 0.08, 1);
         bedGeo.translate(0, 0.36, 0);
         bedGeo.computeBoundingSphere();
-        const bedMat = Surfaces.groundDetail(2.0).clone();
-        bedMat.color.setHex(0x2a2218); // Rich dark organic soil loam
+        const bedMat = Surfaces.groundDetail(2.0);
+//         bedMat.color.setHex(0x2a2218); // Rich dark organic soil loam
         const bedMesh = new THREE.InstancedMesh(bedGeo, bedMat, list.length);
 
         list.forEach((p, i) => {
@@ -14599,7 +14627,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     })();
 
     const matCandle = (() => {
-      const m = Surfaces.wax(1).clone();
+      const m = Surfaces.wax(1);
       m.emissive = new THREE.Color(0xffc866);
       m.emissiveIntensity = 2.4;
       return m;
@@ -14808,8 +14836,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       g.translate(0, 1.4, 0);
       return applyOrganicWeathering(g, 0.18, 0.25, 93);
     })();
-    const matMossBoulder = Surfaces.rockCliff(2).clone();
-    matMossBoulder.color.setHex(0x4a5d4e);
+    const matMossBoulder = Surfaces.rockCliff(2);
+//     matMossBoulder.color.setHex(0x4a5d4e);
     inst('mossy_boulder', geoMossBoulder, matMossBoulder, 0);
 
     // Selection ring
@@ -15516,22 +15544,26 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         </div>
       `;
       document.body.appendChild(joystick);
-
-      const knob = joystick.querySelector('#walkJoystickKnob');
+    }
+    
+    // Always attach event handlers to the current instance
+    this._joystick = document.getElementById('walkJoystick');
+    if (this._joystick) {
+      const knob = this._joystick.querySelector('#walkJoystickKnob');
       let touchId = null;
       let center = { x: 0, y: 0 };
       const maxR = 38;
 
-      joystick.addEventListener('touchstart', (e) => {
+      this._onJoystickTouchStart = (e) => {
         if (touchId !== null) return;
         const touch = e.changedTouches[0];
         touchId = touch.identifier;
-        const rect = joystick.getBoundingClientRect();
+        const rect = this._joystick.getBoundingClientRect();
         center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
         e.preventDefault();
-      }, { passive: false });
+      };
 
-      const onTouchMove = (e) => {
+      this._onJoystickTouchMove = (e) => {
         if (touchId === null) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
           const t = e.changedTouches[i];
@@ -15551,7 +15583,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         }
       };
 
-      const onTouchEnd = (e) => {
+      this._onJoystickTouchEnd = (e) => {
         if (touchId === null) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
           if (e.changedTouches[i].identifier === touchId) {
@@ -15563,9 +15595,10 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         }
       };
 
-      window.addEventListener('touchmove', onTouchMove, { passive: false });
-      window.addEventListener('touchend', onTouchEnd);
-      window.addEventListener('touchcancel', onTouchEnd);
+      this._joystick.addEventListener('touchstart', this._onJoystickTouchStart, { passive: false });
+      window.addEventListener('touchmove', this._onJoystickTouchMove, { passive: false });
+      window.addEventListener('touchend', this._onJoystickTouchEnd);
+      window.addEventListener('touchcancel', this._onJoystickTouchEnd);
     }
   }
 
@@ -15762,6 +15795,166 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       onComplete,
       targetMode,
     };
+  }
+
+  
+  setQuality(tier, manual = false) {
+    if (manual) {
+      this._qualityLocked = true;
+      localStorage.setItem('ev_quality', tier);
+    }
+    this._qualityTier = tier;
+    
+    // Shadow maps
+    let shadowSize = 1024;
+    if (tier === 'ultra') shadowSize = 4096;
+    else if (tier === 'high') shadowSize = 2048;
+    
+    if (this.renderer && this.renderer.shadowMap.enabled) {
+       // if we have a directional light, update its shadow map size
+       this.scene.traverse(c => {
+         if (c.isDirectionalLight && c.shadow) {
+            if (c.shadow.mapSize.width !== shadowSize) {
+               c.shadow.mapSize.width = shadowSize;
+               c.shadow.mapSize.height = shadowSize;
+               if (c.shadow.map) {
+                 c.shadow.map.dispose();
+                 c.shadow.map = null;
+               }
+            }
+         }
+       });
+    }
+    
+    this._resize();
+  }
+
+  _updateAdaptivePerformance(dt) {
+    if (this._qualityLocked) return;
+    
+    // Benchmark phase (first 60 frames)
+    if (this._benchFrames < 60) {
+       this._benchFrames++;
+       this._benchTime += dt;
+       if (this._benchFrames === 60) {
+          const avg = (this._benchTime / 60) * 1000;
+          if (avg > 35) this.setQuality('low');
+          else if (avg > 22) this.setQuality('med');
+          else if (avg > 14) this.setQuality('high');
+          else this.setQuality('ultra');
+       }
+       return;
+    }
+
+    // Dynamic resolution scaling
+    const now = performance.now();
+    if (now - this._lastScaleChange < 1500) return; // Cooldown
+    
+    const count = Math.min(this._fpsCount, 30);
+    if (count < 30) return;
+    
+    let sum = 0;
+    let head = this._fpsHead;
+    const sorted = [];
+    for (let i = 0; i < count; i++) {
+       head = (head - 1 + 120) % 120;
+       sorted.push(this._fpsBuffer[head]);
+    }
+    sorted.sort((a,b)=>a-b);
+    const medianMs = sorted[Math.floor(count/2)];
+    
+    let targetScale = this._renderScale;
+    if (medianMs > 20) {
+       targetScale = Math.max(0.5, this._renderScale - 0.15); // Drop fast
+    } else if (medianMs < 14) {
+       targetScale = Math.min(1.5, this._renderScale + 0.05); // Recover slow
+    }
+    
+    if (targetScale !== this._renderScale) {
+       this._renderScale = targetScale;
+       this._lastScaleChange = now;
+       this._resize();
+    }
+  }
+
+  
+  _optimizeScene() {
+    this.scene.updateMatrixWorld(true);
+    const byMaterial = new Map();
+    const toRemove = [];
+
+    this.scene.traverse((o) => {
+        if (!o.isMesh) return;
+        if (o.isInstancedMesh) return;
+        if (o.userData && (o.userData.speedX !== undefined || o.userData.phase !== undefined)) return;
+        if (o.name && (o.name.includes('Water') || o.name.includes('Sky') || o.name.includes('Cloud') || o.name.includes('Terrain'))) return;
+        if (o.material) {
+           if (o.material.transparent || o.material.opacity < 1.0) return;
+           if (o.material.name && (o.material.name.toLowerCase().includes('water') || o.material.name.toLowerCase().includes('sky'))) return;
+        }
+        if (Array.isArray(o.material)) return;
+        
+        if (!o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
+        
+        // Normalize attributes so mergeGeometries doesn't fail
+        if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+        if (!o.geometry.attributes.uv) {
+          const uvs = new Float32Array(o.geometry.attributes.position.count * 2);
+          o.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        }
+        
+        const matUuid = o.material.uuid;
+        if (!byMaterial.has(matUuid)) byMaterial.set(matUuid, { material: o.material, meshes: [] });
+        byMaterial.get(matUuid).meshes.push(o);
+    });
+
+    let mergedCount = 0;
+    for (const [uuid, group] of byMaterial.entries()) {
+        if (group.meshes.length < 2) continue;
+        
+        let currentGeos = [];
+        let currentVerts = 0;
+        
+        const flush = () => {
+           if (currentGeos.length === 0) return;
+           if (currentGeos.length === 1) return;
+           const mergedGeo = window.mergeGeometries(currentGeos, false);
+           if (mergedGeo) {
+               const mergedMesh = new THREE.Mesh(mergedGeo, group.material);
+               // Shadows only cast on large/near things, but for merged chunks we can cast them
+               mergedMesh.castShadow = true;
+               mergedMesh.receiveShadow = true;
+               mergedMesh.name = 'MergedStaticChunk_' + mergedCount++;
+               this.scene.add(mergedMesh);
+               for (const g of currentGeos) g.dispose();
+               for (const m of toRemoveChunk) m.removeFromParent();
+           }
+           currentGeos = [];
+           currentVerts = 0;
+           toRemoveChunk = [];
+        };
+        
+        let toRemoveChunk = [];
+        for (const m of group.meshes) {
+            // Check if geometry has color attribute. If mixed, we have a problem.
+            // For now, we strip colors to allow merging, or just ignore. 
+            // It's safer to delete color attribute if we don't strictly need it, but some meshes might.
+            // Let's rely on material grouping.
+            
+            const geo = m.geometry.clone();
+            if (geo.attributes.color) geo.deleteAttribute('color'); // Simplify merging
+            
+            geo.applyMatrix4(m.matrixWorld);
+            currentGeos.push(geo);
+            currentVerts += geo.attributes.position.count;
+            toRemoveChunk.push(m);
+            toRemove.push(m);
+            
+            if (currentVerts > 300000) flush();
+        }
+        flush();
+    }
+    console.log('[optimizer] Merged ' + toRemove.length + ' meshes into ' + mergedCount + ' chunks.');
   }
 
   setMode(mode) {
@@ -15977,7 +16170,9 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       const rollDamp = 1.0 - Math.exp(-5.0 * safeDt);
       this._currentRoll = (this._currentRoll || 0.0) + (targetRoll - (this._currentRoll || 0.0)) * rollDamp;
       
-      const viewDir = new THREE.Vector3().subVectors(this._currentLook, this._v3TourPos).normalize();
+      const viewDir = this._v3Tmp3.subVectors(this._currentLook, this._v3TourPos);
+      if (viewDir.lengthSq() < 0.0001) viewDir.set(0, 0, -1);
+      else viewDir.normalize();
       this.camera.up.set(0, 1, 0).applyAxisAngle(viewDir, this._currentRoll);
 
       this.camera.position.copy(this._v3TourPos);
@@ -16104,8 +16299,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     }
 
     // Keep player within sanctuary world bounds
-    this.walkPos.x = Math.max(-950, Math.min(950, finalX));
-    this.walkPos.z = Math.max(-490, Math.min(1680, finalZ));
+    this.walkPos.x = Math.max(-2000, Math.min(2000, finalX));
+    this.walkPos.z = Math.max(-1000, Math.min(2600, finalZ));
 
     // Ground height clamping (including bridge deck and interior sanctuary floors)
     const onBridge = Math.abs(this.walkPos.x) < 16 &&
@@ -16136,6 +16331,11 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const targetY = groundY + this.eyeHeight;
     const yDamp = 1.0 - Math.exp(-20.0 * safeDt);
     this.walkPos.y += (targetY - this.walkPos.y) * yDamp;
+    
+    // Hard clamp to prevent clipping under terrain bedrock during steep climbs
+    if (this.walkPos.y < groundY + 0.4) {
+      this.walkPos.y = groundY + 0.4;
+    }
 
     // Gentle footsteps head bob
     const isMoving = this.walkVelocity.length() > 0.5;
@@ -17054,10 +17254,10 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     applyOrganicWeathering(bedrockGeo, 0.12, 0.40, 77);
     bakeVertexCreviceOcclusion(bedrockGeo, 4.5);
 
-    const wetRockMat = Surfaces.photogrammetryRock(4.0).clone();
-    wetRockMat.color.setHex(0x181a1c); // Wet dark granite
-    wetRockMat.roughness = 0.22; // Wet sheen
-    wetRockMat.metalness = 0.05;
+    const wetRockMat = Surfaces.photogrammetryRock(4.0);
+//     wetRockMat.color.setHex(0x181a1c); // Wet dark granite
+//     wetRockMat.roughness = 0.22; // Wet sheen
+//     wetRockMat.metalness = 0.05;
 
     const bedrockMesh = new THREE.Mesh(bedrockGeo, wetRockMat);
     bedrockMesh.position.z -= 0.6;
@@ -17179,6 +17379,18 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     this.canvas?.removeEventListener('touchstart', this._onTouchStart);
     this.canvas?.removeEventListener('touchmove', this._onTouchMove);
     this.canvas?.removeEventListener('touchend', this._onTouchEnd);
+
+    if (this._joystick) {
+      this._joystick.removeEventListener('touchstart', this._onJoystickTouchStart);
+      window.removeEventListener('touchmove', this._onJoystickTouchMove);
+      window.removeEventListener('touchend', this._onJoystickTouchEnd);
+      window.removeEventListener('touchcancel', this._onJoystickTouchEnd);
+      if (this._joystick.parentNode) {
+        this._joystick.remove();
+      }
+      this._joystick = null;
+    }
+
     // Dispose all scene meshes, geometries, and materials
     this.scene.traverse((obj) => {
       if (obj.geometry) obj.geometry.dispose();

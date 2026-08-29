@@ -73,6 +73,9 @@ export const IS_DEMO = FIREBASE_CONFIG.apiKey === 'PASTE_YOUR_API_KEY';
 
 export const IS_ADMIN = (() => {
   try {
+    const isLocal = typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '[::1]' || location.hostname.endsWith('.local') || location.hostname === '');
+    if (!isLocal) return false;
+
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '0' || params.get('admin') === 'false') {
       localStorage.removeItem('ev_admin_mode');

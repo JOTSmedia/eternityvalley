@@ -724,7 +724,7 @@ body.has-entered #welcome {
 @keyframes bar-drop { from { transform: translateY(-100%); opacity: 0; } }
 
 .topbar {
-  position: fixed; top: 12px; left: 16px; right: 16px; z-index: 50;
+  position: fixed; top: 12px; left: 16px; right: 16px; z-index: 250;
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 16px;
   height: 52px;
@@ -800,6 +800,15 @@ body.has-entered .topbar:not(.hidden) {
   overflow-x: auto;
   scrollbar-width: none;
 }
+
+@media (max-width: 900px) {
+  #menuToggle { display: inline-flex !important; margin-left: auto; }
+  .view-toggle, .topbar-right { display: none; }
+  .topbar.nav-open { flex-wrap: wrap; height: auto; max-height: 80vh; overflow-y: auto; align-items: flex-start; }
+  .topbar.nav-open .view-toggle { display: flex; flex-direction: column; width: 100%; margin-top: 10px; }
+  .topbar.nav-open .topbar-right { display: flex; flex-direction: column; width: 100%; margin-top: 10px; }
+}
+
 .districts::-webkit-scrollbar { display: none; }
 .district-btn {
   display: inline-flex;

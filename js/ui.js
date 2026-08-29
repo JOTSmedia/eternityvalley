@@ -133,7 +133,7 @@ export const UI = {
 
     setTimeout(() => {
       if (!State.data?.ownedPlots) return;
-      const annivs = checkAnniversaries(State.data.ownedPlots);
+      const annivs = checkAnniversaries(State.data?.ownedPlots);
       if (annivs.length > 0) {
         const names = annivs.map(a => a.petName).join(', ');
         this.toast(`Upcoming remembrance for ${names}. Take a moment to visit.`, 8000, 'candle');
@@ -202,6 +202,11 @@ export const UI = {
       $('#authBtn').classList.toggle('hidden', !!u);
       $('#userChip').classList.toggle('hidden', !u);
       if (u) $('#userName').textContent = u.name;
+      if (this._authEmitted && this._lastUserUid !== u?.uid) {
+        setTimeout(() => window.location.reload(), 500);
+      }
+      this._lastUserUid = u?.uid;
+      this._authEmitted = true;
     });
     const userNameEl = $('#userName');
     if (userNameEl) {
@@ -293,7 +298,7 @@ export const UI = {
     const stage = $('#stage');
     if (stage) {
       stage.classList.remove('hidden');
-      stage.style.display = 'block';
+      stage.classList.add('is-active');
     }
 
     if (which.view !== 'viewGlobe') {
@@ -305,7 +310,7 @@ export const UI = {
       if (vEl) {
         const isTarget = id === which.view;
         vEl.classList.toggle('hidden', !isTarget);
-        vEl.style.display = isTarget ? 'block' : 'none';
+        vEl.classList.toggle('is-active', isTarget);
       }
       if (bEl) bEl.classList.toggle('active', btn === which.btn);
     }
@@ -318,11 +323,11 @@ export const UI = {
     const dNav = $('#districtNav');
     if (dNav) {
       dNav.classList.toggle('hidden', which.view !== 'view3d');
-      dNav.style.display = which.view === 'view3d' ? '' : 'none';
+      dNav.classList.toggle('is-active', which.view === 'view3d');
     }
     const onMap = which.view === 'viewEarth' || which.view === 'viewGlobe';
     const legendEl = document.querySelector('.legend');
-    if (legendEl) legendEl.style.display = onMap ? 'none' : '';
+    if (legendEl) legendEl.classList.toggle('hidden', onMap);
     // The toolbar is global — the question it asks applies in every
     // view — but the actions that only make sense on Google's map are
     // disabled elsewhere rather than hidden, so the bar never reflows.
@@ -477,12 +482,12 @@ export const UI = {
     const stage = $('#stage');
     if (stage) {
       stage.classList.remove('hidden');
-      stage.style.display = 'block';
+      stage.classList.add('is-active');
     }
     const v3d = $('#view3d');
     if (v3d) {
       v3d.classList.remove('hidden');
-      v3d.style.display = 'block';
+      v3d.classList.add('is-active');
     }
 
     if (!this.world && window.world) this.world = window.world;
@@ -593,7 +598,7 @@ export const UI = {
     this.currentPlot = plot;
     const d = DISTRICTS[plot.district];
     const body = $('#plotPanelBody');
-    const owned = !!State.data.ownedPlots[plot.id];
+    const owned = !!State.data?.ownedPlots?.[plot.id];
 
     if (plot.status === 'available') {
       body.innerHTML = `
@@ -610,7 +615,7 @@ export const UI = {
       $('#giftAnyBtn').onclick = () => this.toast('Choose an occupied plot (grey) to leave a gift', 'candle');
     } else {
       const m = plot.memorial || {};
-      const giftList = (State.data.gifts[plot.id] || []).slice(-4).reverse();
+      const giftList = (State.data?.gifts?.[plot.id] || []).slice(-4).reverse();
       
       const annivs = checkAnniversaries({ [plot.id]: plot });
       const annivData = annivs.length > 0 ? annivs[0] : null;
@@ -631,7 +636,7 @@ export const UI = {
           <div class="years">${m.species || ''} · ${m.years || ''}</div>
           <p class="epitaph">“${m.epitaph || 'Forever loved.'}”</p>
           <div class="gifts-count">${icon('gift')} ${m.gifts || 0} tributes from visitors · resting with ${m.owner || 'a loving family'}</div>
-          <div class="gifts-count" style="color:var(--accent-hi-c)">${icon('heart')} Supports verified rescue: <b>${charityName(m.charity || State.data.charity || CHARITIES[0].id)}</b></div>
+          <div class="gifts-count" style="color:var(--accent-hi-c)">${icon('heart')} Supports verified rescue: <b>${charityName(m.charity || State.data?.charity || CHARITIES[0].id)}</b></div>
         </div>
         ${this.petProfileHTML(m, plot.id, owned)}
         <div class="fav-places-section" style="margin:14px 0 10px">
@@ -685,7 +690,7 @@ export const UI = {
         };
       });
       this._wirePetProfile(m, plot.id, owned, () => this.openPlot(plot), (pp) => {
-        const rec = State.data.ownedPlots[plot.id];
+        const rec = State.data?.ownedPlots?.[plot.id];
         if (rec) rec.memorial = { ...rec.memorial, petProfile: pp };
       });
     }
@@ -897,7 +902,7 @@ export const UI = {
     const years = m.years || 'Forever in our hearts';
     const epitaph = m.epitaph || 'Until we meet again at the Rainbow Bridge.';
     const photo = m.photo;
-    const charity = charityName(m.charity || State.data.charity || CHARITIES[0].id) || 'Verified Animal Rescue';
+    const charity = charityName(m.charity || State.data?.charity || CHARITIES[0].id) || 'Verified Animal Rescue';
     const locationStr = isPlot 
       ? `Eternity Valley Sanctuary · ${DISTRICTS[item.district]?.name || 'Memorial Grove'} · Plot ${item.id}`
       : `Sacred Earth Spot · ${item.place || 'Earthly Sanctuary'}`;
@@ -943,7 +948,7 @@ export const UI = {
 
           <div class="cert-footer">
             <div class="cert-qr-wrap">
-              <img src="${qrUrl}" class="cert-qr-img" alt="Scan to visit memorial online" onerror="this.style.display='none'">
+              <img src="${qrUrl}" class="cert-qr-img" alt="Scan to visit memorial online" onerror="this.classList.add('hidden')">
               <span>Scan to visit memorial in 3D</span>
             </div>
             <div class="cert-sig-wrap">
@@ -1295,7 +1300,7 @@ export const UI = {
           kind: 'plot',
           name: `Earth Memorial — ${name} (${earthLoc})`,
           amount: 15,
-          meta: { memorialId: memId, uid: Auth.user.uid, charity: earthMemorial.charity || State.data.charity || CHARITIES[0].id },
+          meta: { memorialId: memId, uid: Auth.user.uid, charity: earthMemorial.charity || State.data?.charity || CHARITIES[0].id },
         });
         if (r.ok) {
           State.addEarthMemorial(earthMemorial);
@@ -1342,7 +1347,7 @@ export const UI = {
         kind: 'plot',
         name: `Rainbow Bridge — Plot ${plot.id} (${d?.name || 'Sanctuary'})`,
         amount: plot.price,
-        meta: { plotId: plot.id, uid: Auth.user.uid, charity: memorial.charity || State.data.charity || CHARITIES[0].id },
+        meta: { plotId: plot.id, uid: Auth.user.uid, charity: memorial.charity || State.data?.charity || CHARITIES[0].id },
       });
       if (r.ok) {
         State.buyPlot(plot, memorial);
@@ -1408,7 +1413,7 @@ export const UI = {
   profileModal(afterSave) {
     if (!Auth.user) return this.authModal(() => this.profileModal(afterSave));
     const s = State.data.socials || {};
-    const p = State.data.profile || {};
+    const p = State.data?.profile || {};
     this.modal(`
       <h2>Your profile</h2>
       <div class="modal-sub">Your public face across the Bridge — shown on your memorials so friends and visitors can find you.</div>
@@ -1430,14 +1435,14 @@ export const UI = {
       <label>Default charity (${Math.round(GIFT_CHARITY_SHARE * 100)}% of gifts to your memorials)</label>
       <select id="soCharity">
         <option value="">— choose later, per memorial —</option>
-        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data?.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
       </select>
       <button class="btn btn-gold btn-block" id="soSave">Save profile</button>`);
     $('#soSave').onclick = async () => {
       const avatar = await readPhoto($('#prAvatar'), 128) || p.avatar || null;
       const newName = cleanText($('#prName').value.trim());
       if (newName) { Auth.user.name = newName; try { localStorage.setItem('ev_user', JSON.stringify(Auth.user)); } catch {} Auth._emit(); }
-      State.data.profile = {
+      if (!State.data) State.data = {}; State.data.profile = {
         avatar,
         bio: cleanText($('#prBio').value.trim()),
         contactEmail: $('#prEmail').value.trim().slice(0, 60),
@@ -1446,7 +1451,7 @@ export const UI = {
         instagram: cleanText($('#soIg').value.trim()), x: cleanText($('#soX').value.trim()),
         tiktok: cleanText($('#soTt').value.trim()), facebook: cleanText($('#soFb').value.trim()),
       };
-      State.data.charity = $('#soCharity').value || null;
+      State.data?.charity = $('#soCharity').value || null;
       await State.save(Auth.user);
       this.closeModal();
       this.toast('Profile saved.', 'crest');
@@ -1457,12 +1462,12 @@ export const UI = {
   // ---------------- MY BRIDGE — everything in one place ----------------
   myBridgeModal() {
     if (!Auth.user || Auth.user.isGuest) return this.authModal(() => this.myBridgeModal());
-    const p = State.data.profile || {};
+    const p = State.data?.profile || {};
     const s = State.data.socials || {};
     const mem = State.membershipInfo();
-    const myPlots = Object.keys(State.data.ownedPlots)
+    const myPlots = Object.keys(State.data?.ownedPlots)
       .map(id => this.plots.find(x => x.id === id)).filter(Boolean);
-    const myMems = (State.data.earth?.memorials || []).filter(m => !Auth.user || m.ownerUid === Auth.user.uid || IS_ADMIN);
+    const myMems = (State.data?.earth?.memorials || []).filter(m => !Auth.user || m.ownerUid === Auth.user.uid || IS_ADMIN);
     const totalGifts = myPlots.reduce((n, pl) => n + (pl.memorial?.gifts || 0), 0) +
                        myMems.reduce((n, m) => n + (m.gifts || 0), 0);
     const socialLine = ['instagram', 'x', 'tiktok', 'facebook'].filter(k => s[k])
@@ -1481,7 +1486,7 @@ export const UI = {
         <button class="btn btn-outline" id="mbProfile">${icon('edit')} Edit profile</button>
         <button class="btn btn-outline" id="mbMembership">${mem ? icon('crest') + ' ' + mem.name + ' member' : 'Choose a membership'}</button>
         <span class="btn btn-outline" style="cursor:default">${icon('gift')} ${totalGifts} gifts received</span>
-        ${State.data.charity ? `<span class="btn btn-outline" style="cursor:default">${icon('heart')} ${charityName(State.data.charity)}</span>` : ''}
+        ${State.data?.charity ? `<span class="btn btn-outline" style="cursor:default">${icon('heart')} ${charityName(State.data?.charity)}</span>` : ''}
       </div>
       <div class="sub">Your sanctuary plots (${myPlots.length}):</div>
       ${myPlots.length ? myPlots.map(pl => `
@@ -1568,7 +1573,7 @@ export const UI = {
         btn.textContent = 'Processing…'; btn.disabled = true;
         try {
           const r = await checkout({ kind: 'membership', name: `Rainbow Bridge — ${m.name} membership`, amount: m.price,
-            meta: { membershipId: m.id, uid: Auth.user.uid, charity: State.data.charity || CHARITIES[0].id } });
+            meta: { membershipId: m.id, uid: Auth.user.uid, charity: State.data?.charity || CHARITIES[0].id } });
           if (r.ok) {
             State.data.membership = m.id;
             await State.save(Auth.user);
@@ -1607,7 +1612,7 @@ export const UI = {
       <label>Their charity — where this plot's giving goes</label>
       <select id="mCharity">
         <option value="">Let each giver choose</option>
-        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data?.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
       </select>
       <button class="btn btn-gold btn-block" id="payPlotBtn">Pay $${plot.price} & reserve forever</button>
       <p class="fine">${IS_DEMO ? 'Demo mode: payment is simulated.' : 'You will be redirected to Stripe’s secure checkout.'}</p>`);
@@ -1628,7 +1633,7 @@ export const UI = {
         const r = await checkout({ kind: 'plot', name: `Rainbow Bridge — Plot ${plot.id} (${d.name})`, amount: plot.price,
           // The owner's chosen charity rides on the purchase itself, so
           // the plot's share is booked to them and not to a default.
-          meta: { plotId: plot.id, uid: Auth.user.uid, charity: memorial.charity || State.data.charity || CHARITIES[0].id } });
+          meta: { plotId: plot.id, uid: Auth.user.uid, charity: memorial.charity || State.data?.charity || CHARITIES[0].id } });
         if (r.ok) {
           State.buyPlot(plot, memorial);
           await State.save(Auth.user);
@@ -1701,7 +1706,7 @@ export const UI = {
     const tierRank = { mem_guardian: 1, mem_legacy: 2, mem_eternal: 3 };
     const myRank = IS_ADMIN ? 3 : (tierRank[tier] || 0);
     const cats = [...new Set(PLOT_ITEMS.map(i => i.cat))];
-    const owned = State.data.ownedPlots[plot.id]?.decor || [];
+    const owned = State.data?.ownedPlots?.[plot.id]?.decor || [];
     this.modal(`
       <h2>Customize Plot ${plot.id}</h2>
       <div class="modal-sub">Items placed: ${owned.length}. Purchases appear on your plot in 3D, exactly where you choose.</div>
@@ -1733,7 +1738,7 @@ export const UI = {
         btn.style.opacity = .5;
         try {
           const r = await checkout({ kind: 'item', name: `Plot item: ${it.name}`, amount: it.price,
-            meta: { plotId: plot.id, itemId: it.id, slot: slotId, charity: plot.memorial?.charity || State.data.charity || CHARITIES[0].id } });
+            meta: { plotId: plot.id, itemId: it.id, slot: slotId, charity: plot.memorial?.charity || State.data?.charity || CHARITIES[0].id } });
           if (r.ok) {
             State.addDecor(plot.id, it.id, slotId);
             const d = ITEM_DECOR[it.id];
@@ -2372,8 +2377,8 @@ export const UI = {
       { name: 'Atlas', species: 'Rescue Thoroughbred', years: '2005 — 2022', epitaph: 'Running wild and free across the infinite celestial meadows.', lat: -33.8688, lng: 151.2093, place: 'Sydney, Australia', district: 'desert_bloom', plotId: 'p_106' },
     ];
 
-    State.data.earth ||= { memorials: [], activity: [] };
-    State.data.ownedPlots ||= {};
+    if (!State.data) State.data = {}; State.data.earth ||= { memorials: [], activity: [] };
+    if (!State.data) State.data = {}; State.data.ownedPlots ||= {};
 
     demoPets.forEach(p => {
       const mem = {
@@ -2817,7 +2822,7 @@ export const UI = {
     let petYears = presetPet?.years || '';
     let selectedItem = PHYSICAL_KEEPSAKES[0];
     let selectedOption = selectedItem.options[0];
-    let dedicatedCharity = presetPet?.charity || State.data.charity || CHARITIES[0].id;
+    let dedicatedCharity = presetPet?.charity || State.data?.charity || CHARITIES[0].id;
 
     const render = () => {
       this.modal(`
@@ -3076,7 +3081,7 @@ export const UI = {
         <div class="years">${safeSpecies} · ${safeYears}</div>
         <p class="epitaph">“${safeEpitaph}”</p>
         <div class="gifts-count">${icon('gift')} ${m.gifts || 0} tributes from visitors · resting with ${safeOwner}</div>
-        <div class="gifts-count" style="color:var(--accent-hi-c)">${icon('heart')} Supports verified rescue: <b>${charityName(m.charity || State.data.charity || CHARITIES[0].id)}</b></div>
+        <div class="gifts-count" style="color:var(--accent-hi-c)">${icon('heart')} Supports verified rescue: <b>${charityName(m.charity || State.data?.charity || CHARITIES[0].id)}</b></div>
         ${m.socials && Object.values(m.socials).some(v => v) ? `<div class="gifts-count">${['instagram', 'x', 'tiktok', 'facebook'].filter(k => m.socials[k]).map(k => icon({ instagram: 'instagram', x: 'x', tiktok: 'tiktok', facebook: 'facebook' }[k]) + ' ' + esc(m.socials[k])).join(' · ')}</div>` : ''}
       </div>
       ${this.petProfileHTML(m, m.id, own)}
@@ -3160,7 +3165,7 @@ export const UI = {
         btn.style.opacity = .5;
         try {
           const r = await checkout({ kind: 'item', name: `Memorial item: ${it.name} for ${m.petName}`, amount: it.price,
-            meta: { earthMemorialId: m.id, itemId: it.id, slot: slot.id, charity: m.charity || State.data.charity || CHARITIES[0].id } });
+            meta: { earthMemorialId: m.id, itemId: it.id, slot: slot.id, charity: m.charity || State.data?.charity || CHARITIES[0].id } });
           if (r.ok) {
             (m.decorations ||= []).push({ itemId: it.id, name: it.name, slotLabel: slot.label.toLowerCase() });
             State.logActivity(it.id, `${Auth.user.name} placed ${it.name} at ${m.petName}'s memorial — ${m.place.split(',')[0]}`);
@@ -3395,7 +3400,7 @@ export const UI = {
 
   async earthMemorialForm(pos) {
     const placeName = await this.earth.reverseGeocode(pos.lat, pos.lng);
-    const ownedPlotList = Object.entries(State.data.ownedPlots || {});
+    const ownedPlotList = Object.entries(State.data?.ownedPlots || {});
 
     this.modal(`
       <div class="comfort-header" style="margin-bottom:14px">
@@ -3428,7 +3433,7 @@ export const UI = {
       <label>Dedicated Rescue Beneficiary — where tribute gifts flow</label>
       <select id="emCharity">
         <option value="">Let each giver choose</option>
-        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name} (${c.category ? c.category.toUpperCase() : 'VERIFIED 501(c)(3)'})</option>`).join('')}
+        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data?.charity === c.id ? 'selected' : ''}>${c.name} (${c.category ? c.category.toUpperCase() : 'VERIFIED 501(c)(3)'})</option>`).join('')}
       </select>
       <button class="btn btn-gold btn-block" id="emPay">${icon('heart')} Pay ${fmtPrice(EARTH_PLOT.price)} &amp; Pin Sacred Spot</button>
       <p class="fine">${IS_DEMO ? 'Demo: payment simulated.' : 'Stripe secure checkout.'} · 15% passes directly to animal rescue.</p>`);
@@ -3439,7 +3444,7 @@ export const UI = {
       const btn = $('#emPay');
       btn.disabled = true; btn.textContent = 'Processing…';
       try {
-        const emCharity = $('#emCharity').value || State.data.charity || CHARITIES[0].id;
+        const emCharity = $('#emCharity').value || State.data?.charity || CHARITIES[0].id;
         const r = await checkout({ kind: 'plot', name: `Rainbow Bridge — memorial for ${name} (anywhere on Earth)`, amount: EARTH_PLOT.price,
           meta: { lat: pos.lat, lng: pos.lng, uid: Auth.user.uid, charity: emCharity } });
         if (r.ok) {
@@ -3458,8 +3463,8 @@ export const UI = {
             owner: Auth.user.name, ownerUid: Auth.user.uid, gifts: 0, guestbook: [], decorations: [], createdAt: Date.now(),
           };
 
-          if (linkedPlotId && State.data.ownedPlots[linkedPlotId]) {
-            const plotRec = State.data.ownedPlots[linkedPlotId];
+          if (linkedPlotId && State.data?.ownedPlots?.[linkedPlotId]) {
+            const plotRec = State.data?.ownedPlots?.[linkedPlotId];
             plotRec.memorial = plotRec.memorial || {};
             plotRec.memorial.favoritePlaces = plotRec.memorial.favoritePlaces || [];
             plotRec.memorial.favoritePlaces.push({

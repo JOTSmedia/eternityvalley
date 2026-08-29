@@ -73,7 +73,15 @@ export const Auth = {
   async signUpEmail(name, email, password) {
     if (IS_DEMO) return this._demoLogin(name || email.split('@')[0], email, 'email');
     const cred = await createUserWithEmailAndPassword(fbAuth, email, password);
-    if (name) await updateProfile(cred.user, { displayName: name });
+    if (name) {
+      await updateProfile(cred.user, { displayName: name });
+      if (this.user && this.user.uid === cred.user.uid) {
+        this.user.name = name;
+        window.USER = this.user;
+        localStorage.setItem('ev_user', JSON.stringify(this.user));
+        this._emit();
+      }
+    }
   },
   async signInEmail(email, password) {
     if (IS_DEMO) return this._demoLogin(email.split('@')[0], email, 'email');
@@ -110,6 +118,7 @@ export const Auth = {
     this.user = null;
     window.USER = null;
     localStorage.removeItem('ev_user');
+    localStorage.removeItem('ev_state_v1');
     this._emit();
   },
   _demoLogin(name, email, provider) {

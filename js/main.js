@@ -123,6 +123,15 @@ function startWorld(plots) {
           console.log('[startWorld] #canvas3d missing, finding or creating...');
           canvas = document.querySelector('canvas#canvas3d');
         }
+        
+        canvas.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault();
+          console.warn('[world] WebGL Context Lost! Falling back...');
+          if (window.UI && window.UI.showEarth) {
+            window.UI.showEarth();
+          }
+        });
+
         const world = new World3D(canvas, plots, (p) => UI.openPlot(p));
         
         window.world = world;
@@ -148,6 +157,9 @@ function startWorld(plots) {
         console.log('[world] failed to initialize 3D world:', e.stack || e);
         worldPromise = null;
         window.__startWorldPromise = null;
+        if (window.UI && window.UI.showEarth) {
+          window.UI.showEarth();
+        }
         return { world: null, map: null };
       }
     })();
@@ -279,15 +291,23 @@ export async function enter(mode = 'tour') {
             }
           }
           
-          await p;
+          const res = await p;
+          if (!res || !res.world) {
+            throw new Error('3D World failed to initialize');
+          }
+          
           console.log('[enter] startWorld resolved, showing 3D in tour mode...');
           await UI.show3D(mode === 'tour' ? 'tour' : 'orbit', false);
           console.log('[enter] show3D resolved, world ready:', !!UI.world);
         } catch (e) {
-          console.log('[enter] 3D world failed, falling back to Globe:', e);
-          try { await UI.showGlobe(); } catch (e2) {
-            console.log('[enter] Globe fallback failed, falling back to 2D:', e2);
-            try { await UI.show2D(); } catch {}
+          console.log('[enter] 3D world failed, falling back to Earth:', e);
+          if (window.UI && window.UI.showEarth) {
+            window.UI.showEarth();
+          } else {
+            try { await UI.showGlobe(); } catch (e2) {
+              console.log('[enter] Globe fallback failed, falling back to 2D:', e2);
+              try { await UI.show2D(); } catch {}
+            }
           }
         }
       } else if (mode === 'globe') {
@@ -366,10 +386,14 @@ export async function enter(mode = 'tour') {
           try { localStorage.setItem('ev_ref', ref.slice(0, 40)); } catch {}
           const cfg = await import('./config.js');
           if (cfg.HAS_API) {
-            fetch(cfg.API_BASE + '/track', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ kind: 'referral', name: 'Partner referral: ' + ref.slice(0, 40), amount: 0, user: 'visitor' }),
-            }).catch(() => {});
+            let consent = false;
+            try { consent = localStorage.getItem('ev_privacy_consent') === 'true'; } catch {}
+            if (consent) {
+              fetch(cfg.API_BASE + '/track', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kind: 'referral', name: 'Partner referral: ' + ref.slice(0, 40), amount: 0, user: 'visitor' }),
+              }).catch(() => {});
+            }
           }
           UI.toast('Welcome — you were referred by a caring partner.', 'heart');
         }
@@ -478,16 +502,37 @@ async function boot() {
   // from the console without rebuilding (`RBV.setPhase('dusk')`).
   window.UI = UI;
   window.world = window.world || UI.world;
-  window.RBV = {
-    UI, Theme, get atmosphere() { return window.__evAtmosphere; }, plots, get earth() { return UI.earth; }, Tour,
-    /** Forget the visitor has seen the tour, so it auto-plays again. */
-    resetTour() { try { localStorage.removeItem('ev_tour_seen_v1'); } catch {} return 'tour will play on next load'; },
-    get world() { return UI.world; },
-    get map() { return UI.map; },
-    ready: () => startWorld(plots),
-    setPhase(key) { UI.world?.forcePhase(key); Theme.forcePhase?.(key); return key; },
-    setMood(mood) { if (UI.world) { UI.world.mood = mood; UI.world.applyAmbience(); } Theme.setMood(mood); return mood; },
-  };
+  
+  const isProd = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+  
+  if (!isProd) {
+    window.RBV = {
+      UI, Theme, get atmosphere() { return window.__evAtmosphere; }, plots, get earth() { return UI.earth; }, Tour,
+      /** Forget the visitor has seen the tour, so it auto-plays again. */
+      resetTour() { try { localStorage.removeItem('ev_tour_seen_v1'); } catch {} return 'tour will play on next load'; },
+      get world() { return UI.world; },
+      get map() { return UI.map; },
+      ready: () => startWorld(plots),
+      setPhase(key) { UI.world?.forcePhase(key); Theme.forcePhase?.(key); return key; },
+      setMood(mood) { if (UI.world) { UI.world.mood = mood; UI.world.applyAmbience(); } Theme.setMood(mood); return mood; },
+    };
+  }
+  
+  // Ensure IS_ADMIN chip cannot be trivially spoofed on client-side in production
+  if (isProd) {
+    try {
+      localStorage.removeItem('ev_admin_mode');
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('admin') || params.has('dev')) {
+        params.delete('admin');
+        params.delete('dev');
+        params.delete('mode');
+        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+        // To be completely safe and wipe the already-loaded IS_ADMIN const:
+        window.location.reload();
+      }
+    } catch {}
+  }
 
   // Primary enter buttons
   document.getElementById('enterBtn')?.addEventListener('click', () => enter('globe'));

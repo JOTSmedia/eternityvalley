@@ -3336,25 +3336,25 @@ export function material(name, opts = {}) {
 
 /** Named, ready-to-use surfaces shared by the world and the thumbnails. */
 export const Surfaces = {
-  limestone: (repeat = 1) => material('agedCaenLimestone', { repeat, color: 0xffffff, roughness: 0.85, metalness: 0.0, normalScale: 0.85, aoMapIntensity: 1.1, envMapIntensity: 1.05 }),
-  limestoneDark: (repeat = 1) => material('agedCaenLimestone', { repeat, color: 0xb5a896, roughness: 0.88, metalness: 0.0, normalScale: 0.85, aoMapIntensity: 1.15, envMapIntensity: 1.0 }),
-  agedCaenLimestone: (repeat = 1) => material('agedCaenLimestone', { repeat, color: 0xffffff, roughness: 0.85, metalness: 0.0, normalScale: 0.85, aoMapIntensity: 1.1, envMapIntensity: 1.05 }),
-  marble: (repeat = 1) => material('honedCarraraMarble', { repeat, color: 0xffffff, roughness: 0.12, metalness: 0.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.08, normalScale: 1.15, aoMapIntensity: 1.2, envMapIntensity: 1.45 }),
-  honedCarraraMarble: (repeat = 1) => material('honedCarraraMarble', { repeat, color: 0xffffff, roughness: 0.12, metalness: 0.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.08, normalScale: 1.15, aoMapIntensity: 1.2, envMapIntensity: 1.45 }),
-  granite: (repeat = 1) => material('granite', { repeat, color: 0xffffff, roughness: 0.25, metalness: 0.0, physical: true, clearcoat: 0.75, clearcoatRoughness: 0.12, normalScale: 1.25, aoMapIntensity: 1.0, envMapIntensity: 1.25 }),
-  bark: (repeat = 2) => material('bark', { repeat, color: 0xffffff, roughness: 0.96, metalness: 0, normalScale: 1.5, envMapIntensity: 0.9 }),
-  grass: (repeat = 40) => material('grass', { repeat, color: 0xffffff, roughness: 0.55, metalness: 0.0, normalScale: 1.25, envMapIntensity: 1.15 }),
-  sand: (repeat = 30) => material('sand', { repeat, color: 0xffffff, roughness: 0.88, metalness: 0.02, normalScale: 1.2, envMapIntensity: 1.1 }),
-  bronze: (repeat = 1) => material('weatheredVerdigrisBronze', { repeat, color: 0xffffff, roughness: 0.35, metalness: 0.95, physical: true, clearcoat: 0.35, clearcoatRoughness: 0.25, normalScale: 1.35, aoMapIntensity: 1.3, envMapIntensity: 1.45 }),
-  verdigrisBronze: (repeat = 1) => material('weatheredVerdigrisBronze', { repeat, color: 0xffffff, roughness: 0.35, metalness: 0.95, physical: true, clearcoat: 0.35, clearcoatRoughness: 0.25, normalScale: 1.35, aoMapIntensity: 1.3, envMapIntensity: 1.45 }),
-  iron: (repeat = 1) => material('iron', { repeat, color: 0xffffff, roughness: 0.65, metalness: 0.85, normalScale: 0.9, envMapIntensity: 1.2 }),
-  wax: (repeat = 1) => material('wax', { repeat, color: 0xffffff, roughness: 0.45, metalness: 0, physical: true, transmission: 0.42, thickness: 1.6, ior: 1.45, normalScale: 0.75, envMapIntensity: 1.1 }),
-  ceramic: (repeat = 1) => material('ceramic', { repeat, color: 0xffffff, roughness: 0.08, metalness: 0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, normalScale: 0.45, envMapIntensity: 1.35 }),
-  stuccoMuqarnas: (repeat = 1) => material('stuccoMuqarnas', { repeat, color: 0xffffff, roughness: 0.88, metalness: 0.0, normalScale: 1.5, aoMapIntensity: 1.25, envMapIntensity: 1.05 }),
-  timber: (repeat = 2) => material('timber', { repeat, color: 0xffffff, roughness: 0.82, metalness: 0.0, physical: true, clearcoat: 0.05, clearcoatRoughness: 0.9, normalScale: 1.4, aoMapIntensity: 1.0, envMapIntensity: 1.0 }),
-  wood: (repeat = 2) => material('timber', { repeat, color: 0xffffff, roughness: 0.82, metalness: 0.0, physical: true, clearcoat: 0.05, clearcoatRoughness: 0.9, normalScale: 1.4, aoMapIntensity: 1.0, envMapIntensity: 1.0 }),
-  gold: (repeat = 1) => material('celestialGold24K', { repeat, color: 0xffffff, roughness: 0.12, metalness: 1.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.04, normalScale: 0.8, aoMapIntensity: 1.1, envMapIntensity: 1.75 }),
-  celestialGold: (repeat = 1) => material('celestialGold24K', { repeat, color: 0xffffff, roughness: 0.12, metalness: 1.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.04, normalScale: 0.8, aoMapIntensity: 1.1, envMapIntensity: 1.75 }),
+  limestone: (repeat = 1, o = {}) => material('agedCaenLimestone', {  repeat, color: 0xffffff, roughness: 0.85, metalness: 0.0, normalScale: 0.85, aoMapIntensity: 1.1, envMapIntensity: 1.05 , ...o }),
+  limestoneDark: (repeat = 1, o = {}) => material('agedCaenLimestone', {  repeat, color: 0xb5a896, roughness: 0.88, metalness: 0.0, normalScale: 0.85, aoMapIntensity: 1.15, envMapIntensity: 1.0 , ...o }),
+  agedCaenLimestone: (repeat = 1, o = {}) => material('agedCaenLimestone', {  repeat, color: 0xffffff, roughness: 0.85, metalness: 0.0, normalScale: 0.85, aoMapIntensity: 1.1, envMapIntensity: 1.05 , ...o }),
+  marble: (repeat = 1, o = {}) => material('honedCarraraMarble', {  repeat, color: 0xffffff, roughness: 0.12, metalness: 0.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.08, normalScale: 1.15, aoMapIntensity: 1.2, envMapIntensity: 1.45 , ...o }),
+  honedCarraraMarble: (repeat = 1, o = {}) => material('honedCarraraMarble', {  repeat, color: 0xffffff, roughness: 0.12, metalness: 0.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.08, normalScale: 1.15, aoMapIntensity: 1.2, envMapIntensity: 1.45 , ...o }),
+  granite: (repeat = 1, o = {}) => material('granite', {  repeat, color: 0xffffff, roughness: 0.25, metalness: 0.0, physical: true, clearcoat: 0.75, clearcoatRoughness: 0.12, normalScale: 1.25, aoMapIntensity: 1.0, envMapIntensity: 1.25 , ...o }),
+  bark: (repeat = 2, o = {}) => material('bark', {  repeat, color: 0xffffff, roughness: 0.96, metalness: 0, normalScale: 1.5, envMapIntensity: 0.9 , ...o }),
+  grass: (repeat = 40, o = {}) => material('grass', {  repeat, color: 0xffffff, roughness: 0.55, metalness: 0.0, normalScale: 1.25, envMapIntensity: 1.15 , ...o }),
+  sand: (repeat = 30, o = {}) => material('sand', {  repeat, color: 0xffffff, roughness: 0.88, metalness: 0.02, normalScale: 1.2, envMapIntensity: 1.1 , ...o }),
+  bronze: (repeat = 1, o = {}) => material('weatheredVerdigrisBronze', {  repeat, color: 0xffffff, roughness: 0.35, metalness: 0.95, physical: true, clearcoat: 0.35, clearcoatRoughness: 0.25, normalScale: 1.35, aoMapIntensity: 1.3, envMapIntensity: 1.45 , ...o }),
+  verdigrisBronze: (repeat = 1, o = {}) => material('weatheredVerdigrisBronze', {  repeat, color: 0xffffff, roughness: 0.35, metalness: 0.95, physical: true, clearcoat: 0.35, clearcoatRoughness: 0.25, normalScale: 1.35, aoMapIntensity: 1.3, envMapIntensity: 1.45 , ...o }),
+  iron: (repeat = 1, o = {}) => material('iron', {  repeat, color: 0xffffff, roughness: 0.65, metalness: 0.85, normalScale: 0.9, envMapIntensity: 1.2 , ...o }),
+  wax: (repeat = 1, o = {}) => material('wax', {  repeat, color: 0xffffff, roughness: 0.45, metalness: 0, physical: true, transmission: 0.42, thickness: 1.6, ior: 1.45, normalScale: 0.75, envMapIntensity: 1.1 , ...o }),
+  ceramic: (repeat = 1, o = {}) => material('ceramic', {  repeat, color: 0xffffff, roughness: 0.08, metalness: 0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, normalScale: 0.45, envMapIntensity: 1.35 , ...o }),
+  stuccoMuqarnas: (repeat = 1, o = {}) => material('stuccoMuqarnas', {  repeat, color: 0xffffff, roughness: 0.88, metalness: 0.0, normalScale: 1.5, aoMapIntensity: 1.25, envMapIntensity: 1.05 , ...o }),
+  timber: (repeat = 2, o = {}) => material('timber', {  repeat, color: 0xffffff, roughness: 0.82, metalness: 0.0, physical: true, clearcoat: 0.05, clearcoatRoughness: 0.9, normalScale: 1.4, aoMapIntensity: 1.0, envMapIntensity: 1.0 , ...o }),
+  wood: (repeat = 2, o = {}) => material('timber', {  repeat, color: 0xffffff, roughness: 0.82, metalness: 0.0, physical: true, clearcoat: 0.05, clearcoatRoughness: 0.9, normalScale: 1.4, aoMapIntensity: 1.0, envMapIntensity: 1.0 , ...o }),
+  gold: (repeat = 1, o = {}) => material('celestialGold24K', {  repeat, color: 0xffffff, roughness: 0.12, metalness: 1.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.04, normalScale: 0.8, aoMapIntensity: 1.1, envMapIntensity: 1.75 , ...o }),
+  celestialGold: (repeat = 1, o = {}) => material('celestialGold24K', {  repeat, color: 0xffffff, roughness: 0.12, metalness: 1.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.04, normalScale: 0.8, aoMapIntensity: 1.1, envMapIntensity: 1.75 , ...o }),
   waterNormals: (repeat = 1) => waterNormalTexture(),
   waterCaustics: (repeat = 1) => waterCausticsTexture(),
   leafCard: (color = 0xffffff) => {
@@ -3465,7 +3465,7 @@ export const Surfaces = {
       windIntensity: 1.0,
     });
   },
-  ceremonialBoulevard: (repeat = 1) => material('ceremonialBoulevard', {
+  ceremonialBoulevard: (repeat = 1, o = {}) => material('ceremonialBoulevard', { 
     repeat,
     color: 0xffffff,
     roughness: 0.72,
@@ -3473,8 +3473,9 @@ export const Surfaces = {
     normalScale: 1.25,
     aoMapIntensity: 1.15,
     envMapIntensity: 1.10,
+    ...o
   }),
-  honedRomanTravertine: (repeat = 1) => material('ceremonialBoulevard', {
+  honedRomanTravertine: (repeat = 1, o = {}) => material('ceremonialBoulevard', { 
     repeat,
     color: 0xffffff,
     roughness: 0.72,
@@ -3482,8 +3483,8 @@ export const Surfaces = {
     normalScale: 1.25,
     aoMapIntensity: 1.15,
     envMapIntensity: 1.10,
-  }),
-  pavedRoad: (repeat = 1) => material('limestone', {
+  , ...o }),
+  pavedRoad: (repeat = 1, o = {}) => material('limestone', { 
     repeat,
     color: 0xc8baa4,
     roughness: 0.82,
@@ -3491,8 +3492,8 @@ export const Surfaces = {
     normalScale: 1.35,
     aoMapIntensity: 1.10,
     envMapIntensity: 1.05,
-  }),
-  bronzePlaque: (repeat = 1) => material('bronzePlaque', {
+  , ...o }),
+  bronzePlaque: (repeat = 1, o = {}) => material('bronzePlaque', { 
     repeat,
     color: 0xffffff,
     roughness: 0.38,
@@ -3503,13 +3504,13 @@ export const Surfaces = {
     normalScale: 1.25,
     aoMapIntensity: 1.20,
     envMapIntensity: 1.40,
-  }),
-  fallenPineNeedles: (repeat = 1) => material('fallenPineNeedles', {
+  , ...o }),
+  fallenPineNeedles: (repeat = 1, o = {}) => material('fallenPineNeedles', { 
     repeat, color: 0xffffff, roughness: 0.94, metalness: 0.01, normalScale: 1.6, aoMapIntensity: 1.1, envMapIntensity: 0.95
-  }),
-  mossyStone: (repeat = 1) => material('mossyStone', {
+  , ...o }),
+  mossyStone: (repeat = 1, o = {}) => material('mossyStone', { 
     repeat, color: 0xffffff, roughness: 0.86, metalness: 0.02, normalScale: 2.0, aoMapIntensity: 1.15, envMapIntensity: 1.0
-  }),
+  , ...o }),
   grassTuft: (color = 0xffffff) => {
     const t = textures('grassTuft');
     return createBotanicalFoliageMaterial(color, t.map, {
@@ -3559,23 +3560,23 @@ export const Surfaces = {
       windIntensity: 1.1,
     });
   },
-  rockCliff: (repeat = 12) => material('rockCliff', { repeat, color: 0xffffff, roughness: 0.82, metalness: 0.03, normalScale: 2.2, aoMapIntensity: 1.1, envMapIntensity: 0.95 }),
-  mossyScree: (repeat = 20) => material('mossyScree', { repeat, color: 0xffffff, roughness: 0.70, metalness: 0.0, normalScale: 2.0, aoMapIntensity: 1.1, envMapIntensity: 0.95 }),
-  forestFloor: (repeat = 20) => material('forestFloor', { repeat, color: 0xffffff, roughness: 0.65, metalness: 0.0, normalScale: 1.25, envMapIntensity: 0.95 }),
-  groundDetail: (repeat = 80) => material('groundDetail', { repeat, color: 0xffffff, roughness: 0.95, metalness: 0.0, normalScale: 1.1, envMapIntensity: 0.95 }),
-  flagstone: (repeat = 3) => material('limestone', { repeat, color: 0xb2a58d, roughness: 0.84, metalness: 0.02, normalScale: 1.3, envMapIntensity: 1.05 }),
-  meadowLush: (repeat = 35) => material('meadowLush', { repeat, color: 0xffffff, roughness: 0.55, metalness: 0.0, normalScale: 1.8, aoMapIntensity: 1.1, envMapIntensity: 1.05 }),
-  weatheredTravertine: (repeat = 2) => material('weatheredTravertine', { repeat, color: 0xffffff, roughness: 0.78, metalness: 0.02, normalScale: 1.8, aoMapIntensity: 1.1, envMapIntensity: 1.08 }),
-  satelliteOrthophoto: (repeat = 1) => material('satelliteOrthophoto', { repeat, color: 0xffffff, roughness: 0.90, metalness: 0.01, normalScale: 1.2, aoMapIntensity: 0.95, envMapIntensity: 1.0 }),
-  petal: (repeat = 1, color = 0xffffff) => material('quartz', {
+  rockCliff: (repeat = 12, o = {}) => material('rockCliff', {  repeat, color: 0xffffff, roughness: 0.82, metalness: 0.03, normalScale: 2.2, aoMapIntensity: 1.1, envMapIntensity: 0.95 , ...o }),
+  mossyScree: (repeat = 20, o = {}) => material('mossyScree', {  repeat, color: 0xffffff, roughness: 0.70, metalness: 0.0, normalScale: 2.0, aoMapIntensity: 1.1, envMapIntensity: 0.95 , ...o }),
+  forestFloor: (repeat = 20, o = {}) => material('forestFloor', {  repeat, color: 0xffffff, roughness: 0.65, metalness: 0.0, normalScale: 1.25, envMapIntensity: 0.95 , ...o }),
+  groundDetail: (repeat = 80, o = {}) => material('groundDetail', {  repeat, color: 0xffffff, roughness: 0.95, metalness: 0.0, normalScale: 1.1, envMapIntensity: 0.95 , ...o }),
+  flagstone: (repeat = 3, o = {}) => material('limestone', {  repeat, color: 0xb2a58d, roughness: 0.84, metalness: 0.02, normalScale: 1.3, envMapIntensity: 1.05 , ...o }),
+  meadowLush: (repeat = 35, o = {}) => material('meadowLush', {  repeat, color: 0xffffff, roughness: 0.55, metalness: 0.0, normalScale: 1.8, aoMapIntensity: 1.1, envMapIntensity: 1.05 , ...o }),
+  weatheredTravertine: (repeat = 2, o = {}) => material('weatheredTravertine', {  repeat, color: 0xffffff, roughness: 0.78, metalness: 0.02, normalScale: 1.8, aoMapIntensity: 1.1, envMapIntensity: 1.08 , ...o }),
+  satelliteOrthophoto: (repeat = 1, o = {}) => material('satelliteOrthophoto', {  repeat, color: 0xffffff, roughness: 0.90, metalness: 0.01, normalScale: 1.2, aoMapIntensity: 0.95, envMapIntensity: 1.0 , ...o }),
+  petal: (repeat = 1, color = 0xffffff, o = {}) => material('quartz', { 
     repeat,
     color,
     roughness: 0.52,
     metalness: 0.02,
     side: THREE.DoubleSide,
     envMapIntensity: 1.25
-  }),
-  quartz: (repeat = 1, color = 0xffffff) => material('quartz', {
+  , ...o }),
+  quartz: (repeat = 1, color = 0xffffff, o = {}) => material('quartz', { 
     repeat,
     color,
     roughness: 0.38,
@@ -3585,8 +3586,8 @@ export const Surfaces = {
     thickness: 1.4,
     ior: 1.48,
     envMapIntensity: 1.35
-  }),
-  photogrammetryRock: (repeat = 8) => material('photogrammetryRock', { repeat, color: 0xffffff, roughness: 0.84, metalness: 0.03, normalScale: 2.6, aoMapIntensity: 1.15, envMapIntensity: 0.98 }),
+  , ...o }),
+  photogrammetryRock: (repeat = 8, o = {}) => material('photogrammetryRock', {  repeat, color: 0xffffff, roughness: 0.84, metalness: 0.03, normalScale: 2.6, aoMapIntensity: 1.15, envMapIntensity: 0.98 , ...o }),
   stainedGlassRose: () => {
     const t = textures('stainedGlassRose', 1024);
     return material('stainedGlassRose', {
@@ -3600,9 +3601,9 @@ export const Surfaces = {
       envMapIntensity: 1.8
     });
   },
-  sistineVault: (repeat = 1) => material('sistineVaultFresco', {
+  sistineVault: (repeat = 1, o = {}) => material('sistineVaultFresco', { 
     repeat, roughness: 0.65, metalness: 0.08, side: THREE.BackSide, envMapIntensity: 1.15
-  }),
+  , ...o }),
   cypressFoliage: () => {
     const t = textures('cypressFoliage');
     return createBotanicalFoliageMaterial(0xffffff, t.map, {
@@ -3615,36 +3616,36 @@ export const Surfaces = {
       windIntensity: 0.95,
     });
   },
-  jerusalemStone: (repeat = 2) => material('jerusalemStone', {
+  jerusalemStone: (repeat = 2, o = {}) => material('jerusalemStone', { 
     repeat, roughness: 0.82, metalness: 0.02, normalScale: 1.6, aoMapIntensity: 1.05, envMapIntensity: 1.05
-  }),
-  moorishZellij: (repeat = 4) => material('moorishZellij', {
+  , ...o }),
+  moorishZellij: (repeat = 4, o = {}) => material('moorishZellij', { 
     repeat, roughness: 0.1, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, normalScale: 1.35, aoMapIntensity: 1.25, envMapIntensity: 1.45
-  }),
-  pagodaTile: (repeat = 4) => material('pagodaTile', {
+  , ...o }),
+  pagodaTile: (repeat = 4, o = {}) => material('pagodaTile', { 
     repeat, roughness: 0.75, metalness: 0.0, physical: true, clearcoat: 0.25, clearcoatRoughness: 0.4, normalScale: 2.4, aoMapIntensity: 1.3, envMapIntensity: 1.15
-  }),
-  glacialIce: (repeat = 6) => material('glacialIce', {
+  , ...o }),
+  glacialIce: (repeat = 6, o = {}) => material('glacialIce', { 
     repeat, roughness: 0.08, metalness: 0.1, physical: true, transmission: 0.45, thickness: 2.2, ior: 1.31, clearcoat: 0.95, clearcoatRoughness: 0.05, normalScale: 2.4, envMapIntensity: 1.6
-  }),
-  alpineSnow: (repeat = 12) => material('alpineSnowDrift', {
+  , ...o }),
+  alpineSnow: (repeat = 12, o = {}) => material('alpineSnowDrift', { 
     repeat, roughness: 0.78, metalness: 0.02, normalScale: 1.4, envMapIntensity: 1.2
-  }),
-  stratifiedBasalt: (repeat = 8) => material('stratifiedBasalt', {
+  , ...o }),
+  stratifiedBasalt: (repeat = 8, o = {}) => material('stratifiedBasalt', { 
     repeat, roughness: 0.88, metalness: 0.04, normalScale: 2.8, aoMapIntensity: 1.2, envMapIntensity: 0.95
-  }),
-  glacialPyriteGranite: (repeat = 1) => material('glacialPyriteGranite', {
+  , ...o }),
+  glacialPyriteGranite: (repeat = 1, o = {}) => material('glacialPyriteGranite', { 
     repeat, roughness: 0.48, metalness: 0.22, physical: true, clearcoat: 0.45, clearcoatRoughness: 0.15, normalScale: 2.4, aoMapIntensity: 1.25, envMapIntensity: 1.35
-  }),
-  riverPebbles: (repeat = 1) => material('riverPebblesCaustics', {
+  , ...o }),
+  riverPebbles: (repeat = 1, o = {}) => material('riverPebblesCaustics', { 
     repeat, roughness: 0.42, metalness: 0.06, physical: true, clearcoat: 0.55, clearcoatRoughness: 0.12, normalScale: 2.0, aoMapIntensity: 1.15, envMapIntensity: 1.25
-  }),
-  sunkenDriftwood: (repeat = 1) => material('sunkenDriftwood', {
+  , ...o }),
+  sunkenDriftwood: (repeat = 1, o = {}) => material('sunkenDriftwood', { 
     repeat, roughness: 0.82, metalness: 0.02, normalScale: 1.8, aoMapIntensity: 1.25, envMapIntensity: 0.95
-  }),
-  coralReefRock: (repeat = 1) => material('coralReefRock', {
+  , ...o }),
+  coralReefRock: (repeat = 1, o = {}) => material('coralReefRock', { 
     repeat, roughness: 0.68, metalness: 0.04, normalScale: 2.4, aoMapIntensity: 1.2, envMapIntensity: 1.1
-  }),
+  , ...o }),
   cumulonimbusCloud: () => material('cumulonimbusCloud', {
     repeat: 1, transparent: true, depthWrite: false, roughness: 1, metalness: 0, side: THREE.DoubleSide
   }),
@@ -3674,7 +3675,7 @@ export const Surfaces = {
     attenuationDistance: 4.5,
     envMapIntensity: 2.2,
   }),
-  wetLimestone: (repeat = 3) => material('limestone', {
+  wetLimestone: (repeat = 3, o = {}) => material('limestone', { 
     repeat,
     color: 0x6e6252,
     roughness: 0.22,
@@ -3684,7 +3685,7 @@ export const Surfaces = {
     clearcoatRoughness: 0.10,
     normalScale: 1.5,
     envMapIntensity: 1.45,
-  }),
+  , ...o }),
   memoryCrystal: (color = 0x78dcfa) => new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     emissive: new THREE.Color(color),
@@ -3701,7 +3702,7 @@ export const Surfaces = {
     attenuationDistance: 2.0,
     envMapIntensity: 2.0,
   }),
-  lapisLazuli: (repeat = 1) => material('lapisLazuli', {
+  lapisLazuli: (repeat = 1, o = {}) => material('lapisLazuli', { 
     repeat,
     color: 0xffffff,
     roughness: 0.10,
@@ -3711,8 +3712,8 @@ export const Surfaces = {
     clearcoatRoughness: 0.04,
     normalScale: 0.75,
     envMapIntensity: 1.85
-  }),
-  carraraStarburstMosaic: (repeat = 1) => material('carraraStarburstMosaic', {
+  , ...o }),
+  carraraStarburstMosaic: (repeat = 1, o = {}) => material('carraraStarburstMosaic', { 
     repeat,
     color: 0xffffff,
     roughness: 0.32,
@@ -3722,7 +3723,7 @@ export const Surfaces = {
     clearcoatRoughness: 0.08,
     normalScale: 1.15,
     envMapIntensity: 1.45
-  }),
+  , ...o }),
   starlightCrystal: () => new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     roughness: 0.02,
