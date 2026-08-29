@@ -1435,7 +1435,7 @@ export const UI = {
       <label>Default charity (${Math.round(GIFT_CHARITY_SHARE * 100)}% of gifts to your memorials)</label>
       <select id="soCharity">
         <option value="">— choose later, per memorial —</option>
-        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data?.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
       </select>
       <button class="btn btn-gold btn-block" id="soSave">Save profile</button>`);
     $('#soSave').onclick = async () => {
@@ -1451,7 +1451,7 @@ export const UI = {
         instagram: cleanText($('#soIg').value.trim()), x: cleanText($('#soX').value.trim()),
         tiktok: cleanText($('#soTt').value.trim()), facebook: cleanText($('#soFb').value.trim()),
       };
-      State.data?.charity = $('#soCharity').value || null;
+      State.data.charity = $('#soCharity').value || null;
       await State.save(Auth.user);
       this.closeModal();
       this.toast('Profile saved.', 'crest');
@@ -1612,7 +1612,7 @@ export const UI = {
       <label>Their charity — where this plot's giving goes</label>
       <select id="mCharity">
         <option value="">Let each giver choose</option>
-        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data?.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
       </select>
       <button class="btn btn-gold btn-block" id="payPlotBtn">Pay $${plot.price} & reserve forever</button>
       <p class="fine">${IS_DEMO ? 'Demo mode: payment is simulated.' : 'You will be redirected to Stripe’s secure checkout.'}</p>`);
@@ -3433,7 +3433,7 @@ export const UI = {
       <label>Dedicated Rescue Beneficiary — where tribute gifts flow</label>
       <select id="emCharity">
         <option value="">Let each giver choose</option>
-        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data?.charity === c.id ? 'selected' : ''}>${c.name} (${c.category ? c.category.toUpperCase() : 'VERIFIED 501(c)(3)'})</option>`).join('')}
+        ${CHARITIES.map(c => `<option value="${c.id}" ${State.data.charity === c.id ? 'selected' : ''}>${c.name} (${c.category ? c.category.toUpperCase() : 'VERIFIED 501(c)(3)'})</option>`).join('')}
       </select>
       <button class="btn btn-gold btn-block" id="emPay">${icon('heart')} Pay ${fmtPrice(EARTH_PLOT.price)} &amp; Pin Sacred Spot</button>
       <p class="fine">${IS_DEMO ? 'Demo: payment simulated.' : 'Stripe secure checkout.'} · 15% passes directly to animal rescue.</p>`);

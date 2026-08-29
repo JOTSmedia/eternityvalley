@@ -248,10 +248,10 @@ export function terrainHeightBase(x, z) {
     h = lerp(lakeBedTarget, h, shoreBlend);
   }
 
-  // Highland Glacial Tarn Water Source Basin at (x=0, z=-505, waterLevel=182.0m)
-  // Situated in front of the Universal Cathedral (z=-640) and directly feeding the Waterfall Lip (z=-475)
+  // Highland Glacial Tarn Water Source Basin at (x=0, z=-640, waterLevel=182.0m)
+  // Situated at the Universal Cathedral (z=-640) and directly feeding the Waterfall Lip
   const dxTarn = x / 36.0;
-  const dzTarn = (z - (-505)) / 30.0;
+  const dzTarn = (z - (-640)) / 30.0;
   const dTarnNorm = Math.hypot(dxTarn, dzTarn);
   if (dTarnNorm < 1.35) {
     const tarnBedTarget = 174.0; // 8.0m deep crystal alpine lake bed beneath 182.0m water surface
@@ -267,11 +267,14 @@ export function terrainHeightBase(x, z) {
     h = lerp(poolBedTarget, h, poolShoreBlend);
   }
 
-  // Clear notch and gorge channel directly along the waterfall cataract line (x ≈ 0, z = -340..-475)
-  if (Math.abs(x) < 45 && z <= -340 && z >= -475) {
+  // Clear notch and gorge channel directly along the waterfall cataract line (x ≈ 0, z = -340..-650)
+  if (Math.abs(x) < 45 && z <= -340 && z >= -650) {
     const gorgeMask = (1.0 - Math.abs(x) / 45);
-    const gorgeDrop = sstep(-360, -465, z);
-    const gorgeSlope = lerp(16.0, 180.0, gorgeDrop);
+    let gorgeSlope = 174.0;
+    if (z > -465) {
+      const gorgeDrop = sstep(-360, -465, z);
+      gorgeSlope = lerp(16.0, 180.0, gorgeDrop);
+    }
     h = Math.min(h, lerp(h, gorgeSlope - 3.5, gorgeMask));
   }
 

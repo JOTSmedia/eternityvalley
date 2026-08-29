@@ -535,7 +535,7 @@ async function boot() {
   }
 
   // Primary enter buttons
-  document.getElementById('enterBtn')?.addEventListener('click', () => enter('globe'));
+  document.getElementById('enterBtn')?.addEventListener('click', () => enter('tour'));
   document.getElementById('sanctuaryEntryBtn')?.addEventListener('click', () => enter('tour'));
   document.getElementById('enterValleyBtn')?.addEventListener('click', () => UI.show3D('tour'));
   document.getElementById('btn3d')?.addEventListener('click', () => UI.show3D('orbit'));

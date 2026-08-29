@@ -16,6 +16,44 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// Safe merge wrapper
+const safeMerge = (geos, useGroups) => {
+    if (!geos || geos.length === 0) return null;
+    if (geos.length === 1) return geos[0];
+    
+    // Normalize index vs non-indexed
+    let allIndexed = true;
+    let allNonIndexed = true;
+    for (const g of geos) {
+        if (g.index) allNonIndexed = false;
+        else allIndexed = false;
+    }
+    
+    const normalizedGeos = geos.map(g => {
+        let out = g;
+        if (!allIndexed && g.index) {
+            out = g.toNonIndexed();
+        }
+        
+        // Ensure color attribute consistency
+        let hasColor = false;
+        for (const tg of geos) if (tg.attributes.color) hasColor = true;
+        
+        if (hasColor && !out.attributes.color) {
+            const count = out.attributes.position.count;
+            const colors = new Float32Array(count * 3);
+            colors.fill(1);
+            out.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        } else if (!hasColor && out.attributes.color) {
+            out.deleteAttribute('color');
+        }
+        return out;
+    });
+
+    return mergeGeometries(normalizedGeos, useGroups);
+};
+
 import { WORLD, DISTRICTS, ROADS, RIVER, RIVER_INLET, RIVER_OUTLET, terrainHeight, backgroundMountainElevation, distToRoads, distToRiver, getRiverInfo, riverWaterElevation, fbm, ridgeNoise, mulberry32, SIZE_DIMS } from './terrain.js';
 import { getSeason, SEASON_STYLE, getDayPhase, PHASES, MOODS, fetchWeather } from './ambience.js';
 import { Surfaces, waterNormalTexture, textures, material, createBotanicalFoliageMaterial, clearCache } from './materials.js';
@@ -2584,7 +2622,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     ];
     const troutGeo = this._buildKoiMesh();
     const fishMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff, roughness: 0.2, metalness: 0.3
+      color: 0xffffff, roughness: 0.2, metalness: 0.3, vertexColors: true
     });
     this._instancedFishMat = fishMat;
     fishMat.onBeforeCompile = (shader) => {
@@ -3289,7 +3327,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       b2.translate(-2.4, 0.5, -0.3);
       parts.push(b1, b2);
 
-      return mergeGeometries(parts, false) || trunk;
+      return safeMerge(parts, false) || trunk;
     };
 
     const geoDriftwood = buildDriftwoodGeometry();
@@ -3369,7 +3407,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         tendril.translate(Math.cos(ang) * 0.4, 0.6, Math.sin(ang) * 0.4);
         parts.push(tendril);
       }
-      return mergeGeometries(parts, false) || mainStem;
+      return safeMerge(parts, false) || mainStem;
     };
 
     const geoLilyRoots = buildLilyRootCluster();
@@ -3504,7 +3542,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       tip2.translate(0.68, 2.2, 0.1);
       parts.push(tip1, tip2);
 
-      return mergeGeometries(parts, false) || trunk;
+      return safeMerge(parts, false) || trunk;
     };
 
     const geoStaghorn = buildStaghornGeometry();
@@ -3577,7 +3615,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       plate3.translate(0, 2.0, 0.4);
       parts.push(plate1, plate2, plate3);
 
-      return mergeGeometries(parts, false) || trunk;
+      return safeMerge(parts, false) || trunk;
     };
 
     const geoElkhorn = buildElkhornGeometry();
@@ -3713,7 +3751,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         tent.translate(Math.cos(ang) * 0.4, 0.95, Math.sin(ang) * 0.4);
         parts.push(tent);
       }
-      return mergeGeometries(parts, false) || base;
+      return safeMerge(parts, false) || base;
     };
 
     const geoAnemone = buildAnemoneGeometry();
@@ -3825,7 +3863,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         leaf.translate(Math.cos(lAng) * 0.3, ly, Math.sin(lAng) * 0.3);
         parts.push(leaf);
       }
-      return mergeGeometries(parts, false) || stem;
+      return safeMerge(parts, false) || stem;
     };
 
     const geoKelp = buildKelpGeometry();
@@ -3916,7 +3954,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       base.translate(0, 2.5, 0);
       const tip = new THREE.ConeGeometry(0.75, 1.8, 6);
       tip.translate(0, 5.9, 0);
-      return mergeGeometries([base, tip], false) || base;
+      return safeMerge([base, tip], false) || base;
     })();
     const matReefCrystal = new THREE.MeshStandardMaterial({
       color: 0x06b6d4,
@@ -4017,7 +4055,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         blade.translate(Math.cos(bAng) * 0.15, 0.7, Math.sin(bAng) * 0.15);
         parts.push(blade);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     const matGrass = new THREE.MeshStandardMaterial({
       color: 0x14532d,
@@ -5899,7 +5937,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         seg.translate(curveX, 2.2 + s * 1.4 + 0.72, curveZ);
         parts.push(seg);
       }
-      return mergeGeometries(parts, false) || base;
+      return safeMerge(parts, false) || base;
     })();
 
     const palmCrownGeo = (() => {
@@ -5954,7 +5992,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(ang) * sRad, 13.5 - 2.4, Math.sin(ang) * sRad);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // 5b. Broadleaf Banana Palms (Musa)
@@ -5971,7 +6009,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         leaf.translate(Math.cos(lAng) * 2.2, 7.2, Math.sin(lAng) * 2.2);
         leaves.push(leaf);
       }
-      return mergeGeometries(leaves, false) || leaves[0];
+      return safeMerge(leaves, false) || leaves[0];
     })();
 
     // 5c. Giant Monstera Deliciosa & Tropical Understory
@@ -5985,7 +6023,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         leaf.translate(Math.cos(mAng) * 1.8, 1.2, Math.sin(mAng) * 1.8);
         parts.push(leaf);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // 5d. Bioluminescent Tropical Jungle Ferns
@@ -5999,7 +6037,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         frond.translate(Math.cos(fAng) * 1.2, 0.6, Math.sin(fAng) * 1.2);
         parts.push(frond);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     const palmFrondMat = Surfaces.palmFrond(0xffffff);
@@ -6119,7 +6157,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       geo.rotateZ((Math.random() - 0.5) * 0.5);
       parts.push(geo);
     }
-    const merged = mergeGeometries(parts, false) || parts[0];
+    const merged = safeMerge(parts, false) || parts[0];
     const mesh = new THREE.Mesh(merged, ivyMat);
     mesh.castShadow = true;
     g.add(mesh);
@@ -6154,7 +6192,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       geo.rotateZ((Math.random() - 0.5) * 0.4);
       parts.push(geo);
     }
-    const merged = mergeGeometries(parts, false) || parts[0];
+    const merged = safeMerge(parts, false) || parts[0];
     const mesh = new THREE.Mesh(merged, mat);
     mesh.castShadow = true;
     g.add(mesh);
@@ -7200,7 +7238,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     northTranseptSouthWall.castShadow = northTranseptSouthWall.receiveShadow = true;
     g.add(northTranseptSouthWall);
 
-    const northTranseptFloor = new THREE.Mesh(new THREE.PlaneGeometry(36, 16), marble);
+    const northTranseptFloor = new THREE.Mesh(new THREE.PlaneGeometry(35.8, 16), marble);
     northTranseptFloor.rotation.x = -Math.PI / 2;
     northTranseptFloor.position.set(-28.0, 2.05, -4);
     northTranseptFloor.receiveShadow = true;
@@ -7217,7 +7255,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     southTranseptSouthWall.castShadow = southTranseptSouthWall.receiveShadow = true;
     g.add(southTranseptSouthWall);
 
-    const southTranseptFloor = new THREE.Mesh(new THREE.PlaneGeometry(23.2, 16), marble);
+    const southTranseptFloor = new THREE.Mesh(new THREE.PlaneGeometry(25.0, 16), marble);
     southTranseptFloor.rotation.x = -Math.PI / 2;
     southTranseptFloor.position.set(22.6, 2.05, -4);
     southTranseptFloor.receiveShadow = true;
@@ -7603,7 +7641,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     // 7. WALKABLE INTERIOR SANCTUARY (La Sagrada Família & Sistine Chapel)
     // =========================================================================
     // Honed Carrara & Porphyry Marble Nave Floor (36m wide, 80m long)
-    const floorGeo = new THREE.PlaneGeometry(36, 80);
+    const floorGeo = new THREE.PlaneGeometry(20.2, 80);
     floorGeo.rotateX(-Math.PI / 2);
     const interiorFloor = new THREE.Mesh(floorGeo, marble);
     interiorFloor.position.set(0, 2.05, -4);
@@ -7790,6 +7828,48 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       
       g.add(candleStand);
     });
+
+    // ------------------------------------------------------------------------
+    // PERFORMANCE OPTIMIZATION: Merge Geometries by Material
+    // ------------------------------------------------------------------------
+    const matsMap = new Map();
+    const toRemove = [];
+    g.updateMatrixWorld(true);
+
+    g.traverse((child) => {
+      if (child.isMesh && child.geometry && child.material && !child.userData.action && !child.userData.noMerge) {
+        // Collect array of geometries per material
+        const mat = child.material;
+        if (!matsMap.has(mat)) matsMap.set(mat, []);
+        
+        // Clone and apply world transform relative to group 'g'
+        const geom = child.geometry.clone();
+        // Calculate child's relative matrix to the main group
+        const relMatrix = new THREE.Matrix4().copy(g.matrixWorld).invert().multiply(child.matrixWorld);
+        geom.applyMatrix4(relMatrix);
+        
+        matsMap.get(mat).push(geom);
+        toRemove.push(child);
+      }
+    });
+
+    // Remove old separated meshes
+    toRemove.forEach(child => {
+      if (child.parent) child.parent.remove(child);
+    });
+
+    // Create merged meshes
+    for (const [mat, geoms] of matsMap.entries()) {
+      if (geoms.length > 0) {
+        const mergedGeo = safeMerge(geoms, false);
+        if (mergedGeo) {
+          const mergedMesh = new THREE.Mesh(mergedGeo, mat);
+          mergedMesh.castShadow = true;
+          mergedMesh.receiveShadow = true;
+          g.add(mergedMesh);
+        }
+      }
+    }
 
     this.scene.add(g);
   }
@@ -7989,7 +8069,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       const leaf = new THREE.BoxGeometry(0.14, 0.38, 0.01);
       leaf.translate(0, -0.62, 0);
       parts.push(leaf);
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     const tierSpecs = [
@@ -8615,7 +8695,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         br.translate(Math.cos(ang) * 2.5, 6.0, Math.sin(ang) * 2.5);
         parts.push(br);
       }
-      return applyOrganicWeathering(mergeGeometries(parts, false) || base, 0.16, 0.22, 103);
+      return applyOrganicWeathering(safeMerge(parts, false) || base, 0.16, 0.22, 103);
     })();
 
     const sakuraCanopyGeo = (() => {
@@ -8650,7 +8730,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           parts.push(q);
         }
       }
-      const merged = mergeGeometries(parts, false) || parts[0];
+      const merged = safeMerge(parts, false) || parts[0];
       if (merged && merged.attributes.position && merged.attributes.normal) {
         const pos = merged.attributes.position;
         const norm = merged.attributes.normal;
@@ -8864,7 +8944,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       const trunk = new THREE.CylinderGeometry(0.28, 0.55, 5.5, 8);
       trunk.translate(0, 4.25, 0);
       parts.push(trunk);
-      return mergeGeometries(parts, false) || base;
+      return safeMerge(parts, false) || base;
     })();
 
     const cypressCanopyGeo = (() => {
@@ -8886,7 +8966,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q1.translate(Math.cos(ang) * radius, y, Math.sin(ang) * radius);
         parts.push(q1);
       }
-      const merged = mergeGeometries(parts, false) || parts[0];
+      const merged = safeMerge(parts, false) || parts[0];
       if (merged && merged.attributes.position && merged.attributes.normal) {
         const pos = merged.attributes.position;
         const norm = merged.attributes.normal;
@@ -9052,7 +9132,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           parts.push(cell);
         }
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // Sebka Diamond Lattice Tracery Screen Geometry
@@ -9073,7 +9153,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         s2.translate(ix * 0.55, 0, 0.04);
         parts.push(s2);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // Slender Paired & Single Marble Columns with Fluted Bases and Carved Capitals
@@ -11516,7 +11596,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     if (stone.normalScale) stone.normalScale.set(2.0, 2.0);
 //     stone.aoMapIntensity = 1.5;
     
-// // // //     const stoneDark = Surfaces.limestoneDark(1.8); stoneDark.color.setHex(0x847966); stoneDark.roughness = 0.9; stoneDark.metalness = 0.0; stoneDark.normalScale.set(2.5, 2.5); stoneDark.aoMapIntensity = 1.8;
+    const stoneDark = Surfaces.limestoneDark(1.8); stoneDark.color.setHex(0x847966); stoneDark.roughness = 0.9; stoneDark.metalness = 0.0; stoneDark.normalScale.set(2.5, 2.5); stoneDark.aoMapIntensity = 1.8;
     
     const gold = Surfaces.gold(1.0);
 //     gold.color.setHex(0xffe270);
@@ -12283,7 +12363,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.rotateY(a);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // Tall lavender spike geometry
@@ -12296,7 +12376,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.rotateY(a);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     const poppyMat = Surfaces.goldenPoppy();
@@ -12503,7 +12583,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         br.translate(Math.cos(ang) * 2.8 + 1.1, 9.2, Math.sin(ang) * 2.8 + 0.2);
         parts.push(br);
       }
-      return applyOrganicWeathering(mergeGeometries(parts, false) || baseGeo, 0.15, 0.25, 87);
+      return applyOrganicWeathering(safeMerge(parts, false) || baseGeo, 0.15, 0.25, 87);
     })();
     inst(willowTrunkGeo, willowBark, willowTrunks, 0);
 
@@ -12567,7 +12647,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(ang) * 4.2 + 0.8, 10.8, Math.sin(ang) * 4.2 + 0.1);
         parts.push(q);
       }
-      const merged = mergeGeometries(parts, false) || parts[0];
+      const merged = safeMerge(parts, false) || parts[0];
       if (merged && merged.attributes.position && merged.attributes.normal) {
         const pos = merged.attributes.position;
         const norm = merged.attributes.normal;
@@ -12599,7 +12679,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(a) * 0.3, 0.9, Math.sin(a) * 0.3);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     inst(grassTuftGeo, Surfaces.grassTuft(), seaGrass, 0);
 
@@ -12619,7 +12699,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(a) * 0.6, 0.65, Math.sin(a) * 0.6);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     inst(fernGeo, Surfaces.leafCard(0x386b3e), ferns, 0);
 
@@ -12630,7 +12710,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       const cap = new THREE.SphereGeometry(0.24, 8, 6);
       cap.scale(1.2, 0.45, 1.2);
       cap.translate(0, 0.6, 0);
-      return mergeGeometries([stem, cap], false) || cap;
+      return safeMerge([stem, cap], false) || cap;
     })();
     inst(mushroomGeo, new THREE.MeshStandardMaterial({
       color: 0xded2be, roughness: 0.92, metalness: 0
@@ -12650,7 +12730,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       const spire = new THREE.CylinderGeometry(0.06, 0.12, 3.2, 6);
       spire.translate(0, 1.6, 0);
       parts.push(spire);
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     inst(desertAgaveGeo, Surfaces.foliage(1.2, 0x6e8862), desertFlowers, 0);
 
@@ -12663,7 +12743,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         rk.translate((i - 1) * 0.4, s * 0.7, (i % 2 - 0.5) * 0.3);
         parts.push(rk);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     inst(boulderGeo, Surfaces.rockCliff(2.5), cairns, 0);
 
@@ -12678,7 +12758,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(a) * 0.9, 0.7, Math.sin(a) * 0.9);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     inst(alpineGeo, Surfaces.leafCard(0x486b42), alpineShrubs, 0);
 
@@ -12692,7 +12772,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(x, 1.1, 0);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     inst(hedgeGeo, Surfaces.leafCard(0x3e6e38), hedges, 0);
 
@@ -12707,7 +12787,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(a) * 0.7, 0.8, Math.sin(a) * 0.7);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
     inst(roseGeo, Surfaces.wildflowers(), roseBushes, 0);
   }
@@ -12874,7 +12954,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       seg3.translate(Math.cos(bAng + 0.28) * 8.8, 19.8, Math.sin(bAng + 0.28) * 8.8);
       boughGroup.push(seg3);
 
-      const mergedBough = mergeGeometries(boughGroup, false) || seg1;
+      const mergedBough = safeMerge(boughGroup, false) || seg1;
       const bm = new THREE.Mesh(mergedBough, limbMat);
       bm.castShadow = true;
       g.add(bm);
@@ -12912,7 +12992,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       leafCards.push(q);
     }
 
-    const mergedLeaves = mergeGeometries(leafCards, false) || leafCards[0];
+    const mergedLeaves = safeMerge(leafCards, false) || leafCards[0];
     if (mergedLeaves && mergedLeaves.attributes.position && mergedLeaves.attributes.normal) {
       const pos = mergedLeaves.attributes.position;
       const norm = mergedLeaves.attributes.normal;
@@ -13259,8 +13339,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
     // Procedural curved leaf card generator with normal curvature for 100% volumetric depth
     const createCurvedLeafCardGeo = (w, h, curveDepth = 0.45) => {
-      const geo = new THREE.PlaneGeometry(w, h, 2, 2);
-      const pos = geo.attributes.position;
+      const g1 = new THREE.PlaneGeometry(w, h, 2, 2);
+      const pos = g1.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i);
         const y = pos.getY(i);
@@ -13269,8 +13349,17 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         const curve = (1.0 - u * u) * curveDepth * (1.0 - v * 0.35) + (1.0 - v * v) * curveDepth * 0.25;
         pos.setZ(i, curve);
       }
-      geo.computeVertexNormals();
-      return geo;
+      g1.computeVertexNormals();
+      
+      const g2 = g1.clone();
+      g2.rotateY(Math.PI / 2);
+      
+      const g3 = g1.clone();
+      g3.rotateY(Math.PI / 4);
+      g3.rotateX(0.2);
+
+      const merged = safeMerge([g1, g2, g3], false);
+      return merged || g1;
     };
 
     // 1. AAA Caliber Deciduous Oak (Flared buttress root flare, curved multi-segment trunk, 5 scaffold limbs + 6 secondary branchlets)
@@ -13330,7 +13419,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         br2.translate(Math.cos(ang + 0.35) * 4.6, 12.0, Math.sin(ang + 0.35) * 4.6);
         parts.push(br2);
       }
-      return applyOrganicWeathering(mergeGeometries(parts, false) || baseRootGeo, 0.14, 0.22, 31);
+      return applyOrganicWeathering(safeMerge(parts, false) || baseRootGeo, 0.14, 0.22, 31);
     })();
 
     // Volumetric multi-bough broadleaf canopy with 14 spherical cloud node clusters (96+ curved double-curvature leaf cards)
@@ -13373,7 +13462,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           parts.push(q);
         }
       }
-      const merged = mergeGeometries(parts, false) || parts[0];
+      const merged = safeMerge(parts, false) || parts[0];
       if (merged && merged.attributes.position && merged.attributes.normal) {
         const pos = merged.attributes.position;
         const norm = merged.attributes.normal;
@@ -13427,19 +13516,63 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           parts.push(br);
         }
       }
-      return applyOrganicWeathering(mergeGeometries(parts, false) || baseGeo, 0.12, 0.18, 52);
+      return applyOrganicWeathering(safeMerge(parts, false) || baseGeo, 0.12, 0.18, 52);
     })();
 
     const pineCanopyGeo = (() => {
       const parts = [];
-      const w = 15, h = 28;
-      for (let i = 0; i < 2; i++) {
-        const q = new THREE.PlaneGeometry(w, h);
-        q.rotateY((i / 2) * Math.PI);
-        q.translate(0, h * 0.45, 0);
-        parts.push(q);
+      const rngP = mulberry32(811);
+      // Generate drooping conical whorls (tiers) for photorealistic pine branches
+      for (let w = 0; w < 9; w++) {
+        const frac = w / 8;
+        const y = 3.5 + frac * 18.5; 
+        const tierRadius = 5.2 * (1.0 - frac * 0.85); // Wider at base, narrow at top
+        const numBranches = 6 + Math.floor((1.0 - frac) * 5); // More branches at bottom
+        
+        for (let b = 0; b < numBranches; b++) {
+          const ang = (b / numBranches) * Math.PI * 2 + (w * 0.6);
+          const droop = -0.15 - (1.0 - frac) * 0.35; // Droop down
+          
+          const q = createCurvedLeafCardGeo(3.8, 5.2, 0.42);
+          q.rotateX(droop);
+          q.rotateZ((rngP() - 0.5) * 0.2);
+          q.rotateY(ang);
+          q.translate(Math.cos(ang) * tierRadius * 0.4, y, Math.sin(ang) * tierRadius * 0.4);
+          parts.push(q);
+
+          // Add a second card to bulk up the branch
+          const q2 = createCurvedLeafCardGeo(2.8, 3.8, 0.45);
+          q2.rotateX(droop - 0.2);
+          q2.rotateY(ang + 0.15);
+          q2.translate(Math.cos(ang) * tierRadius * 0.6, y - 0.4, Math.sin(ang) * tierRadius * 0.6);
+          parts.push(q2);
+        }
       }
-      return mergeGeometries(parts, false) || new THREE.PlaneGeometry(w, h);
+      // Top apex spire cards
+      for(let i = 0; i < 4; i++) {
+         const q = createCurvedLeafCardGeo(2.5, 4.0, 0.4);
+         q.rotateX(0.15); // point slightly up
+         q.rotateY((i/4)*Math.PI*2);
+         q.translate(0, 22.5, 0);
+         parts.push(q);
+      }
+      
+      const merged = safeMerge(parts, false) || parts[0];
+      if (merged && merged.attributes.position && merged.attributes.normal) {
+        const pos = merged.attributes.position;
+        const norm = merged.attributes.normal;
+        for (let i = 0; i < pos.count; i++) {
+          const px = pos.getX(i), py = pos.getY(i) - 10.0, pz = pos.getZ(i);
+          const rad = Math.hypot(px, py, pz) || 1.0;
+          const nx = (px / rad) * 0.75 + norm.getX(i) * 0.25;
+          const ny = (py / rad) * 0.75 + norm.getY(i) * 0.25;
+          const nz = (pz / rad) * 0.75 + norm.getZ(i) * 0.25;
+          const len = Math.hypot(nx, ny, nz) || 1.0;
+          norm.setXYZ(i, nx / len, ny / len, nz / len);
+        }
+        norm.needsUpdate = true;
+      }
+      return merged;
     })();
 
     const willowTrunkGeo = (() => {
@@ -13477,7 +13610,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         br.translate(Math.cos(ang) * 2.8 + 1.1, 9.2, Math.sin(ang) * 2.8 + 0.2);
         parts.push(br);
       }
-      return applyOrganicWeathering(mergeGeometries(parts, false) || baseGeo, 0.15, 0.25, 87);
+      return applyOrganicWeathering(safeMerge(parts, false) || baseGeo, 0.15, 0.25, 87);
     })();
 
     const willowCanopyGeo = (() => {
@@ -13527,7 +13660,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(ang) * 4.2 + 0.8, 10.8, Math.sin(ang) * 4.2 + 0.1);
         parts.push(q);
       }
-      const merged = mergeGeometries(parts, false) || parts[0];
+      const merged = safeMerge(parts, false) || parts[0];
       if (merged && merged.attributes.position && merged.attributes.normal) {
         const pos = merged.attributes.position;
         const norm = merged.attributes.normal;
@@ -13563,7 +13696,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         seg.translate(curveX, 2.2 + s * 1.4 + 0.72, curveZ);
         parts.push(seg);
       }
-      return mergeGeometries(parts, false) || base;
+      return safeMerge(parts, false) || base;
     })();
 
     const palmCanopyGeo = (() => {
@@ -13618,7 +13751,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(Math.cos(ang) * sRad, -2.4, Math.sin(ang) * sRad);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // 5. AAA Caliber Mediterranean Cypress (Flared Base, Columnar Evergreen, 56 Dense Spiraling Sprigs in Golden-Angle Fibonacci Spiral)
@@ -13631,7 +13764,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       const trunk = new THREE.CylinderGeometry(0.28, 0.55, 5.5, 8);
       trunk.translate(0, 4.25, 0);
       parts.push(trunk);
-      return mergeGeometries(parts, false) || base;
+      return safeMerge(parts, false) || base;
     })();
 
     const cypressCanopyGeo = (() => {
@@ -13653,7 +13786,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q1.translate(Math.cos(ang) * radius, y, Math.sin(ang) * radius);
         parts.push(q1);
       }
-      const merged = mergeGeometries(parts, false) || parts[0];
+      const merged = safeMerge(parts, false) || parts[0];
       if (merged && merged.attributes.position && merged.attributes.normal) {
         const pos = merged.attributes.position;
         const norm = merged.attributes.normal;
@@ -13701,7 +13834,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         br.translate(Math.cos(ang) * 2.5, 6.0, Math.sin(ang) * 2.5);
         parts.push(br);
       }
-      return applyOrganicWeathering(mergeGeometries(parts, false) || base, 0.16, 0.22, 103);
+      return applyOrganicWeathering(safeMerge(parts, false) || base, 0.16, 0.22, 103);
     })();
 
     const sakuraCanopyGeo = (() => {
@@ -13736,7 +13869,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           parts.push(q);
         }
       }
-      const merged = mergeGeometries(parts, false) || parts[0];
+      const merged = safeMerge(parts, false) || parts[0];
       if (merged && merged.attributes.position && merged.attributes.normal) {
         const pos = merged.attributes.position;
         const norm = merged.attributes.normal;
@@ -13766,7 +13899,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       stone1.translate(0, 0.55, 0);
       const stone2 = new THREE.DodecahedronGeometry(0.7, 1);
       stone2.translate(1.2, 0.35, 0.6);
-      return applyOrganicWeathering(mergeGeometries([stone1, stone2], false) || stone1, 0.12, 0.32, 91);
+      return applyOrganicWeathering(safeMerge([stone1, stone2], false) || stone1, 0.12, 0.32, 91);
     })();
 
     const pineMat = Surfaces.pineNeedles(0x284f24);
@@ -13944,7 +14077,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       arm2Dome.translate(-1.9 * Math.cos(0.4), 6.8, -1.9 * Math.sin(0.4));
       parts.push(arm2Dome);
 
-      return applyOrganicWeathering(mergeGeometries(parts, false) || trunk, 0.12, 0.15, 66);
+      return applyOrganicWeathering(safeMerge(parts, false) || trunk, 0.12, 0.15, 66);
     })();
 
     inst(saguaroCactusGeo, Surfaces.foliage(1.2, 0x4a7a40), cactus, 0, true);
@@ -14053,7 +14186,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         blade.computeVertexNormals();
         parts.push(blade);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // Multi-angled wildflower bloom geometry (3-quad cross cluster)
@@ -14066,7 +14199,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.rotateY(a);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     // Vertical lavender spike geometry (3-quad cross cluster)
@@ -14079,7 +14212,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.rotateY(a);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     const smallStoneGeo = (() => {
@@ -14490,7 +14623,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       plate.translate(0, 2.35, 0.46);
       parts.push(plate);
 
-      return applyOrganicWeathering(mergeGeometries(parts, false) || tablet, 0.06, 0.12, 51);
+      return applyOrganicWeathering(safeMerge(parts, false) || tablet, 0.06, 0.12, 51);
     })();
 
     // 2. Monumental Stepped Carrara Marble Obelisk with Gold Celestial Apex
@@ -14514,7 +14647,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       cap.translate(0, 7.95, 0);
       parts.push(cap);
 
-      return applyOrganicWeathering(mergeGeometries(parts, false) || p1, 0.06, 0.10, 57);
+      return applyOrganicWeathering(safeMerge(parts, false) || p1, 0.06, 0.10, 57);
     })();
 
     // 3. Dark Granite Stele & Kerbed Ledger Stone with Bronze Inlay
@@ -14532,7 +14665,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       bronzeInlay.translate(0, 0.58, 0);
       parts.push(bronzeInlay);
 
-      return applyOrganicWeathering(mergeGeometries(parts, false) || kerb, 0.05, 0.10, 63);
+      return applyOrganicWeathering(safeMerge(parts, false) || kerb, 0.05, 0.10, 63);
     })();
 
     inst('hs_classic', geoClassic, marbleMat,  0);
@@ -14559,7 +14692,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.rotateY(a);
         parts.push(q);
       }
-      return mergeGeometries(parts, false) || vase;
+      return safeMerge(parts, false) || vase;
     })();
 
     // 5. Fresh Floral Wreath Offering (Layered ivy & blooming roses inclined on ground bed)
@@ -14579,7 +14712,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         roseHead.translate(Math.cos(rAng) * 1.1, 0.38 + Math.sin(rAng) * 0.40, Math.sin(rAng) * 0.85);
         parts.push(roseHead);
       }
-      return mergeGeometries(parts, false) || ring;
+      return safeMerge(parts, false) || ring;
     })();
 
     // 6. Flickering Golden Bronze Candle Lantern
@@ -14601,7 +14734,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       loop.translate(0, 2.65, 0);
       parts.push(loop);
 
-      return mergeGeometries(parts, false) || plinth;
+      return safeMerge(parts, false) || plinth;
     })();
 
     const matLantern = new THREE.MeshStandardMaterial({
@@ -14623,7 +14756,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       flame.translate(0, 1.25, 0);
       parts.push(flame);
 
-      return mergeGeometries(parts, false) || candleBody;
+      return safeMerge(parts, false) || candleBody;
     })();
 
     const matCandle = (() => {
@@ -14673,7 +14806,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           parts.push(q);
         }
       }
-      return mergeGeometries(parts, false) || parts[0];
+      return safeMerge(parts, false) || parts[0];
     })();
 
     const geoPlotTreeTrunk = (() => {
@@ -14703,7 +14836,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       b3.translate(0.2, 4.2, -0.5);
       parts.push(b3);
 
-      return applyOrganicWeathering(mergeGeometries(parts, false) || trunk, 0.12, 0.18, 44);
+      return applyOrganicWeathering(safeMerge(parts, false) || trunk, 0.12, 0.18, 44);
     })();
 
     inst('flowers', geoFlowerBouquet, Surfaces.petal(1, 0xffffff), 0, true);
@@ -14722,7 +14855,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       legL.translate(-2.0, 0.6, 0);
       const legR = new THREE.BoxGeometry(0.3, 1.2, 1.2);
       legR.translate(2.0, 0.6, 0);
-      return mergeGeometries([seat, back, legL, legR], false) || seat;
+      return safeMerge([seat, back, legL, legR], false) || seat;
     })();
     inst('bench', geoBench, Surfaces.timber(1.2), 0);
 
@@ -14741,7 +14874,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       bowl.translate(0, 1.95, 0);
       parts.push(bowl);
 
-      return mergeGeometries(parts, false) || basePed;
+      return safeMerge(parts, false) || basePed;
     })();
 
     const geoFountainWater = (() => {
@@ -14763,7 +14896,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       base.translate(0, 2.1, 0);
       const tip = new THREE.ConeGeometry(0.8, 1.6, 6);
       tip.translate(0, 5.0, 0);
-      return mergeGeometries([base, tip], false) || base;
+      return safeMerge([base, tip], false) || base;
     })();
     const matCrystal = new THREE.MeshStandardMaterial({
       color: 0x06b6d4, emissive: 0x22d3ee, emissiveIntensity: 1.8, roughness: 0.15, metalness: 0.2,
@@ -14787,7 +14920,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         cy.translate(Math.sin(b) * 0.6, 1.6, Math.cos(b) * 0.6);
         branches.push(cy);
       }
-      return mergeGeometries(branches, false) || branches[0];
+      return safeMerge(branches, false) || branches[0];
     })();
     const matStaghorn = new THREE.MeshStandardMaterial({ color: 0xfb923c, roughness: 0.8, metalness: 0.05 });
     inst('coral_staghorn', geoStaghorn, matStaghorn, 0);
@@ -14809,7 +14942,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         q.translate(0, 0.8, 0);
         petals.push(q);
       }
-      return mergeGeometries(petals, false) || petals[0];
+      return safeMerge(petals, false) || petals[0];
     })();
     const matLotus = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x7dd3fc, emissiveIntensity: 1.4, roughness: 0.2 });
     inst('crystal_lotus', geoLotus, matLotus, 0);
@@ -15168,8 +15301,8 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
     const tourPoints = [
       // === LEG 1: THE GRAND TRIUMPHAL GATE (Stage 1: t in [0.000, 0.091], indices 0..7) ===
-      new THREE.Vector3(0, 46.0, 960),    // 0: Monumental approach outside Grand Gate in open air
-      new THREE.Vector3(0, 45.0, 920),    // 1: Gliding between torchiere columns
+      new THREE.Vector3(0, 46.0, 1150),    // 0: Monumental approach outside Grand Gate in open air
+      new THREE.Vector3(0, 45.0, 1000),    // 1: Gliding between torchiere columns
       new THREE.Vector3(0, 44.0, 880),    // 2: Flight straight through triumphal archway
       new THREE.Vector3(0, 43.5, 830),    // 3: Passing inner gate colonnade
       new THREE.Vector3(0, 43.0, 770),    // 4: Emerging onto sunlit Grand Boulevard
@@ -15918,7 +16051,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         const flush = () => {
            if (currentGeos.length === 0) return;
            if (currentGeos.length === 1) return;
-           const mergedGeo = window.mergeGeometries(currentGeos, false);
+           const mergedGeo = safeMerge(currentGeos, false);
            if (mergedGeo) {
                const mergedMesh = new THREE.Mesh(mergedGeo, group.material);
                // Shadows only cast on large/near things, but for merged chunks we can cast them
@@ -15941,8 +16074,19 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
             // It's safer to delete color attribute if we don't strictly need it, but some meshes might.
             // Let's rely on material grouping.
             
-            const geo = m.geometry.clone();
-            if (geo.attributes.color) geo.deleteAttribute('color'); // Simplify merging
+            let geo = m.geometry.clone();
+            if (geo.index) {
+                const nonIndexed = geo.toNonIndexed();
+                geo.dispose();
+                geo = nonIndexed;
+            }
+            
+            // Strip any extraneous attributes (like tangents, colors, uv2) so all geos perfectly match
+            for (const key in geo.attributes) {
+                if (key !== 'position' && key !== 'normal' && key !== 'uv') {
+                    geo.deleteAttribute(key);
+                }
+            }
             
             geo.applyMatrix4(m.matrixWorld);
             currentGeos.push(geo);
@@ -16985,39 +17129,131 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
    */
   _buildKoiMesh() {
     const parts = [];
-    const body = new THREE.CylinderGeometry(0.08, 0.38, 2.2, 10);
-    body.rotateX(Math.PI / 2);
+    // More organic, teardrop-shaped body
+    const body = new THREE.SphereGeometry(0.4, 24, 16);
+    body.scale(0.5, 0.85, 2.8);
+    // Taper the tail end
+    const pos = body.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+        let z = pos.getZ(i);
+        if (z < 0) {
+            let taper = 1.0 + (z / 1.12);
+            pos.setX(i, pos.getX(i) * taper);
+            pos.setY(i, pos.getY(i) * taper);
+        }
+    }
+    body.computeVertexNormals();
     parts.push(body);
-    const head = new THREE.ConeGeometry(0.38, 0.85, 10);
-    head.rotateX(-Math.PI / 2);
-    head.translate(0, 0, 1.45);
-    parts.push(head);
-    const tailFin = new THREE.PlaneGeometry(0.02, 1.2);
-    tailFin.rotateY(Math.PI / 2);
+    
+    // Swept, elegant tail fin
+    const tailFin = new THREE.ConeGeometry(0.35, 1.2, 4);
+    tailFin.rotateX(Math.PI / 2);
+    tailFin.rotateZ(Math.PI / 4);
+    tailFin.scale(0.1, 1.2, 1);
     tailFin.translate(0, 0, -1.5);
     parts.push(tailFin);
-    const dorsal = new THREE.PlaneGeometry(0.02, 0.55);
-    dorsal.rotateY(Math.PI / 2);
-    dorsal.translate(0, 0.45, -0.2);
+
+    // Dorsal fin (swept back)
+    const dorsal = new THREE.CylinderGeometry(0.01, 0.15, 1.0, 3);
+    dorsal.rotateZ(Math.PI / 2);
+    dorsal.rotateX(0.2);
+    dorsal.translate(0, 0.42, -0.3);
     parts.push(dorsal);
-    const lFin = new THREE.PlaneGeometry(0.55, 0.28);
-    lFin.rotateZ(-0.35); lFin.rotateY(0.45); lFin.translate(-0.45, -0.15, 0.45);
-    const rFin = new THREE.PlaneGeometry(0.55, 0.28); rFin.rotateZ(-0.35); rFin.rotateY(-0.45); rFin.translate(0.45, -0.15, 0.45);
+
+    // Pectoral fins
+    const lFin = new THREE.CylinderGeometry(0.01, 0.25, 0.6, 3);
+    lFin.rotateX(Math.PI / 2); lFin.rotateZ(-0.5); lFin.rotateY(0.5);
+    lFin.translate(-0.35, -0.2, 0.6);
+    const rFin = new THREE.CylinderGeometry(0.01, 0.25, 0.6, 3);
+    rFin.rotateX(Math.PI / 2); rFin.rotateZ(0.5); rFin.rotateY(-0.5);
+    rFin.translate(0.35, -0.2, 0.6);
     parts.push(lFin, rFin);
-    const merged = window.mergeGeometries ? window.mergeGeometries(parts, false) : parts[0];
+
+    // Eyes
+    const eyeGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    const lEye = eyeGeo.clone();
+    lEye.translate(-0.16, 0.1, 0.9);
+    const rEye = eyeGeo.clone();
+    rEye.translate(0.16, 0.1, 0.9);
+    
+    const addColors = (geom, isEye) => {
+        const count = geom.attributes.position.count;
+        const colors = new Float32Array(count * 3);
+        for(let i=0; i<count; i++) {
+            colors[i*3] = isEye ? 0 : 1;
+            colors[i*3+1] = isEye ? 0 : 1;
+            colors[i*3+2] = isEye ? 0 : 1;
+        }
+        geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    };
+    
+    parts.forEach(p => addColors(p, false));
+    addColors(lEye, true);
+    addColors(rEye, true);
+    parts.push(lEye, rEye);
+
+    const merged = safeMerge(parts, false) || parts[0];
     return merged || body;
   }
   _buildReefFishMesh() {
     const parts = [];
-    const body = new THREE.SphereGeometry(0.25, 12, 8);
-    body.scale(0.5, 1.2, 1.0);
-    body.rotateX(Math.PI / 2);
+    const body = new THREE.SphereGeometry(0.25, 24, 16);
+    body.scale(0.3, 1.4, 1.2);
+    // Tapering
+    const pos = body.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+        let z = pos.getZ(i);
+        if (z < 0) {
+            let taper = 1.0 + (z / 0.5);
+            pos.setX(i, pos.getX(i) * taper);
+            pos.setY(i, pos.getY(i) * Math.max(0.2, taper));
+        }
+    }
+    body.computeVertexNormals();
     parts.push(body);
-    const tail = new THREE.ConeGeometry(0.2, 0.4, 3);
+    
+    const tail = new THREE.CylinderGeometry(0.01, 0.22, 0.5, 3);
     tail.rotateX(Math.PI / 2);
-    tail.translate(0, 0, -0.4);
+    tail.rotateZ(Math.PI / 2);
+    tail.translate(0, 0, -0.45);
     parts.push(tail);
-    const merged = window.mergeGeometries ? window.mergeGeometries(parts, false) : parts[0];
+
+    // Dorsal and ventral fins
+    const dorsal = new THREE.CylinderGeometry(0.01, 0.1, 0.6, 3);
+    dorsal.rotateZ(Math.PI / 2);
+    dorsal.rotateX(0.2);
+    dorsal.translate(0, 0.4, -0.1);
+    
+    const ventral = new THREE.CylinderGeometry(0.01, 0.08, 0.4, 3);
+    ventral.rotateZ(Math.PI / 2);
+    ventral.rotateX(-0.3);
+    ventral.translate(0, -0.4, 0.0);
+    parts.push(dorsal, ventral);
+
+    // Eyes
+    const eyeGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const lEye = eyeGeo.clone();
+    lEye.translate(-0.06, 0.1, 0.2);
+    const rEye = eyeGeo.clone();
+    rEye.translate(0.06, 0.1, 0.2);
+    
+    const addColors = (geom, isEye) => {
+        const count = geom.attributes.position.count;
+        const colors = new Float32Array(count * 3);
+        for(let i=0; i<count; i++) {
+            colors[i*3] = isEye ? 0 : 1;
+            colors[i*3+1] = isEye ? 0 : 1;
+            colors[i*3+2] = isEye ? 0 : 1;
+        }
+        geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    };
+    
+    parts.forEach(p => addColors(p, false));
+    addColors(lEye, true);
+    addColors(rEye, true);
+    parts.push(lEye, rEye);
+    
+    const merged = safeMerge(parts, false) || parts[0];
     return merged || body;
   }
   _buildSeaTurtleMesh() {
@@ -17034,7 +17270,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const flipperR = flipperL.clone();
     flipperR.translate(1.6, 0, 0);
     parts.push(flipperL, flipperR);
-    const merged = window.mergeGeometries ? window.mergeGeometries(parts, false) : parts[0];
+    const merged = safeMerge(parts, false) || parts[0];
     return merged || shell;
   }
   _buildMantaRayMesh() {
@@ -17047,7 +17283,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     tail.rotateX(Math.PI / 2);
     tail.translate(0, 0, -1.8);
     parts.push(tail);
-    const merged = window.mergeGeometries ? window.mergeGeometries(parts, false) : parts[0];
+    const merged = safeMerge(parts, false) || parts[0];
     return merged || body;
   }
   _river() {
@@ -17215,39 +17451,41 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       return geo;
     };
 
-    // 1. High Alpine Glacial Reservoir Tarn at (x=0, y=180, z=-560)
+    // 1. High Alpine Glacial Reservoir Tarn at (x=0, y=182, z=-640)
     const upperTarnGeo = new THREE.CircleGeometry(50, 36);
     const upperTarnMesh = new THREE.Mesh(upperTarnGeo, this.waterMat);
     upperTarnMesh.rotation.x = -Math.PI / 2;
-    upperTarnMesh.position.set(0, 180.0, -560);
+    upperTarnMesh.position.set(0, 182.0, -640);
     upperTarnMesh.receiveShadow = true;
     g.add(upperTarnMesh);
 
-    // Continuous Water Path: From high mountain glacial reservoir (z = -560, y = 180m)
+    // Continuous Water Path: From high mountain glacial reservoir (z = -640, y = 182m)
     // rushing through upper rock canyon, pouring over 175m cataract cliff lip (z = -460, y = 175m),
     // and plunging down into the lower plunge basin at (z = -360, y = 5.3m)
     const fallPoints = [
-      new V3(0, 180, -560),   // High alpine reservoir outfall
-      new V3(0, 178, -500),   // Upper canyon rapids
-      new V3(0, 175, -460),   // Cataract cliff threshold lip
-      new V3(0, 140, -435),   // Upper freefall arc
-      new V3(0, 100, -410),   // Sheer plunging mid-section
-      new V3(0, 60, -390),    // Roaring lower cataract column
-      new V3(0, 25, -372),    // Plume expansion
-      new V3(0, 5.3, -360),   // Plunge pool impact (forward in open view!)
+      new V3(0, 182, -640),
+      new V3(0, 182, -560),   
+      new V3(0, 178, -500),   
+      new V3(0, 175, -460),   
+      new V3(0, 138, -440),
+      new V3(0, 83.9, -410),  
+      new V3(0, 42.0, -385),  
+      new V3(0, 15.0, -368),
+      new V3(0, 5.3, -360),   
     ];
     const fallCurve = new THREE.CatmullRomCurve3(fallPoints);
 
     // 2. Dark Wet Granite Bedrock Backing — Solid massive rock backing with NO gap!
     const bedrockPoints = [
-      new V3(0, 178, -562),
+      new V3(0, 180, -642),
+      new V3(0, 180, -562),
       new V3(0, 176, -502),
       new V3(0, 173, -462),
-      new V3(0, 138, -437),
-      new V3(0, 98, -412),
-      new V3(0, 58, -392),
-      new V3(0, 23, -374),
-      new V3(0, 4.8, -362),
+      new V3(0, 136, -442),
+      new V3(0, 81.9, -412),
+      new V3(0, 40.0, -387),
+      new V3(0, 13.0, -370),
+      new V3(0, 3.3, -362),
     ];
     const bedrockCurve = new THREE.CatmullRomCurve3(bedrockPoints);
     let bedrockGeo = buildChuteRibbon(bedrockCurve, 38, 75, 140);

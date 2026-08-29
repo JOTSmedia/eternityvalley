@@ -3483,7 +3483,8 @@ export const Surfaces = {
     normalScale: 1.25,
     aoMapIntensity: 1.15,
     envMapIntensity: 1.10,
-  , ...o }),
+    ...o
+  }),
   pavedRoad: (repeat = 1, o = {}) => material('limestone', { 
     repeat,
     color: 0xc8baa4,
@@ -3492,7 +3493,8 @@ export const Surfaces = {
     normalScale: 1.35,
     aoMapIntensity: 1.10,
     envMapIntensity: 1.05,
-  , ...o }),
+    ...o
+  }),
   bronzePlaque: (repeat = 1, o = {}) => material('bronzePlaque', { 
     repeat,
     color: 0xffffff,
@@ -3504,13 +3506,16 @@ export const Surfaces = {
     normalScale: 1.25,
     aoMapIntensity: 1.20,
     envMapIntensity: 1.40,
-  , ...o }),
+    ...o
+  }),
   fallenPineNeedles: (repeat = 1, o = {}) => material('fallenPineNeedles', { 
-    repeat, color: 0xffffff, roughness: 0.94, metalness: 0.01, normalScale: 1.6, aoMapIntensity: 1.1, envMapIntensity: 0.95
-  , ...o }),
+    repeat, color: 0xffffff, roughness: 0.94, metalness: 0.01, normalScale: 1.6, aoMapIntensity: 1.1, envMapIntensity: 0.95,
+    ...o
+  }),
   mossyStone: (repeat = 1, o = {}) => material('mossyStone', { 
-    repeat, color: 0xffffff, roughness: 0.86, metalness: 0.02, normalScale: 2.0, aoMapIntensity: 1.15, envMapIntensity: 1.0
-  , ...o }),
+    repeat, color: 0xffffff, roughness: 0.86, metalness: 0.02, normalScale: 2.0, aoMapIntensity: 1.15, envMapIntensity: 1.0,
+    ...o
+  }),
   grassTuft: (color = 0xffffff) => {
     const t = textures('grassTuft');
     return createBotanicalFoliageMaterial(color, t.map, {
@@ -3574,8 +3579,9 @@ export const Surfaces = {
     roughness: 0.52,
     metalness: 0.02,
     side: THREE.DoubleSide,
-    envMapIntensity: 1.25
-  , ...o }),
+    envMapIntensity: 1.25,
+    ...o
+  }),
   quartz: (repeat = 1, color = 0xffffff, o = {}) => material('quartz', { 
     repeat,
     color,
@@ -3585,8 +3591,9 @@ export const Surfaces = {
     transmission: 0.40,
     thickness: 1.4,
     ior: 1.48,
-    envMapIntensity: 1.35
-  , ...o }),
+    envMapIntensity: 1.35,
+    ...o
+  }),
   photogrammetryRock: (repeat = 8, o = {}) => material('photogrammetryRock', {  repeat, color: 0xffffff, roughness: 0.84, metalness: 0.03, normalScale: 2.6, aoMapIntensity: 1.15, envMapIntensity: 0.98 , ...o }),
   stainedGlassRose: () => {
     const t = textures('stainedGlassRose', 1024);
@@ -3598,12 +3605,13 @@ export const Surfaces = {
       emissive: 0xffffff,
       emissiveIntensity: 0.90,
       emissiveMap: t.map ? t.map.clone() : null,
-      envMapIntensity: 1.8
+      envMapIntensity: 1.8,
     });
   },
   sistineVault: (repeat = 1, o = {}) => material('sistineVaultFresco', { 
-    repeat, roughness: 0.65, metalness: 0.08, side: THREE.BackSide, envMapIntensity: 1.15
-  , ...o }),
+    repeat, roughness: 0.65, metalness: 0.08, side: THREE.BackSide, envMapIntensity: 1.15,
+    ...o
+  }),
   cypressFoliage: () => {
     const t = textures('cypressFoliage');
     return createBotanicalFoliageMaterial(0xffffff, t.map, {
@@ -3617,35 +3625,45 @@ export const Surfaces = {
     });
   },
   jerusalemStone: (repeat = 2, o = {}) => material('jerusalemStone', { 
-    repeat, roughness: 0.82, metalness: 0.02, normalScale: 1.6, aoMapIntensity: 1.05, envMapIntensity: 1.05
-  , ...o }),
+    repeat, roughness: 0.82, metalness: 0.02, normalScale: 1.6, aoMapIntensity: 1.05, envMapIntensity: 1.05,
+    ...o
+  }),
   moorishZellij: (repeat = 4, o = {}) => material('moorishZellij', { 
-    repeat, roughness: 0.1, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, normalScale: 1.35, aoMapIntensity: 1.25, envMapIntensity: 1.45
-  , ...o }),
+    repeat, roughness: 0.1, metalness: 0.0, physical: true, clearcoat: 1.0, clearcoatRoughness: 0.02, normalScale: 1.35, aoMapIntensity: 1.25, envMapIntensity: 1.45,
+    ...o
+  }),
   pagodaTile: (repeat = 4, o = {}) => material('pagodaTile', { 
-    repeat, roughness: 0.75, metalness: 0.0, physical: true, clearcoat: 0.25, clearcoatRoughness: 0.4, normalScale: 2.4, aoMapIntensity: 1.3, envMapIntensity: 1.15
-  , ...o }),
+    repeat, roughness: 0.75, metalness: 0.0, physical: true, clearcoat: 0.25, clearcoatRoughness: 0.4, normalScale: 2.4, aoMapIntensity: 1.3, envMapIntensity: 1.15,
+    ...o
+  }),
   glacialIce: (repeat = 6, o = {}) => material('glacialIce', { 
-    repeat, roughness: 0.08, metalness: 0.1, physical: true, transmission: 0.45, thickness: 2.2, ior: 1.31, clearcoat: 0.95, clearcoatRoughness: 0.05, normalScale: 2.4, envMapIntensity: 1.6
-  , ...o }),
+    repeat, roughness: 0.08, metalness: 0.1, physical: true, transmission: 0.45, thickness: 2.2, ior: 1.31, clearcoat: 0.95, clearcoatRoughness: 0.05, normalScale: 2.4, envMapIntensity: 1.6,
+    ...o
+  }),
   alpineSnow: (repeat = 12, o = {}) => material('alpineSnowDrift', { 
-    repeat, roughness: 0.78, metalness: 0.02, normalScale: 1.4, envMapIntensity: 1.2
-  , ...o }),
+    repeat, roughness: 0.78, metalness: 0.02, normalScale: 1.4, envMapIntensity: 1.2,
+    ...o
+  }),
   stratifiedBasalt: (repeat = 8, o = {}) => material('stratifiedBasalt', { 
-    repeat, roughness: 0.88, metalness: 0.04, normalScale: 2.8, aoMapIntensity: 1.2, envMapIntensity: 0.95
-  , ...o }),
+    repeat, roughness: 0.88, metalness: 0.04, normalScale: 2.8, aoMapIntensity: 1.2, envMapIntensity: 0.95,
+    ...o
+  }),
   glacialPyriteGranite: (repeat = 1, o = {}) => material('glacialPyriteGranite', { 
-    repeat, roughness: 0.48, metalness: 0.22, physical: true, clearcoat: 0.45, clearcoatRoughness: 0.15, normalScale: 2.4, aoMapIntensity: 1.25, envMapIntensity: 1.35
-  , ...o }),
+    repeat, roughness: 0.48, metalness: 0.22, physical: true, clearcoat: 0.45, clearcoatRoughness: 0.15, normalScale: 2.4, aoMapIntensity: 1.25, envMapIntensity: 1.35,
+    ...o
+  }),
   riverPebbles: (repeat = 1, o = {}) => material('riverPebblesCaustics', { 
-    repeat, roughness: 0.42, metalness: 0.06, physical: true, clearcoat: 0.55, clearcoatRoughness: 0.12, normalScale: 2.0, aoMapIntensity: 1.15, envMapIntensity: 1.25
-  , ...o }),
+    repeat, roughness: 0.42, metalness: 0.06, physical: true, clearcoat: 0.55, clearcoatRoughness: 0.12, normalScale: 2.0, aoMapIntensity: 1.15, envMapIntensity: 1.25,
+    ...o
+  }),
   sunkenDriftwood: (repeat = 1, o = {}) => material('sunkenDriftwood', { 
-    repeat, roughness: 0.82, metalness: 0.02, normalScale: 1.8, aoMapIntensity: 1.25, envMapIntensity: 0.95
-  , ...o }),
+    repeat, roughness: 0.82, metalness: 0.02, normalScale: 1.8, aoMapIntensity: 1.25, envMapIntensity: 0.95,
+    ...o
+  }),
   coralReefRock: (repeat = 1, o = {}) => material('coralReefRock', { 
-    repeat, roughness: 0.68, metalness: 0.04, normalScale: 2.4, aoMapIntensity: 1.2, envMapIntensity: 1.1
-  , ...o }),
+    repeat, roughness: 0.68, metalness: 0.04, normalScale: 2.4, aoMapIntensity: 1.2, envMapIntensity: 1.1,
+    ...o
+  }),
   cumulonimbusCloud: () => material('cumulonimbusCloud', {
     repeat: 1, transparent: true, depthWrite: false, roughness: 1, metalness: 0, side: THREE.DoubleSide
   }),
@@ -3685,7 +3703,8 @@ export const Surfaces = {
     clearcoatRoughness: 0.10,
     normalScale: 1.5,
     envMapIntensity: 1.45,
-  , ...o }),
+    ...o
+  }),
   memoryCrystal: (color = 0x78dcfa) => new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     emissive: new THREE.Color(color),
@@ -3711,8 +3730,9 @@ export const Surfaces = {
     clearcoat: 1.0,
     clearcoatRoughness: 0.04,
     normalScale: 0.75,
-    envMapIntensity: 1.85
-  , ...o }),
+    envMapIntensity: 1.85,
+    ...o
+  }),
   carraraStarburstMosaic: (repeat = 1, o = {}) => material('carraraStarburstMosaic', { 
     repeat,
     color: 0xffffff,
@@ -3722,8 +3742,9 @@ export const Surfaces = {
     clearcoat: 0.65,
     clearcoatRoughness: 0.08,
     normalScale: 1.15,
-    envMapIntensity: 1.45
-  , ...o }),
+    envMapIntensity: 1.45,
+    ...o
+  }),
   starlightCrystal: () => new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     roughness: 0.02,
@@ -3737,7 +3758,7 @@ export const Surfaces = {
     dispersion: 0.038,
     attenuationColor: new THREE.Color(0x90e0ef),
     attenuationDistance: 14.0,
-    envMapIntensity: 2.5
+    envMapIntensity: 2.5,
   }),
   crystalColumn: () => new THREE.MeshPhysicalMaterial({
     color: 0xf0faff,
@@ -3752,7 +3773,7 @@ export const Surfaces = {
     dispersion: 0.028,
     attenuationColor: new THREE.Color(0x78dcfa),
     attenuationDistance: 10.0,
-    envMapIntensity: 2.2
+    envMapIntensity: 2.2,
   }),
   createBotanicalFoliageMaterial,
 };
