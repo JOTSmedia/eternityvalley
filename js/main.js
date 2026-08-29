@@ -11,6 +11,7 @@ import { SEASON_STYLE, MOODS } from './ambience.js';
 import { EarthView } from './earth.js';
 import { Theme } from './theme.js';
 import { Atmosphere } from './atmosphere.js';
+import { soundscape } from './soundscapes.js';
 import { Motion } from './motion.js';
 import { hydrate as hydrateIcons } from './icons.js';
 import { warmThumbs, photosReady } from './thumbs.js';
@@ -414,11 +415,15 @@ export async function enter(mode = 'tour') {
 window.enter = enter;
 
 // Immediately expose checkAndEnterApp so preloader or button clicks can trigger it
+
 window.__checkAndEnterApp = () => {
   if (window.__appBootReady || window.__rainbowAnimationReady) {
     enter('tour');
   }
 };
+// Auto-trigger it once boot finishes!
+const originalBoot = boot;
+
 
 async function boot() {
   console.log('[boot] 1: Theme.init, Icons & Early UI.init');
@@ -563,6 +568,7 @@ async function boot() {
 
   // Synchronize rainbow preloader completion with application boot
   window.__appBootReady = true;
+  setTimeout(() => window.__checkAndEnterApp(), 500);
 }
 
 boot().catch(err => preloader.fail(err));

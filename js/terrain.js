@@ -251,7 +251,7 @@ export function terrainHeightBase(x, z) {
   // Highland Glacial Tarn Water Source Basin at (x=0, z=-640, waterLevel=182.0m)
   // Situated at the Universal Cathedral (z=-640) and directly feeding the Waterfall Lip
   const dxTarn = x / 36.0;
-  const dzTarn = (z - (-640)) / 30.0;
+  const dzTarn = (z - (-560)) / 30.0;
   const dTarnNorm = Math.hypot(dxTarn, dzTarn);
   if (dTarnNorm < 1.35) {
     const tarnBedTarget = 174.0; // 8.0m deep crystal alpine lake bed beneath 182.0m water surface

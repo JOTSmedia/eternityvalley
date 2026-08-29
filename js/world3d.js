@@ -78,7 +78,7 @@ function createContactShadow(radius, yPos = 0.04) {
     sCtx.fillStyle = sGrad;
     sCtx.fillRect(0, 0, 128, 128);
     const shadowTex = new THREE.CanvasTexture(shadowCnv);
-    _sharedShadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
+    _sharedShadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: false, depthWrite: false });
   }
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), _sharedShadowMat);
   mesh.rotation.x = -Math.PI / 2;
@@ -247,6 +247,7 @@ export class World3D {
       // The bloom pass reads back the frame, so it needs a buffer it
       // is allowed to sample rather than a directly-presented one.
       preserveDrawingBuffer: false,
+      logarithmicDepthBuffer: true,
     });
     // High-performance 1.0x max pixel ratio — prevents high-DPI Retina thermal throttling
     // while keeping WebGL rendering at razor-sharp 60 FPS.
@@ -1029,7 +1030,7 @@ export class World3D {
     // Soft round sprites with per-star size — the default PointsMaterial
     // draws hard squares, which is the one thing a night sky must not do.
     this.starMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, fog: false,
+      transparent: false, depthWrite: false, fog: false,
       blending: THREE.AdditiveBlending,
       uniforms: { uTex: { value: this._starSprite() }, uOpacity: { value: 0 }, uTime: { value: 0 } },
       vertexShader: `
@@ -1915,7 +1916,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       clearcoatRoughness: 0.02,
       normalMap: norm,
       normalScale: new THREE.Vector2(0.8, 0.8),
-      transparent: true,
+      transparent: false,
       envMapIntensity: 2.0
     });
 
@@ -2111,7 +2112,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         uTime: { value: 0 },
         uLength: { value: 20.0 },
       },
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -2258,7 +2259,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         uSunDir: { value: new THREE.Vector3(0.4, 0.8, 0.5).normalize() },
         uTime: { value: 0 },
       },
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -2384,7 +2385,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
         uSunDir: { value: new THREE.Vector3(0.4, 0.8, 0.5).normalize() },
         uTime: { value: 0 },
       },
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -2392,7 +2393,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
   _createFountainCascadeMaterial(normals) {
     const cascadeShader = {
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       side: THREE.DoubleSide,
       blending: THREE.NormalBlending,
@@ -2595,7 +2596,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       vertexShader: foamVert,
       fragmentShader: foamFrag,
       uniforms: { uTime: { value: 0 } },
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -3255,7 +3256,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(vec3(0.82, 0.95, 1.0), (ring + core) * vAlpha * 0.85);
         }
       `,
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
@@ -3499,7 +3500,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(goldMist, soft * vAlpha * 0.38);
         }
       `,
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
@@ -3800,7 +3801,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(finalCol, 0.95);
         }
       `,
-      transparent: true,
+      transparent: false,
       side: THREE.DoubleSide,
     };
 
@@ -3914,7 +3915,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(kelpCol, 0.92);
         }
       `,
-      transparent: true,
+      transparent: false,
       side: THREE.DoubleSide,
     };
 
@@ -4132,7 +4133,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(causticCol * caustic, alpha);
         }
       `,
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -4226,7 +4227,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(bioCol, soft * vAlpha * (0.4 + vSparkle * 0.45));
         }
       `,
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
@@ -4349,7 +4350,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       // Foam ring around the sea stack base
       const foamDisc = new THREE.Mesh(
         new THREE.RingGeometry(radius * 1.1, radius * 2.2, 24),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65, side: THREE.DoubleSide })
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: false, opacity: 0.65, side: THREE.DoubleSide })
       );
       foamDisc.rotation.x = -Math.PI / 2;
       foamDisc.position.y = 0.2;
@@ -4537,7 +4538,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(waterCol, alpha);
         }
       `,
-      transparent: true,
+      transparent: false,
       side: THREE.DoubleSide,
       depthWrite: false,
     };
@@ -4587,7 +4588,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
     // 3. Small plunge-pool foam disc at the base (No GPU particles)
     const foamDiscGeo = new THREE.CircleGeometry(6, 16);
-    const foamDiscMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false });
+    const foamDiscMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: false, opacity: 0.8, depthWrite: false });
     const foamDisc = new THREE.Mesh(foamDiscGeo, foamDiscMat);
     foamDisc.rotation.x = -Math.PI / 2;
     foamDisc.position.set(cliffX + 2.5, bottomY + 0.16, cliffZ + 36);
@@ -4776,7 +4777,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(finalColor, alpha);
         }
       `,
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       blending: THREE.NormalBlending,
       side: THREE.DoubleSide,
@@ -5581,7 +5582,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const stardustMat = new THREE.PointsMaterial({
       color: 0x67e8f9,
       size: 0.45,
-      transparent: true,
+      transparent: false,
       opacity: 0.90,
       blending: THREE.AdditiveBlending,
     });
@@ -6227,7 +6228,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       color: 0x1848a4,
       emissive: 0x2458d4,
       emissiveIntensity: 4.5,
-      roughness: 0.05, transmission: 0.98, thickness: 3.0, ior: 1.6, reflectivity: 0.95, clearcoat: 1.0, clearcoatRoughness: 0.01, dispersion: 0.045, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x1848a4), attenuationDistance: 1.5
+      roughness: 0.05, transmission: 0.98, thickness: 3.0, ior: 1.6, reflectivity: 0.95, clearcoat: 1.0, clearcoatRoughness: 0.01, dispersion: 0.045, transparent: false, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x1848a4), attenuationDistance: 1.5
     });
     const leadCame = new THREE.MeshStandardMaterial({ color: 0x101214, roughness: 0.75, metalness: 0.95 });
 
@@ -7886,7 +7887,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const vermilionDark = material('ceramic', { repeat: 2.0, color: 0x7c140c, roughness: 0.15, metalness: 0.0, physical: true, clearcoat: 0.9, clearcoatRoughness: 0.08, ior: 1.6 });
     const whitePlaster = Surfaces.stuccoMuqarnas(3.0);
     const ebonyWood = material('timber', { repeat: 2.0, color: 0x1c1511, roughness: 0.65, metalness: 0.0, physical: true, clearcoat: 0.15, clearcoatRoughness: 0.6, normalScale: 1.4 });
-    const shojiScreen = new THREE.MeshPhysicalMaterial({ color: 0xfff6e4, emissive: 0xffe4b8, emissiveIntensity: 1.5, roughness: 0.8, transmission: 0.75, thickness: 0.2, ior: 1.1, transparent: true, side: THREE.DoubleSide });
+    const shojiScreen = new THREE.MeshPhysicalMaterial({ color: 0xfff6e4, emissive: 0xffe4b8, emissiveIntensity: 1.5, roughness: 0.8, transmission: 0.75, thickness: 0.2, ior: 1.1, transparent: false, side: THREE.DoubleSide });
     const cedar = Surfaces.wood(1.4);
     const slateRoof = Surfaces.pagodaTile(3.8);
     const stone = material('agedCaenLimestone', { repeat: 4.0, color: 0x90897f, roughness: 0.9, metalness: 0.0, normalScale: 1.8, aoMapIntensity: 1.5 });
@@ -8878,7 +8879,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
       // Bubbling Water Dome inside fountain bowl
       const fWater = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.45), this._waterPoolMat || new THREE.MeshStandardMaterial({
-        color: 0x22889e, roughness: 0.04, metalness: 0.35, transparent: true, opacity: 0.88
+        color: 0x22889e, roughness: 0.04, metalness: 0.35, transparent: false, opacity: 0.88
       }));
       fWater.position.y = 0.68;
       fountain.add(fWater);
@@ -9561,7 +9562,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(uColor, alpha);
         }
       `,
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -9610,7 +9611,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const haloMat = new THREE.SpriteMaterial({
       map: this._glowTex || null,
       color: 0xffdf88,
-      transparent: true,
+      transparent: false,
       opacity: 0.88,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -10054,7 +10055,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     });
     const flameOuterMat = new THREE.MeshBasicMaterial({
       color: 0xff8c1a,
-      transparent: true,
+      transparent: false,
       opacity: 0.85,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -10122,7 +10123,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       const emberMat = new THREE.PointsMaterial({
         color: 0xffb038,
         size: 0.95 * scale,
-        transparent: true,
+        transparent: false,
         opacity: 0.95,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
@@ -11029,7 +11030,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const haloMat = new THREE.SpriteMaterial({
       map: this._glowTex || null,
       color: 0xffdf88,
-      transparent: true,
+      transparent: false,
       opacity: 0.88,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -11475,7 +11476,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
   _makeRainbowArc(r0, r1, baseOpacity, isSecondary = false) {
     const geo = new THREE.RingGeometry(r0, r1, 160, 12, 0, Math.PI);
     const mat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      transparent: false, depthWrite: false, side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending, fog: false,
       uniforms: {
         uOpacity: { value: baseOpacity },
@@ -11621,7 +11622,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       transmission: 0.96,
       thickness: 1.2,
       ior: 1.54,
-      transparent: true,
+      transparent: false,
       clearcoat: 1.0,
       clearcoatRoughness: 0.02,
       attenuationColor: new THREE.Color(0xd0f0ff),
@@ -11636,7 +11637,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       transmission: 0.98,
       thickness: 1.6,
       ior: 1.52,
-      transparent: true,
+      transparent: false,
       clearcoat: 1.0,
       clearcoatRoughness: 0.02,
       attenuationColor: new THREE.Color(0xb8ecff),
@@ -11797,7 +11798,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
       map: haloTex,
       color: 0xffd166,
       blending: THREE.AdditiveBlending,
-      transparent: true,
+      transparent: false,
       opacity: 0.95,
       depthWrite: false,
     });
@@ -12040,7 +12041,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const stardustMat = new THREE.PointsMaterial({
       color: 0x67e8f9,
       size: 0.45,
-      transparent: true,
+      transparent: false,
       opacity: 0.90,
       blending: THREE.AdditiveBlending,
     });
@@ -12106,7 +12107,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     sGeo.setAttribute('color', new THREE.BufferAttribute(sCol, 3));
     sGeo.setAttribute('size', new THREE.BufferAttribute(sSiz, 1));
     const sMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+      transparent: false, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
       uniforms: { uTex: { value: this._starSprite() }, uTime: { value: 0 }, uOpacity: { value: 0.85 } },
       vertexShader: `
         attribute float size; varying vec3 vColor; varying float vAlpha; uniform float uTime;
@@ -12168,7 +12169,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     mGeo.setAttribute('aSpeed', new THREE.BufferAttribute(mSpeed, 1));
 
     const balustradeMoteMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+      transparent: false, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
       uniforms: { uTex: { value: this._starSprite() }, uTime: { value: 0 }, uOpacity: { value: 0.90 } },
       vertexShader: `
         attribute float aPhase;
@@ -12243,7 +12244,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     this.pawMat = new THREE.MeshStandardMaterial({
       color: 0x221c14,
       alphaMap: tex,
-      transparent: true,
+      transparent: false,
       opacity: 0.28,
       roughness: 0.98,
       metalness: 0.0,
@@ -12827,7 +12828,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     g.computeBoundingSphere();
 
     this.moteMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, fog: false,
+      transparent: false, depthWrite: false, fog: false,
       blending: THREE.AdditiveBlending,
       uniforms: {
         uTex: { value: this._starSprite() },
@@ -12902,7 +12903,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     sCtx.fillStyle = sGrad;
     sCtx.fillRect(0, 0, 128, 128);
     const shadowTex = new THREE.CanvasTexture(shadowCnv);
-    const shadowMesh = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+    const shadowMesh = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ map: shadowTex, transparent: false, depthWrite: false }));
     shadowMesh.rotation.x = -Math.PI / 2;
     shadowMesh.position.y = 0.08;
     g.add(shadowMesh);
@@ -14297,13 +14298,13 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const shadowTex = new THREE.CanvasTexture(shadowCnv);
     const plotContactShadowMat = new THREE.MeshBasicMaterial({
       map: shadowTex,
-      transparent: true,
+      transparent: false,
       depthWrite: false,
     });
 
     // Ethereal availability glowing beacon shader
     const beaconMat = new THREE.ShaderMaterial({
-      transparent: true,
+      transparent: false,
       depthWrite: false,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
@@ -14976,7 +14977,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     // Selection ring
     this.selRing = new THREE.Mesh(
       new THREE.RingGeometry(9, 12, 32),
-      new THREE.MeshBasicMaterial({ color: 0xffd76a, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }));
+      new THREE.MeshBasicMaterial({ color: 0xffd76a, side: THREE.DoubleSide, transparent: false, opacity: 0.95 }));
     this.selRing.rotation.x = -Math.PI / 2;
     this.selRing.visible = false;
     this.scene.add(this.selRing);
@@ -17422,7 +17423,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(finalCol, alpha);
         }
       `,
-      transparent: true,
+      transparent: false,
       side: THREE.DoubleSide,
       depthWrite: false,
     };
@@ -17536,7 +17537,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
           gl_FragColor = vec4(vec3(0.94, 0.97, 1.0), alpha);
         }
       `,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      transparent: false, depthWrite: false, blending: THREE.AdditiveBlending
     });
     this._poolShader = poolFoamMat;
     const poolFoamMesh = new THREE.Mesh(poolFoamGeo, poolFoamMat);
@@ -17559,7 +17560,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
     const sideMistGeo = new THREE.PlaneGeometry(60, 45);
     const sideMistMat = new THREE.MeshBasicMaterial({
       map: mistTex,
-      transparent: true,
+      transparent: false,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       opacity: 0.15,
@@ -17583,7 +17584,7 @@ const isHigh = typeof window !== 'undefined' && window.innerWidth > 768 ? 1024 :
 
     // 6. Small plunge-pool foam disc at the base (No GPU particles)
     const foamDiscGeo = new THREE.CircleGeometry(14, 24);
-    const foamDiscMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false });
+    const foamDiscMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: false, opacity: 0.8, depthWrite: false });
     const foamDisc = new THREE.Mesh(foamDiscGeo, foamDiscMat);
     foamDisc.rotation.x = -Math.PI / 2;
     foamDisc.position.set(0, 5.36, -360);
