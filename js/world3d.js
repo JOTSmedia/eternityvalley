@@ -22,12 +22,14 @@ const safeMerge = (geos, useGroups) => {
     if (!geos || geos.length === 0) return null;
     if (geos.length === 1) return geos[0];
     
-    // Normalize index vs non-indexed
     let allIndexed = true;
     let allNonIndexed = true;
+    let hasColor = false;
+    
     for (const g of geos) {
         if (g.index) allNonIndexed = false;
         else allIndexed = false;
+        if (g.attributes.color) hasColor = true;
     }
     
     const normalizedGeos = geos.map(g => {
@@ -35,10 +37,6 @@ const safeMerge = (geos, useGroups) => {
         if (!allIndexed && g.index) {
             out = g.toNonIndexed();
         }
-        
-        // Ensure color attribute consistency
-        let hasColor = false;
-        for (const tg of geos) if (tg.attributes.color) hasColor = true;
         
         if (hasColor && !out.attributes.color) {
             const count = out.attributes.position.count;
@@ -50,7 +48,6 @@ const safeMerge = (geos, useGroups) => {
         }
         return out;
     });
-
     return mergeGeometries(normalizedGeos, useGroups);
 };
 
