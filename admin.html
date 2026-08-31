@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Center — Eternity Valley</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'><g fill='none' stroke-linecap='round'><path d='M4 38a28 28 0 0 1 56 0' stroke='%23e05a4f' stroke-width='7'/><path d='M10 38a22 22 0 0 1 44 0' stroke='%23ee9740' stroke-width='7'/><path d='M16 38a16 16 0 0 1 32 0' stroke='%23f2d04a' stroke-width='7'/><path d='M21 38a11 11 0 0 1 22 0' stroke='%2363c268' stroke-width='6'/><path d='M25.5 38a6.5 6.5 0 0 1 13 0' stroke='%234a9fd8' stroke-width='5'/><path d='M29 38a3 3 0 0 1 6 0' stroke='%235566c4' stroke-width='4'/></g></svg>">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body {
+    overflow: auto;
+    background: radial-gradient(circle at 50% 0%, #152238 0%, #080d16 65%, #04070c 100%);
+    min-height: 100vh;
+    color: #f4f0e6;
+  }
+  .admin-wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+  .admin-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; margin-bottom: 32px; flex-wrap: wrap;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(244, 211, 104, 0.2);
+  }
+  .admin-title-wrap { display: flex; align-items: center; gap: 14px; }
+  .admin-title {
+    font-family: var(--display);
+    font-size: 24px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #ffffff, #fff6d8, #f4d368);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+  }
+  .admin-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    color: #ded6c2;
+    margin: 2px 0 0 0;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 24px 0 36px;
+  }
+  .stat-card {
+    background: rgba(9, 14, 23, 0.82);
+    border: 1px solid rgba(244, 211, 104, 0.25);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(244, 211, 104, 0.05);
+    transition: transform var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(244, 211, 104, 0.45);
+  }
+  .stat-card .s-label {
+    font-family: var(--ui);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #f4d368;
+    font-weight: 600;
+  }
+  .stat-card .s-value {
+    font-family: var(--display);
+    font-size: 28px;
+    color: #ffffff;
+    margin-top: 8px;
+    letter-spacing: 0.04em;
+  }
+  .stat-card .s-sub {
+    font-size: 12px;
+    color: #b0a894;
+    margin-top: 6px;
+  }
+  .data-table-wrap {
+    background: rgba(9, 14, 23, 0.82);
+    border: 1px solid rgba(244, 211, 104, 0.25);
+    border-radius: var(--r-xl);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 14px 18px; border-bottom: 1px solid rgba(244, 211, 104, 0.1); }
+  th {
+    font-family: var(--ui);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #f4d368;
+    background: rgba(255, 255, 255, 0.03);
+    font-weight: 600;
+  }
+  td .comp {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: var(--r-pill);
+    background: rgba(143, 206, 138, 0.15);
+    border: 1px solid rgba(143, 206, 138, 0.4);
+    color: #a8f0a3;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .login-card {
+    max-width: 440px;
+    margin: 12vh auto 0;
+    background: rgba(9, 14, 23, 0.90);
+    border: 1px solid rgba(244, 211, 104, 0.35);
+    border-radius: var(--r-xl);
+    padding: 36px;
+    backdrop-filter: blur(24px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(244, 211, 104, 0.12);
+  }
+  .login-card h1 {
+    font-family: var(--display);
+    font-size: 20px;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: #ffffff;
+    margin-bottom: 6px;
+  }
+  .login-card p { font-size: 13.5px; color: #ded6c2; margin-bottom: 22px; font-family: var(--serif); font-style: italic; }
+  .login-card input {
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: var(--r-pill);
+    border: 1px solid rgba(244, 211, 104, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    font-family: var(--ui);
+    font-size: 14px;
+    margin-bottom: 16px;
+    outline: none;
+    transition: border-color var(--t-fast) var(--ease);
+  }
+  .login-card input:focus {
+    border-color: #f4d368;
+    box-shadow: 0 0 16px rgba(244, 211, 104, 0.25);
+  }
+  .err { color: #ff7675; font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .section-title {
+    font-family: var(--display);
+    font-size: 16px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff6d8;
+    margin: 36px 0 8px;
+  }
+  .muted { color: #b0a894; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="login" class="login-card">
+  <h1>⚡ Command Center</h1>
+  <p>Somewhere Over the Rainbow Bridge — superuser administration</p>
+  <input id="pw" type="password" placeholder="Admin password" value="rainbowadmin" autofocus>
+  <button class="btn btn-gold btn-block" id="loginBtn">Sign in as Superuser</button>
+  <div class="err" id="loginErr"></div>
+  <p style="margin-top:16px;font-size:12px;font-style:normal;color:#b0a894;">Default password: <b style="color:#f4d368;">rainbowadmin</b> · Configurable via <code>ADMIN_PASSWORD</code> in <code>.env</code></p>
+</div>
+
+<div id="dash" class="admin-wrap hidden">
+  <div class="admin-head">
+    <div class="admin-title-wrap">
+      <div>
+        <h1 class="admin-title">⚡ Command Center</h1>
+        <p class="admin-sub">Eternity Valley · Superuser Administration & Live Telemetry</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-gold" id="viewAsAdmin">⚡ Enter Site in Untethered Admin Mode</button>
+      <button class="btn btn-outline" id="exitAdminMode">Exit Admin Mode</button>
+      <button class="btn btn-outline" id="refreshBtn">↻ Refresh</button>
+      <button class="btn btn-outline" id="clearBtn">Clear Logs</button>
+      <button class="btn btn-outline" id="logoutBtn">Log Out</button>
+    </div>
+  </div>
+
+  <div class="stat-grid" id="stats"></div>
+
+  <h2 class="section-title">Telemetry & Activity Ledger</h2>
+  <p class="muted">Live transaction history across demo checkouts, Stripe payments, and admin comps.</p>
+  <br>
+  <div class="data-table-wrap">
+    <table>
+      <thead><tr><th>Timestamp</th><th>Activity Type</th><th>Companion / Item</th><th>Account</th><th>Amount</th></tr></thead>
+      <tbody id="eventRows"><tr><td colspan="5" class="muted">No events yet — visit the site and create a memorial or checkout.</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script type="module">
+const $ = s => document.querySelector(s);
+let token = sessionStorage.getItem('ev_admin_token') || '';
+
+const api = (path, opts = {}) => fetch(path, {
+  ...opts,
+  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...(opts.headers || {}) },
+});
+
+async function login() {
+  $('#loginErr').textContent = '';
+  const pw = $('#pw').value.trim() || 'rainbowadmin';
+  const r = await fetch('/admin/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pw }),
+  }).catch(() => null);
+  if (!r) return $('#loginErr').textContent = 'Server unreachable — is server.js running?';
+  if (!r.ok) return $('#loginErr').textContent = 'Wrong password.';
+  token = (await r.json()).token;
+  sessionStorage.setItem('ev_admin_token', token);
+  show();
+}
+
+async function show() {
+  const s = await api('/admin/summary').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!s) { sessionStorage.removeItem('ev_admin_token'); token = ''; return; }
+  $('#login').classList.add('hidden');
+  $('#dash').classList.remove('hidden');
+
+  const fmt = n => '$' + (n % 1 ? n.toFixed(2) : n);
+  $('#stats').innerHTML = `
+    <div class="stat-card"><div class="s-label">Total Revenue</div><div class="s-value">${fmt(s.totalRevenue)}</div><div class="s-sub">${fmt(s.last7d)} last 7 days</div></div>
+    <div class="stat-card"><div class="s-label">Memberships</div><div class="s-value">${s.counts.memberships}</div><div class="s-sub">${fmt(s.revenue.memberships)}</div></div>
+    <div class="stat-card"><div class="s-label">Plots & Memorials</div><div class="s-value">${s.counts.plots}</div><div class="s-sub">${fmt(s.revenue.plots)}</div></div>
+    <div class="stat-card"><div class="s-label">Keepsakes & Items</div><div class="s-value">${s.counts.items}</div><div class="s-sub">${fmt(s.revenue.items)}</div></div>
+    <div class="stat-card"><div class="s-label">Gifts & Tributes</div><div class="s-value">${s.counts.gifts}</div><div class="s-sub">${fmt(s.revenue.gifts)}</div></div>
+    <div class="stat-card"><div class="s-label">Admin Comps</div><div class="s-value">${s.counts.adminComps}</div><div class="s-sub">100% Free Comps</div></div>
+    <div class="stat-card"><div class="s-label">Donated to Charity</div><div class="s-value">${fmt(s.donations?.total || 0)}</div>
+      <div class="s-sub">${Object.entries(s.donations?.perCharity || {}).map(([k, v]) => k.replace('ch_', '') + ' ' + fmt(v)).join(' · ') || 'no donations yet'}</div></div>
+    <div class="stat-card"><div class="s-label">Partner Referrals</div><div class="s-value">${Object.values(s.referrals || {}).reduce((a, b) => a + b, 0)}</div>
+      <div class="s-sub">${Object.entries(s.referrals || {}).map(([k, v]) => k + ': ' + v).join(' · ') || 'No active referral links'}</div></div>`;
+
+  const evts = await api('/admin/events').then(r => r.json()).catch(() => []);
+  if (evts.length) {
+    $('#eventRows').innerHTML = evts.slice().reverse().map(e => `
+      <tr><td>${new Date(e.at).toLocaleString()}</td>
+      <td>${e.kind}${e.admin ? ' <span class="comp">ADMIN COMP</span>' : ''}</td>
+      <td style="font-weight:600;color:#fff;">${e.name}</td><td>${e.user}</td><td>${e.admin ? '—' : '$' + e.amount}</td></tr>`).join('');
+  }
+}
+
+$('#loginBtn').onclick = login;
+$('#pw').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+$('#refreshBtn').onclick = show;
+$('#logoutBtn').onclick = () => { sessionStorage.removeItem('ev_admin_token'); location.reload(); };
+$('#clearBtn').onclick = async () => { if (confirm('Clear all logged events?')) { await api('/admin/events', { method: 'DELETE' }); show(); } };
+
+// View the live site in untethered admin mode
+$('#viewAsAdmin').onclick = () => {
+  localStorage.setItem('ev_admin_mode', '1');
+  window.location.href = 'index.html?admin=1';
+};
+$('#exitAdminMode').onclick = () => {
+  localStorage.removeItem('ev_admin_mode');
+  alert('Admin mode deactivated — the site will run as a standard visitor.');
+};
+
+if (token) show();
+</script>
+</body>
+</html>
