@@ -1,0 +1,25 @@
+{
+  "name": "Eternity Valley \u2014 Somewhere Over the Rainbow Bridge",
+  "short_name": "Eternity Valley",
+  "description": "A virtual pet memorial paradise on the real Earth. Honor your companion, help living animals.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#171d18",
+  "theme_color": "#171d18",
+  "lang": "en",
+  "categories": [
+    "lifestyle",
+    "social",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23171d18'/><g fill='none' stroke-linecap='round'><path d='M14 76a36 36 0 0 1 72 0' stroke='%23e05a4f' stroke-width='9'/><path d='M22 76a28 28 0 0 1 56 0' stroke='%23ee9740' stroke-width='9'/><path d='M30 76a20 20 0 0 1 40 0' stroke='%23f2d04a' stroke-width='9'/><path d='M38 76a12 12 0 0 1 24 0' stroke='%2363c268' stroke-width='8'/><path d='M45 76a5 5 0 0 1 10 0' stroke='%234a9fd8' stroke-width='7'/></g></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
