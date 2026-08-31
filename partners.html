@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Care Partner Alliance — Somewhere Over the Rainbow Bridge | Eternity Valley</title>
+<meta name="description" content="Partner program for veterinary hospitals, pet cremation & cemetery services, animal shelters, and hospices — provide grieving pet families a peaceful, eternal next step.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'><g fill='none' stroke-linecap='round'><path d='M4 38a28 28 0 0 1 56 0' stroke='%23e05a4f' stroke-width='7'/><path d='M10 38a22 22 0 0 1 44 0' stroke='%23ee9740' stroke-width='7'/><path d='M16 38a16 16 0 0 1 32 0' stroke='%23f2d04a' stroke-width='7'/><path d='M21 38a11 11 0 0 1 22 0' stroke='%2363c268' stroke-width='6'/><path d='M25.5 38a6.5 6.5 0 0 1 13 0' stroke='%234a9fd8' stroke-width='5'/><path d='M29 38a3 3 0 0 1 6 0' stroke='%235566c4' stroke-width='4'/></g></svg>">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body {
+    overflow-y: auto;
+    background: radial-gradient(circle at 50% 12%, #18261e 0%, #0d1410 50%, #050806 100%);
+    color: #ede8dc;
+    font-family: var(--ui);
+    min-height: 100vh;
+  }
+  .pg {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 60px 24px 120px;
+    line-height: 1.8;
+  }
+  .partner-header {
+    text-align: center;
+    margin-bottom: 44px;
+    position: relative;
+  }
+  .partner-header .kicker {
+    font-family: var(--display);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent-hi-c);
+    margin: 14px 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .partner-header h1 {
+    font-family: var(--display);
+    color: #ffffff;
+    font-size: clamp(28px, 4.5vw, 44px);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 10px 0 12px;
+    text-shadow: 0 0 35px rgba(242, 208, 74, 0.4);
+    line-height: 1.2;
+  }
+  .partner-header .lede {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(18px, 2.2vw, 22px);
+    color: #f7eed8;
+    max-width: 740px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .impact-banner {
+    background: linear-gradient(165deg, rgba(212, 175, 55, 0.16), rgba(212, 175, 55, 0.04));
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    outline: 1px solid rgba(244, 211, 104, 0.2);
+    outline-offset: -5px;
+    border-radius: var(--r-pill);
+    padding: 16px 28px;
+    text-align: center;
+    font-family: var(--display);
+    color: var(--accent-hi-c);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 13.5px;
+    margin: 0 auto 48px;
+    max-width: 820px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(212, 175, 55, 0.1);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .section-title-wrap {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .section-title-wrap h2 {
+    font-family: var(--display);
+    color: var(--accent-hi-c);
+    font-size: clamp(22px, 3.2vw, 30px);
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px rgba(242, 208, 74, 0.3);
+  }
+  .section-title-wrap p {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16.5px;
+    color: #d6d0c2;
+    margin-top: 4px;
+  }
+
+  .step-grid, .material-grid, .partner-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin: 24px 0 48px;
+  }
+
+  .card-sacred-item {
+    position: relative;
+    background: linear-gradient(165deg, rgba(24, 36, 29, 0.88), rgba(12, 18, 14, 0.96));
+    border: 1px solid rgba(212, 175, 55, 0.36);
+    outline: 1px solid rgba(244, 211, 104, 0.16);
+    outline-offset: -5px;
+    border-radius: var(--r-lg);
+    padding: 32px 26px;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), 0 0 25px rgba(212, 175, 55, 0.08);
+    transition: transform var(--t-med) var(--ease),
+                box-shadow var(--t-med) var(--ease),
+                border-color var(--t-fast) var(--ease);
+    overflow: hidden;
+  }
+  .card-sacred-item:hover {
+    transform: translateY(-5px);
+    border-color: rgba(244, 211, 104, 0.75);
+    box-shadow: 0 22px 52px rgba(0, 0, 0, 0.75), 0 0 35px rgba(244, 211, 104, 0.2);
+  }
+  .card-sacred-item::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 60%; height: 100%;
+    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.07) 50%, transparent);
+    transform: skewX(-25deg);
+    transition: left 0.8s var(--ease);
+    pointer-events: none;
+  }
+  .card-sacred-item:hover::before {
+    left: 150%;
+  }
+  .card-sacred-item::after {
+    content: '✦';
+    position: absolute;
+    top: 10px; right: 12px;
+    font-size: 10px;
+    color: rgba(244, 211, 104, 0.45);
+    pointer-events: none;
+  }
+
+  .step-num {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffffff 0%, #f4d368 70%, #d4af37 100%);
+    color: #1a1200;
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    box-shadow: 0 4px 16px rgba(242, 208, 74, 0.4);
+  }
+  .card-sacred-item h3, .card-sacred-item h4 {
+    font-family: var(--display);
+    color: var(--accent-hi-c);
+    font-size: 18px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .card-sacred-item p {
+    font-size: 14.5px;
+    color: #d6d0c2;
+    line-height: 1.65;
+  }
+
+  .qr-generator {
+    background: linear-gradient(165deg, rgba(20, 30, 24, 0.9), rgba(10, 16, 12, 0.98));
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    outline: 1px solid rgba(244, 211, 104, 0.18);
+    outline-offset: -6px;
+    border-radius: var(--r-xl);
+    padding: 38px 30px;
+    max-width: 640px;
+    margin: 48px auto;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+  }
+  .qr-generator h2 {
+    font-family: var(--display);
+    color: var(--accent-hi-c);
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .qr-generator input {
+    width: 100%;
+    max-width: 480px;
+    padding: 13px 16px;
+    border-radius: var(--r-pill);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    font-family: var(--ui);
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 16px;
+    text-align: center;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  }
+  .qr-generator input:focus {
+    border-color: var(--accent-hi-c);
+    box-shadow: 0 0 0 3px rgba(242, 208, 74, 0.25);
+  }
+  .qr-preview {
+    margin: 20px 0;
+    display: inline-block;
+    padding: 14px;
+    background: #fff;
+    border-radius: var(--r-md);
+    border: 2px solid var(--accent-hi-c);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  }
+  .qr-preview img {
+    display: block;
+    width: 190px;
+    height: 190px;
+  }
+
+  .partner-cta-box {
+    background: linear-gradient(165deg, rgba(28, 44, 34, 0.85), rgba(12, 18, 14, 0.95));
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    outline: 1px solid rgba(244, 211, 104, 0.2);
+    outline-offset: -6px;
+    border-radius: var(--r-xl);
+    padding: 44px 30px;
+    margin: 54px 0;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+  }
+  .partner-cta-box h2 {
+    font-family: var(--display);
+    font-size: clamp(24px, 3.5vw, 32px);
+    font-weight: 400;
+    color: var(--accent-hi-c);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .form-box {
+    background: rgba(10, 16, 12, 0.88);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    outline: 1px solid rgba(244, 211, 104, 0.12);
+    outline-offset: -4px;
+    border-radius: var(--r-lg);
+    padding: 32px 28px;
+    max-width: 600px;
+    margin: 28px auto 0;
+    text-align: left;
+  }
+  .form-box label {
+    display: block;
+    font-family: var(--ui);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-hi-c);
+    margin: 16px 0 6px;
+  }
+  .form-box input, .form-box select, .form-box textarea {
+    width: 100%;
+    padding: 13px 15px;
+    border-radius: var(--r-sm);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    font-family: var(--ui);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .form-box input:focus, .form-box select:focus, .form-box textarea:focus {
+    border-color: var(--accent-hi-c);
+    box-shadow: 0 0 0 3px rgba(242, 208, 74, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .nav-foot {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 50px;
+    font-size: 13.5px;
+    color: #a8a398;
+    font-family: var(--ui);
+  }
+  .nav-foot a {
+    color: var(--accent-hi-c);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .nav-foot a:hover {
+    color: #ffffff;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+<div class="pg">
+  <div class="partner-header">
+    <svg class="mark" viewBox="0 0 100 56" width="68" height="38" aria-hidden="true">
+      <g fill="none" stroke-linecap="round">
+        <path d="M12 52a38 38 0 0 1 76 0" stroke="#e05a4f" stroke-width="6"/>
+        <path d="M18 52a32 32 0 0 1 64 0" stroke="#ee9740" stroke-width="6"/>
+        <path d="M24 52a26 26 0 0 1 52 0" stroke="#f2d04a" stroke-width="6"/>
+        <path d="M30 52a20 20 0 0 1 40 0" stroke="#63c268" stroke-width="6"/>
+        <path d="M36 52a14 14 0 0 1 28 0" stroke="#4a9fd8" stroke-width="6"/>
+        <path d="M42 52a8 8 0 0 1 16 0" stroke="#5566c4" stroke-width="5"/>
+      </g>
+    </svg>
+    <div class="kicker"><span>✦</span> ETERNITY VALLEY <span>✦</span></div>
+    <h1>Care Partner &amp; Veterinary Alliance</h1>
+    <p class="lede">You meet families on the most tender, sacred day of their pet's life. Provide them a gentle, eternal sanctuary.</p>
+  </div>
+
+  <div class="impact-banner">
+    <span>✦ 2,400+ Families Served</span>
+    <span>✦ $127,000+ Raised for Rescue</span>
+    <span>✦ 47 Clinic Partners ✦</span>
+  </div>
+
+  <div class="section-title-wrap">
+    <h2><span>✦</span> How It Works for Partners <span>✦</span></h2>
+    <p>Seamlessly integrate compassionate remembrance into your aftercare protocol</p>
+  </div>
+
+  <div class="step-grid">
+    <div class="card-sacred-item" style="text-align:center;">
+      <div class="step-num">1</div>
+      <h4>Register Your Clinic</h4>
+      <p>Receive your dedicated referral link, custom QR code, and complimentary welcome suite.</p>
+    </div>
+    <div class="card-sacred-item" style="text-align:center;">
+      <div class="step-num">2</div>
+      <h4>Share with Families</h4>
+      <p>Provide comforting Bereavement Inserts and cards at end-of-life and memorial appointments.</p>
+    </div>
+    <div class="card-sacred-item" style="text-align:center;">
+      <div class="step-num">3</div>
+      <h4>Track Rescue Impact</h4>
+      <p>View your clinic's public ledger impact, families comforted, and rescue funds generated.</p>
+    </div>
+  </div>
+
+  <div class="qr-generator">
+    <h2><span>✦</span> Partner QR Code Generator <span>✦</span></h2>
+    <p style="font-family:var(--serif);font-style:italic;font-size:16px;color:#d8d3c5;margin-bottom:16px;">Generate your instant clinic QR code for physical condolence cards</p>
+    <input type="text" id="clinicNameInput" placeholder="Enter your hospital or clinic name…" oninput="updateQR()">
+    <p style="font-size:12px;color:#cfcac0;margin-bottom:12px;">Referral URL: <span id="refUrlPreview" style="color:var(--accent-hi-c);font-weight:600;">https://eternityvalley.com/?ref=</span></p>
+    <div class="qr-preview">
+      <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&amp;data=https://eternityvalley.com/" alt="Partner QR Code">
+    </div>
+    <br>
+    <a id="downloadQrBtn" href="https://api.qrserver.com/v1/create-qr-code/?size=200x200&amp;data=https://eternityvalley.com/" download="partner-qr.png" class="btn btn-gold" target="_blank" style="display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
+      <span>✦</span> Download High-Res QR Code <span>✦</span>
+    </a>
+  </div>
+
+  <div class="section-title-wrap">
+    <h2><span>✦</span> Downloadable Partner Materials <span>✦</span></h2>
+    <p>Professional print collateral and comfort literature for your practice</p>
+  </div>
+
+  <div class="material-grid">
+    <div class="card-sacred-item">
+      <h4>Waiting Room Poster</h4>
+      <p style="margin-bottom:18px;">An elegant luxury poster to place in your comfort room, consultation suite, or waiting lounge.</p>
+      <a href="waiting-room-poster.html" class="btn btn-outline" style="text-decoration:none; display:inline-block;">View Poster →</a>
+    </div>
+    <div class="card-sacred-item">
+      <h4>Sympathy Card Insert</h4>
+      <p style="margin-bottom:18px;">Printable condolence card inserts customized with your practice's direct QR code.</p>
+      <a href="partner-materials.html" class="btn btn-outline" style="text-decoration:none; display:inline-block;">View &amp; Print →</a>
+    </div>
+    <div class="card-sacred-item">
+      <h4>Staff Training Guide</h4>
+      <p style="margin-bottom:18px;">A compassionate script and guide on introducing the Rainbow Bridge sanctuary to grieving families.</p>
+      <a href="training-guide.html" class="btn btn-outline" style="text-decoration:none; display:inline-block;">Read Guide →</a>
+    </div>
+  </div>
+
+  <div class="sacred-divider">
+    <span class="sacred-divider-star">✦</span>
+  </div>
+
+  <div class="section-title-wrap">
+    <h2><span>✦</span> Dedicated Alliance Categories <span>✦</span></h2>
+  </div>
+
+  <div class="partner-grid">
+    <div class="card-sacred-item">
+      <div style="color:var(--accent-hi-c);font-size:26px;margin-bottom:8px;">🩺</div>
+      <h3>Veterinary Hospitals &amp; Clinics</h3>
+      <p>Provide grieving clients with elegant, custom-printed Bereavement Cards featuring your clinic's QR code. Pet parents receive a peaceful digital sanctuary, remembering your practice as the care team that stood beside them.</p>
+    </div>
+
+    <div class="card-sacred-item">
+      <div style="color:var(--accent-hi-c);font-size:26px;margin-bottom:8px;">🕊️</div>
+      <h3>Pet Cemeteries &amp; Cremation</h3>
+      <p>Offer a living digital sanctuary alongside physical urns, scatterings, and headstones. Families separated by distance can gather online to light candles and visit their companion's memorial anywhere on the globe.</p>
+    </div>
+
+    <div class="card-sacred-item">
+      <div style="color:var(--accent-hi-c);font-size:26px;margin-bottom:8px;">🐾</div>
+      <h3>Shelters &amp; Rescues</h3>
+      <p>Join our verified 501(c)(3) registry. Memorial owners across the country can dedicate tribute campaigns to your shelter, with 100% of net donations passing straight to your organization with zero operator cuts.</p>
+    </div>
+
+    <div class="card-sacred-item">
+      <div style="color:var(--accent-hi-c);font-size:26px;margin-bottom:8px;">🌸</div>
+      <h3>Hospice &amp; Palliative Care</h3>
+      <p>Support peaceful end-of-life journeys by offering families gentle guidance, Rainbow Bridge comforting literature, and an enduring digital remembrance wall.</p>
+    </div>
+  </div>
+
+  <div class="partner-cta-box">
+    <h2><span>✦</span> Request a Complimentary Practice Welcome Kit <span>✦</span></h2>
+    <p style="max-width:580px;margin:0 auto;color:#dedad0;font-family:var(--serif);font-style:italic;font-size:17.5px;">
+      We provide free custom-printed condolence cards, practice QR codes, and digital memorial credits for your hospital team.
+    </p>
+
+    <form class="form-box" id="partnerForm" onsubmit="event.preventDefault(); submitPartner();">
+      <label>Practice / Hospital / Organization Name</label>
+      <input id="pName" required placeholder="e.g. VCA Evergreen Animal Hospital">
+
+      <label>Organization Type</label>
+      <select id="pType">
+        <option value="Veterinary Hospital">Veterinary Hospital / Specialty Clinic</option>
+        <option value="Pet Cremation & Cemetery">Pet Cremation &amp; Cemetery Service</option>
+        <option value="Hospice & Palliative Care">In-Home Hospice / Palliative Care</option>
+        <option value="Animal Shelter / Rescue">Animal Shelter / 501(c)(3) Rescue</option>
+      </select>
+
+      <label>City &amp; State</label>
+      <input id="pLoc" required placeholder="e.g. Denver, CO">
+
+      <label>Contact Email</label>
+      <input id="pEmail" type="email" required placeholder="director@evergreenvet.com">
+
+      <label>Special Requests or Custom Aftercare Needs (optional)</label>
+      <textarea id="pMsg" rows="3" placeholder="We would love 50 complimentary sympathy cards for our comfort room…"></textarea>
+
+      <button type="submit" class="btn btn-gold btn-block" style="margin-top:22px; padding:14px;">
+        <span>✦</span> Submit Partner Request <span>✦</span>
+      </button>
+      <p id="formStatus" style="font-size:13.5px;color:#a3f7bf;margin-top:14px;text-align:center;display:none;font-weight:600;">
+        ✓ Thank you! Your request has been received. Our Care Team will contact you within 24 hours.
+      </p>
+    </form>
+  </div>
+
+  <div class="nav-foot">
+    <a href="index.html">✦ Return to Sanctuary</a>
+    <a href="terms.html">Terms of Service</a>
+    <a href="privacy.html">Privacy Policy</a>
+    <a href="credits.html">Photo Credits</a>
+  </div>
+</div>
+
+<script>
+function submitPartner() {
+  const name = document.getElementById('pName').value.trim();
+  const email = document.getElementById('pEmail').value.trim();
+  const type = document.getElementById('pType').value;
+  const loc = document.getElementById('pLoc').value.trim();
+
+  if (!name || !email) return;
+
+  fetch('/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind: 'partner_inquiry',
+      name: 'Partner Application: ' + name + ' (' + type + ')',
+      amount: 0,
+      user: email,
+      ref: loc
+    })
+  }).catch(function() {});
+
+  document.getElementById('formStatus').style.display = 'block';
+  document.querySelector('#partnerForm button').disabled = true;
+  document.querySelector('#partnerForm button').textContent = 'Partner Request Received ✓';
+}
+function updateQR() {
+  const input = document.getElementById('clinicNameInput').value.trim();
+  const safeName = encodeURIComponent(input);
+  const baseUrl = 'https://eternityvalley.com/';
+  const fullUrl = input ? `${baseUrl}?ref=${safeName}` : baseUrl;
+  
+  document.getElementById('refUrlPreview').textContent = fullUrl;
+  
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}`;
+  document.getElementById('qrCodeImg').src = qrUrl;
+  document.getElementById('downloadQrBtn').href = qrUrl;
+}
+</script>
+</body>
+</html>
+
