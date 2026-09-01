@@ -1,0 +1,16 @@
+# Dependencies — run `npm install` inside server/ if you deploy it
+node_modules/
+
+# Secrets. server/.env.example documents every variable.
+.env
+.env.local
+*.local
+
+# Runtime
+*.log
+data/*.db
+data/*.db-*
+
+# OS
+.DS_Store
+Thumbs.db
