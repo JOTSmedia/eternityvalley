@@ -1,8 +1,0 @@
---- world3d.js
-+++ world3d.js
-@@ -1006,6 +1006,7 @@
-     // Create custom render target to retain hardware MSAA (anti-aliasing) during post-processing
-     const renderTarget = new THREE.WebGLRenderTarget(w, h, {
-       samples: isMobile ? 0 : 2,
-+      type: THREE.HalfFloatType,
-     });
