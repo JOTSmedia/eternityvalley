@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users may read/write only their own profile (membership, plots, decor)
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['membership', 'ownedPlots']));
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && (!('membership' in request.resource.data))
+                    && (!('ownedPlots' in request.resource.data));
+    }
+    // Plot registry is public to read (availability map); only the
+    // server (Admin SDK) writes ownership after verified payment.
+    match /plots/{plotId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // Purchases are written by the server only.
+    match /purchases/{id} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+  }
+}
