@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eternity Valley — Official Cinematic Trailer</title>
+<link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+    body, html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #0d110e;
+        color: #f5f2eb;
+        font-family: 'Tenor Sans', sans-serif;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #trailer-container {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        background: #0d110e;
+        overflow: hidden;
+        box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    }
+    
+    /* 16:9 Letterboxing mask if needed, but the container is 1920x1080 */
+
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    /* Film grain overlay */
+    .film-grain {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.08"/%3E%3C/svg%3E');
+        pointer-events: none;
+        z-index: 10;
+        opacity: 0.8;
+    }
+
+    /* Scene Container */
+    .scene {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        opacity: 0;
+        transition: opacity 2s ease-in-out;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 2;
+    }
+
+    .scene.active {
+        opacity: 1;
+    }
+
+    .scene-bg {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-size: cover;
+        background-position: center;
+        z-index: -1;
+        transform: scale(1.05);
+        transition: transform 15s linear;
+    }
+
+    .scene.active .scene-bg {
+        transform: scale(1);
+    }
+
+    /* Typography */
+    h1, h2 {
+        font-family: 'Cormorant Garamond', serif;
+        font-weight: 300;
+        letter-spacing: 0.1em;
+        text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+        margin: 0;
+    }
+
+    h1 {
+        font-size: 72px;
+        color: #d4af37;
+        background: linear-gradient(135deg, #f2d04a 0%, #d4af37 50%, #a67c1e 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    h2 {
+        font-size: 48px;
+        color: #f5f2eb;
+        margin-top: 20px;
+    }
+
+    p {
+        font-size: 24px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #9ba89f;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+        margin-top: 30px;
+    }
+    
+    .cta-url {
+        font-size: 32px;
+        color: #d4af37;
+        margin-top: 40px;
+        letter-spacing: 0.2em;
+    }
+
+    /* Controls */
+    #controls {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
+        display: flex;
+        gap: 20px;
+        background: rgba(28, 36, 30, 0.8);
+        padding: 15px 30px;
+        border-radius: 50px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(212, 175, 55, 0.25);
+    }
+
+    button {
+        background: none;
+        border: none;
+        color: #f5f2eb;
+        font-family: 'Tenor Sans', sans-serif;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    button:hover {
+        background: rgba(212, 175, 55, 0.2);
+        color: #d4af37;
+    }
+
+    #progress-bar {
+        position: absolute;
+        bottom: 0; left: 0;
+        height: 4px;
+        background: #d4af37;
+        width: 0%;
+        z-index: 20;
+        box-shadow: 0 0 10px #d4af37;
+    }
+</style>
+</head>
+<body>
+
+<div id="trailer-container">
+    <div class="film-grain"></div>
+    <canvas id="webgl-canvas"></canvas>
+    
+    <!-- Scene 1: Prologue -->
+    <div class="scene" id="scene-1">
+        <div class="scene-bg" style="background: radial-gradient(circle at center, #1b2a3f 0%, #0d110e 100%);"></div>
+        <p>A Place Where Memories Live</p>
+        <h1>The Celestial Rainbow Bridge</h1>
+    </div>
+
+    <!-- Scene 2: Cataract -->
+    <div class="scene" id="scene-2">
+        <div class="scene-bg" style="background: linear-gradient(to bottom, #121a26 0%, #171d18 100%);"></div>
+        <h2>The 182-Meter Glacial Chasm Cataract</h2>
+    </div>
+
+    <!-- Scene 3: Temple -->
+    <div class="scene" id="scene-3">
+        <div class="scene-bg" style="background: linear-gradient(to top, #263229 0%, #0d110e 100%);"></div>
+        <h2>Highland Temple of Baal & Solomonic Pillars</h2>
+    </div>
+
+    <!-- Scene 4: Kaya Island -->
+    <div class="scene" id="scene-4">
+        <div class="scene-bg" style="background: linear-gradient(to right, #1b2a3f 0%, #0c1220 100%);"></div>
+        <h2>Kaya Island Siberian Husky Monument</h2>
+        <p>Bioluminescent Surf</p>
+    </div>
+
+    <!-- Scene 5: Lake of Reflection -->
+    <div class="scene" id="scene-5">
+        <div class="scene-bg" style="background: radial-gradient(circle at bottom, #26384d 0%, #171d18 100%);"></div>
+        <h2>Lake of Reflection</h2>
+        <p>Golden Lotus Lantern Float</p>
+    </div>
+
+    <!-- Scene 6: Epilogue -->
+    <div class="scene" id="scene-6">
+        <div class="scene-bg" style="background: #0d110e;"></div>
+        <h1>ETERNITY VALLEY</h1>
+        <p style="font-size:18px; margin-top:20px;">The Whole Earth Is Their Resting Place.</p>
+        <p style="font-size:18px;">Every Tribute Helps A Living Animal Find Their Home.</p>
+        <div class="cta-url">ETERNITYVALLEY.COM</div>
+    </div>
+    
+    <div id="progress-bar"></div>
+</div>
+
+<div id="controls">
+    <button id="play-btn">Play Trailer</button>
+    <button id="mute-btn">Mute</button>
+    <button id="export-btn" style="color: #d4af37; border: 1px solid #d4af37;">Export MP4</button>
+</div>
+
+<script>
+    // --- Trailer Logic ---
+    const scenes = document.querySelectorAll('.scene');
+    const totalDuration = 30; // seconds
+    const fps = 30;
+    const totalFrames = totalDuration * fps;
+    const sceneDuration = totalFrames / scenes.length;
+    
+    let currentFrame = 0;
+    let isPlaying = false;
+    let isExportMode = new URLSearchParams(window.location.search).has('export');
+    
+    if (isExportMode) {
+        document.getElementById('controls').style.display = 'none';
+    }
+
+    // --- Web Audio Soundtrack ---
+    let audioCtx = null;
+    let oscillators = [];
+    
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playChord() {
+        if (!audioCtx) return;
+        const freqs = [528, 660, 792]; // Solfeggio 528Hz + Third + Fifth
+        
+        freqs.forEach(freq => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 2);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 10);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 10);
+            oscillators.push(osc);
+        });
+    }
+
+    // --- Particle System (Canvas 2D) ---
+    const canvas = document.getElementById('webgl-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    
+    const particles = [];
+    for(let i=0; i<150; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 3 + 1,
+            speedX: (Math.random() - 0.5) * 2,
+            speedY: (Math.random() - 0.5) * 2,
+            opacity: Math.random()
+        });
+    }
+
+    function drawParticles(frame) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Volumetric light
+        const t = frame / fps;
+        const gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 100, canvas.width/2, canvas.height/2, 800);
+        gradient.addColorStop(0, `rgba(212, 175, 55, ${0.1 + Math.sin(t)*0.05})`);
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0,0,canvas.width, canvas.height);
+
+        ctx.globalCompositeOperation = 'screen';
+        
+        particles.forEach(p => {
+            p.x += p.speedX;
+            p.y += p.speedY;
+            
+            if (p.x < 0) p.x = canvas.width;
+            if (p.x > canvas.width) p.x = 0;
+            if (p.y < 0) p.y = canvas.height;
+            if (p.y > canvas.height) p.y = 0;
+            
+            const flicker = Math.sin(t * 5 + p.x) * 0.3 + 0.7;
+            
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(242, 208, 74, ${p.opacity * flicker})`;
+            ctx.fill();
+        });
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // --- Core Animation Loop ---
+    function updateScene(frame) {
+        const sceneIdx = Math.min(Math.floor(frame / sceneDuration), scenes.length - 1);
+        
+        scenes.forEach((s, idx) => {
+            if (idx === sceneIdx) {
+                s.classList.add('active');
+            } else {
+                s.classList.remove('active');
+            }
+        });
+        
+        document.getElementById('progress-bar').style.width = `${(frame / totalFrames) * 100}%`;
+        
+        drawParticles(frame);
+    }
+
+    // Expose for puppeteer
+    window.seekToFrame = function(frameNumber, currentFps) {
+        currentFrame = frameNumber;
+        updateScene(currentFrame);
+    };
+
+    function renderLoop() {
+        if (!isPlaying) return;
+        
+        currentFrame++;
+        if (currentFrame > totalFrames) {
+            isPlaying = false;
+            currentFrame = 0;
+            document.getElementById('play-btn').innerText = 'Play Trailer';
+            return;
+        }
+        
+        updateScene(currentFrame);
+        
+        if (currentFrame % (sceneDuration) === 1) {
+            playChord();
+        }
+        
+        requestAnimationFrame(renderLoop);
+    }
+
+    // --- Control Events ---
+    document.getElementById('play-btn').addEventListener('click', () => {
+        initAudio();
+        if (isPlaying) {
+            isPlaying = false;
+            document.getElementById('play-btn').innerText = 'Play';
+        } else {
+            isPlaying = true;
+            document.getElementById('play-btn').innerText = 'Pause';
+            renderLoop();
+        }
+    });
+
+    document.getElementById('mute-btn').addEventListener('click', (e) => {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'running') {
+            audioCtx.suspend();
+            e.target.innerText = 'Unmute';
+        } else {
+            audioCtx.resume();
+            e.target.innerText = 'Mute';
+        }
+    });
+
+    document.getElementById('export-btn').addEventListener('click', () => {
+        alert("To export, run: node render_trailer.cjs in the terminal.");
+    });
+    
+    // Initial Render
+    updateScene(0);
+
+</script>
+</body>
+</html>
