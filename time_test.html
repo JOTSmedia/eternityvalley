@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><body><script type="module">
+import { textures } from './js/materials.js';
+const t0 = performance.now();
+textures('satelliteOrthophoto', 64);
+console.log('satelliteOrthophoto 64 took:', performance.now() - t0);
+const t1 = performance.now();
+textures('alpineSnowDrift', 64);
+console.log('alpineSnowDrift 64 took:', performance.now() - t1);
+</script></body></html>
