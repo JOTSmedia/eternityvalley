@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Create a Free Pet Memorial | Eternal Valley — Somewhere Over the Rainbow Bridge</title>
+<meta name="description" content="Create a free pet memorial in a virtual pet cemetery and sacred sanctuary. Honor pet loss in a peaceful rainbow bridge memorial, where every tribute helps living animals.">
+
+<!-- Schema.org JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Eternal Valley",
+  "description": "A virtual pet cemetery and memorial sanctuary where every tribute helps a living animal find their home.",
+  "url": "https://eternalvalley.com"
+}
+</script>
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'><g fill='none' stroke-linecap='round'><path d='M4 38a28 28 0 0 1 56 0' stroke='%23e05a4f' stroke-width='7'/><path d='M10 38a22 22 0 0 1 44 0' stroke='%23ee9740' stroke-width='7'/><path d='M16 38a16 16 0 0 1 32 0' stroke='%23f2d04a' stroke-width='7'/><path d='M21 38a11 11 0 0 1 22 0' stroke='%2363c268' stroke-width='6'/><path d='M25.5 38a6.5 6.5 0 0 1 13 0' stroke='%234a9fd8' stroke-width='5'/><path d='M29 38a3 3 0 0 1 6 0' stroke='%235566c4' stroke-width='4'/></g></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Pinyon+Script&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+<style>
+  body {
+    overflow-y: auto;
+    background: radial-gradient(circle at 50% 12%, #18261e 0%, #0d1410 50%, #050806 100%);
+    color: #ede8dc;
+    min-height: 100vh;
+  }
+  .landing-hero {
+    min-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 70px 24px 50px;
+    background: radial-gradient(ellipse 85% 65% at 50% 48%, rgba(20, 32, 25, 0.72), rgba(8, 13, 10, 0.95) 85%);
+    position: relative;
+    overflow: hidden;
+  }
+  .landing-hero::before {
+    content: '';
+    position: absolute;
+    top: -120px;
+    width: 650px;
+    height: 650px;
+    background: radial-gradient(circle, rgba(242, 208, 74, 0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .landing-hero .kicker {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent-hi-c);
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .landing-hero h1 {
+    font-family: var(--display);
+    font-size: clamp(30px, 5.2vw, 52px);
+    font-weight: 400;
+    color: #ffffff;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 16px 0 14px;
+    text-shadow: 0 0 35px rgba(242, 208, 74, 0.4);
+    max-width: 940px;
+    line-height: 1.18;
+  }
+  .landing-hero .script-sub {
+    font-family: var(--script);
+    font-size: clamp(24px, 3.5vw, 36px);
+    color: var(--accent-hi-c);
+    margin-bottom: 12px;
+    filter: drop-shadow(0 0 12px rgba(242, 208, 74, 0.5));
+  }
+  .landing-hero .subtitle {
+    font-family: var(--serif);
+    font-size: clamp(18px, 2.2vw, 24px);
+    font-style: italic;
+    color: #f7f1e4;
+    max-width: 740px;
+    line-height: 1.65;
+    margin-bottom: 34px;
+  }
+  
+  .section {
+    padding: 70px 24px;
+    max-width: 1060px;
+    margin: 0 auto;
+  }
+  
+  .section-head {
+    text-align: center;
+    margin-bottom: 44px;
+  }
+  .section h2 {
+    font-family: var(--display);
+    font-size: clamp(24px, 3.5vw, 34px);
+    font-weight: 400;
+    color: var(--accent-hi-c);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-shadow: 0 0 24px rgba(242, 208, 74, 0.35);
+  }
+  .section-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: #d8d3c5;
+    margin-top: 6px;
+  }
+  
+  .value-props {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 28px;
+  }
+  
+  .value-card {
+    position: relative;
+    background: linear-gradient(165deg, rgba(24, 36, 29, 0.88), rgba(12, 18, 14, 0.96));
+    border: 1px solid rgba(212, 175, 55, 0.38);
+    outline: 1px solid rgba(244, 211, 104, 0.16);
+    outline-offset: -5px;
+    border-radius: var(--r-lg);
+    padding: 36px 28px;
+    text-align: center;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), 0 0 28px rgba(212, 175, 55, 0.08);
+    transition: transform var(--t-med) var(--ease),
+                box-shadow var(--t-med) var(--ease),
+                border-color var(--t-fast) var(--ease);
+    overflow: hidden;
+  }
+  .value-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(244, 211, 104, 0.75);
+    box-shadow: 0 24px 55px rgba(0, 0, 0, 0.75), 0 0 35px rgba(244, 211, 104, 0.2);
+  }
+  .value-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 60%; height: 100%;
+    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.07) 50%, transparent);
+    transform: skewX(-25deg);
+    transition: left 0.8s var(--ease);
+    pointer-events: none;
+  }
+  .value-card:hover::before {
+    left: 150%;
+  }
+  .value-card .vc-icon {
+    font-size: 32px;
+    margin-bottom: 14px;
+    display: inline-block;
+    filter: drop-shadow(0 0 12px rgba(242, 208, 74, 0.4));
+  }
+  .value-card h3 {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-hi-c);
+    margin-bottom: 14px;
+  }
+  .value-card p {
+    font-family: var(--serif);
+    font-size: 16.5px;
+    color: #d6d0c2;
+    line-height: 1.65;
+  }
+  
+  .charity-card-wrapper {
+    background: linear-gradient(165deg, rgba(20, 30, 24, 0.8), rgba(10, 16, 12, 0.94));
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    outline: 1px solid rgba(244, 211, 104, 0.16);
+    outline-offset: -6px;
+    border-radius: var(--r-xl);
+    padding: 44px 30px;
+    text-align: center;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  }
+  .charity-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    margin: 28px 0 22px;
+  }
+  .charity-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.32);
+    padding: 10px 22px;
+    border-radius: var(--r-pill);
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+    transition: transform var(--t-fast) var(--ease),
+                border-color var(--t-fast) var(--ease),
+                background var(--t-fast) var(--ease),
+                box-shadow var(--t-fast) var(--ease);
+  }
+  .charity-item:hover {
+    transform: translateY(-2px);
+    background: rgba(242, 208, 74, 0.16);
+    border-color: var(--accent-hi-c);
+    box-shadow: 0 4px 18px rgba(242, 208, 74, 0.3);
+  }
+  
+  .trust-note {
+    text-align: center;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    color: #b8b2a3;
+    max-width: 680px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  
+  .vet-section {
+    text-align: center;
+    background: linear-gradient(165deg, rgba(26, 40, 32, 0.75), rgba(12, 18, 14, 0.9));
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    outline: 1px solid rgba(244, 211, 104, 0.15);
+    outline-offset: -5px;
+    padding: 50px 32px;
+    border-radius: var(--r-lg);
+    margin-top: 50px;
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+  }
+  
+  .landing-footer {
+    text-align: center;
+    padding: 44px 20px;
+    border-top: 1px solid rgba(212, 175, 55, 0.2);
+    margin-top: 60px;
+    font-size: 13.5px;
+    font-family: var(--ui);
+  }
+  .landing-footer a {
+    color: var(--accent-hi-c);
+    text-decoration: none;
+    margin: 0 10px;
+    transition: color 0.25s;
+  }
+  .landing-footer a:hover {
+    color: #ffffff;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+<main>
+  <section class="landing-hero">
+    <div class="welcome-gate">
+      <div class="welcome-crest-halo"></div>
+      <svg class="welcome-crest-svg" viewBox="0 0 100 100" aria-hidden="true" style="width: 110px; height: 110px;">
+        <circle cx="50" cy="50" r="47" fill="none" stroke="url(#wGoldGrad)" stroke-width="1.8" stroke-dasharray="3 3"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="url(#wGoldGrad)" stroke-width="1.2"/>
+        <path d="M 20 68 A 34 34 0 0 1 80 68" fill="none" stroke="url(#wGoldGrad)" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M 26 68 A 26 26 0 0 1 74 68" fill="none" stroke="url(#wGoldGrad)" stroke-width="1.4" stroke-dasharray="2 3"/>
+        <path d="M 50 24 L 52.5 32 L 60 34.5 L 52.5 37 L 50 45 L 47.5 37 L 40 34.5 L 47.5 32 Z" fill="url(#wGoldGrad)"/>
+        <path d="M 50 44 C 44 53 36 60 30 68 M 50 44 C 56 53 64 60 70 68" fill="none" stroke="url(#wGoldGrad)" stroke-width="2" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="wGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fff8e7"/>
+            <stop offset="45%" stop-color="#e8c04a"/>
+            <stop offset="100%" stop-color="#a67c1e"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    
+    <span class="kicker"><span>✦</span> ETERNAL VALLEY <span>✦</span></span>
+    <h1>A Peaceful Eternal Sanctuary for Your Beloved Companion</h1>
+    <div class="script-sub">Somewhere Over the Rainbow Bridge</div>
+    
+    <p class="subtitle">Create a free memorial in a breathtaking 3D valley — their favorite places on Earth preserved forever, where every tribute helps a living animal find their forever home.</p>
+    
+    <div class="sacred-divider">
+      <span class="sacred-divider-star">✦</span>
+    </div>
+    
+    <a href="index.html" class="btn btn-gold btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+      <span>✦</span> Consecrate Memorial — Free <span>✦</span>
+    </a>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2><span>✦</span> Sacred Remembrance Grounds <span>✦</span></h2>
+      <p class="section-sub">Every soul is remembered with dignity, love, and living charity.</p>
+    </div>
+    
+    <div class="value-props">
+      <div class="value-card">
+        <div class="vc-icon">🌈</div>
+        <h3>Choose Their Resting Place</h3>
+        <p>Select from 6 tranquil sanctuary districts — rolling wildflower meadows, whispering cathedral pines, golden shores, and starry horizons.</p>
+      </div>
+      <div class="value-card">
+        <div class="vc-icon">🌍</div>
+        <h3>Tag Their Sacred Earth Spots</h3>
+        <p>Pin the backyard, their sunlit beach, or the mountain trail you walked together — permanently anchored on our photorealistic 3D globe.</p>
+      </div>
+      <div class="value-card">
+        <div class="vc-icon">💛</div>
+        <h3>Support a Living Animal</h3>
+        <p>100% of campaign donations and a share of every tribute go directly to verified 501(c)(3) animal rescues, shelters, and hospices.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="charity-card-wrapper">
+      <h2><span>✦</span> Cryptographic Public Ledger <span>✦</span></h2>
+      <p class="section-sub">Every Cent Published Transparently</p>
+      
+      <div class="charity-list">
+        <span class="charity-item">✦ Best Friends Animal Society</span>
+        <span class="charity-item">✦ ASPCA</span>
+        <span class="charity-item">✦ Humane World for Animals</span>
+        <span class="charity-item">✦ PetSmart Charities</span>
+        <span class="charity-item">✦ RedRover</span>
+        <span class="charity-item">✦ Petfinder Foundation</span>
+      </div>
+      
+      <p class="trust-note">Every single transaction is recorded on our append-only SHA-256 cryptographic public ledger to ensure absolute transparency and trust.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="vet-section">
+      <h2><span>✦</span> Care Partner &amp; Veterinary Alliance <span>✦</span></h2>
+      <p style="margin:16px auto 28px; max-width:650px; color:#d8d3c5; font-family:var(--serif); font-size:18px; font-style:italic; line-height:1.6;">
+        We partner with compassionate clinics, hospitals, and pet cemeteries to provide grieving families with a gentle, eternal next step.
+      </p>
+      <a href="partners.html" class="btn btn-outline" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+        <span>✦</span> Explore Partner Programs &amp; Materials <span>✦</span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="landing-footer">
+  <a href="index.html">✦ Sanctuary Home</a> &middot;
+  <a href="partners.html">Partners</a> &middot;
+  <a href="terms.html">Terms</a> &middot;
+  <a href="privacy.html">Privacy</a> &middot;
+  <a href="credits.html">Credits</a>
+</footer>
+
+</body>
+</html>
+
