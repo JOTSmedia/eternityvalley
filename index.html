@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Somewhere Over the Rainbow Bridge — A Paradise for Beloved Companions</title>
+<meta name="description" content="A pet memorial on the real Earth that gives back to living animals. Place a memorial anywhere — their backyard, their beach, their favorite trail — and a share of every plot, membership and gift goes to the animal charity you choose. No plot? Start a free fundraising campaign in their name instead. Every cent is published in a public ledger.">
+<link rel="canonical" href="https://eternityvalley.com/">
+
+<!-- Open Graph / Social Media -->
+<meta property="og:title" content="Somewhere Over the Rainbow Bridge — Pet Memorial Sanctuary">
+<meta property="og:description" content="Remember them, and help the ones still waiting. A share of every plot, membership and gift goes to an animal charity of your choosing — and every cent is published. Free memorial fundraising campaigns for everyone, plot or no plot.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://eternityvalley.com/">
+<meta property="og:image" content="https://eternityvalley.com/images/og-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="Eternity Valley">
+<meta property="og:locale" content="en_US">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Somewhere Over the Rainbow Bridge">
+<meta name="twitter:description" content="A virtual pet cemetery and memorial sanctuary where every tribute helps a living animal find their home.">
+<meta name="twitter:image" content="https://eternityvalley.com/images/og-preview.jpg">
+
+<!-- PWA / Apple Mobile -->
+<meta name="theme-color" content="#171d18">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Eternity Valley">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'><g fill='none' stroke-linecap='round'><path d='M4 38a28 28 0 0 1 56 0' stroke='%23e05a4f' stroke-width='7'/><path d='M10 38a22 22 0 0 1 44 0' stroke='%23ee9740' stroke-width='7'/><path d='M16 38a16 16 0 0 1 32 0' stroke='%23f2d04a' stroke-width='7'/><path d='M21 38a11 11 0 0 1 22 0' stroke='%2363c268' stroke-width='6'/><path d='M25.5 38a6.5 6.5 0 0 1 13 0' stroke='%234a9fd8' stroke-width='5'/><path d='M29 38a3 3 0 0 1 6 0' stroke='%235566c4' stroke-width='4'/></g></svg>">
+<link rel="preload" as="image" href="images/photoreal_rainbow_sky.png">
+
+<!-- Schema.org Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "Eternity Valley",
+      "description": "A virtual pet cemetery and memorial sanctuary where every tribute helps a living animal find their home.",
+      "url": "https://eternityvalley.com",
+      "logo": "https://eternityvalley.com/images/og-preview.jpg",
+      "sameAs": []
+    },
+    {
+      "@type": "WebSite",
+      "name": "Somewhere Over the Rainbow Bridge",
+      "url": "https://eternityvalley.com",
+      "description": "Honor pet loss with a beautiful 3D virtual memorial — in the Rainbow Bridge Valley sanctuary or pinned to their favorite place on Earth.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://eternityvalley.com/?m={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+  ]
+}
+</script>
+
+<!-- Favicon: the bridge drawn as real spectral arcs, not an emoji glyph
+     (which would render as whatever face the visitor's OS ships). -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'><g fill='none' stroke-linecap='round'><path d='M4 38a28 28 0 0 1 56 0' stroke='%23e05a4f' stroke-width='7'/><path d='M10 38a22 22 0 0 1 44 0' stroke='%23ee9740' stroke-width='7'/><path d='M16 38a16 16 0 0 1 32 0' stroke='%23f2d04a' stroke-width='7'/><path d='M21 38a11 11 0 0 1 22 0' stroke='%2363c268' stroke-width='6'/><path d='M25.5 38a6.5 6.5 0 0 1 13 0' stroke='%234a9fd8' stroke-width='5'/><path d='M29 38a3 3 0 0 1 6 0' stroke='%235566c4' stroke-width='4'/></g></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tenor+Sans&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Pinyon+Script&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+} }
+</script>
+</head>
+<body>
+
+<!-- ============ PRELOADER (Photorealistic Celestial Rainbow Sky Corner Reveal) ============ -->
+<div id="preloader" class="preloader">
+  <canvas id="preloaderCanvas" class="preloader-canvas"></canvas>
+
+  <div class="preloader-header">
+    <div class="preloader-crest-wrap">
+      <div class="preloader-crest-glow"></div>
+      <div class="preloader-crest">
+        <svg viewBox="0 0 100 100" class="preloader-crest-svg" aria-hidden="true">
+          <circle cx="50" cy="50" r="47" fill="none" stroke="url(#pGoldGrad)" stroke-width="1.8" stroke-dasharray="3 3"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="url(#pGoldGrad)" stroke-width="1.2"/>
+          <path d="M 20 68 A 34 34 0 0 1 80 68" fill="none" stroke="url(#pGoldGrad)" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M 26 68 A 26 26 0 0 1 74 68" fill="none" stroke="url(#pGoldGrad)" stroke-width="1.4" stroke-dasharray="2 3"/>
+          <path d="M 50 24 L 52.5 32 L 60 34.5 L 52.5 37 L 50 45 L 47.5 37 L 40 34.5 L 47.5 32 Z" fill="url(#pGoldGrad)"/>
+          <path d="M 50 44 C 44 53 36 60 30 68 M 50 44 C 56 53 64 60 70 68" fill="none" stroke="url(#pGoldGrad)" stroke-width="2" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="pGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fff8e7"/>
+              <stop offset="45%" stop-color="#e8c04a"/>
+              <stop offset="100%" stop-color="#a67c1e"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </div>
+    
+    <div class="preloader-brand">
+      <h1 class="preloader-title">ETERNITY VALLEY</h1>
+      <div class="preloader-sub">Somewhere Over the Rainbow Bridge</div>
+    </div>
+  </div>
+
+  <div class="preloader-footer">
+    <div class="preloader-progress-wrap">
+      <div class="preloader-bar-track">
+        <div class="preloader-bar-fill" id="preloaderBarFill">
+          <div class="preloader-bar-head"></div>
+        </div>
+      </div>
+      <div class="preloader-meta">
+        <span class="preloader__word" id="preloaderWord">Weaving the Rainbow Bridge…</span>
+        <span class="preloader-pct" id="preloaderPct">0%</span>
+      </div>
+    </div>
+    <div class="preloader-quote">“Until one has loved an animal, a part of one’s soul remains unawakened.”</div>
+    <p class="preloader__note hidden" id="preloaderNote"></p>
+  </div>
+</div>
+
+<script>
+(function initPhotorealCornerRevealPreloader() {
+  var canvas = document.getElementById('preloaderCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var w = (canvas.width = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1));
+  var h = (canvas.height = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1));
+
+  // Load the master reference photograph
+  var skyImg = new Image();
+  var skyImgLoaded = false;
+  skyImg.src = 'images/photoreal_rainbow_sky.png';
+  skyImg.onload = function() { skyImgLoaded = true; };
+  if (skyImg.complete) skyImgLoaded = true;
+
+  // Offscreen canvas for feathered diagonal wavefront masking
+  var off = document.createElement('canvas');
+  var octx = off.getContext('2d');
+
+  function resize() {
+    w = canvas.width = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1);
+    h = canvas.height = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
+    off.width = w;
+    off.height = h;
+  }
+  resize();
+  var resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 60);
+  }, { passive: true });
+
+  // Progress state: smooth physical interpolation from 0.0 to 1.0
+  var currentProgress = 0.0;
+  var targetProgress = 0.08;
+  var isCompleted = false;
+  var bootFinished = false;
+
+  window.__setRainbowProgress = function(pct) {
+    var p = Math.max(0, Math.min(1, pct / 100));
+    if (p > targetProgress) targetProgress = p;
+  };
+
+  // Floating spirit motes (subtle, ethereal atmosphere)
+    var motes = [];
+  var cachedVig = null, cachedPVig = null, cachedSky = null, cacheW = 0, cacheH = 0;
+  var moteCanvas = document.createElement('canvas');
+  moteCanvas.width = 64;
+  moteCanvas.height = 64;
+  var mCtx = moteCanvas.getContext('2d');
+  var mGrad = mCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  mGrad.addColorStop(0, 'rgba(255, 245, 200, 1)');
+  mGrad.addColorStop(0.5, 'rgba(242, 208, 74, 0.5)');
+  mGrad.addColorStop(1, 'rgba(242, 208, 74, 0)');
+  mCtx.fillStyle = mGrad;
+  mCtx.fillRect(0, 0, 64, 64);
+
+  for (var i = 0; i < 40; i++) {
+    motes.push({
+      x: Math.random() * (w || 1920),
+      y: Math.random() * (h || 1080),
+      r: 1.0 + Math.random() * 2.2,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: -0.2 - Math.random() * 0.4,
+      alpha: 0.15 + Math.random() * 0.55,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+
+  var accumAnimationTime = 0.0;
+  var MIN_PRELOADER_DURATION = 4.0; // Guaranteed at least 4.0 seconds of fluid rendered animation
+  var lastNow = performance.now();
+
+  function completeAndDismiss() {
+    if (isCompleted) return;
+    isCompleted = true;
+    currentProgress = 1.0;
+
+    var pctEl = document.getElementById('preloaderPct');
+    if (pctEl) pctEl.textContent = '100%';
+    var barEl = document.getElementById('preloaderBarFill');
+    if (barEl) barEl.style.width = '100%';
+    var wordEl = document.getElementById('preloaderWord');
+    if (wordEl) wordEl.textContent = 'Welcome to Eternity Valley ✦';
+
+    // Gracefully fade out preloader and reveal the 3D sanctuary
+    var p = document.getElementById('preloader');
+    if (p) {
+      p.classList.add('is-done');
+      p.style.pointerEvents = 'none';
+      setTimeout(function() {
+        if (p.parentNode) p.remove();
+      }, 950);
+    }
+
+    var welcome = document.getElementById('welcome');
+    if (welcome && welcome.parentNode) welcome.remove();
+
+    document.body.classList.add('has-entered');
+    var stage = document.getElementById('stage');
+    if (stage) {
+      stage.classList.remove('hidden');
+      stage.style.display = 'block';
+    }
+    var topbar = document.getElementById('topbar');
+    if (topbar) topbar.classList.remove('hidden');
+    var view3d = document.getElementById('view3d');
+    if (view3d) {
+      view3d.classList.remove('hidden');
+      view3d.style.display = 'block';
+    }
+
+    window.__rainbowAnimationReady = true;
+    window.__appBootReady = true;
+    if (typeof window.enter === 'function') {
+      window.enter('tour');
+    }
+
+    window.dispatchEvent(new Event('resize'));
+    if (window.world && typeof window.world._resize === 'function') {
+      window.world._resize();
+      if (typeof window.world.start === 'function') window.world.start();
+    }
+  }
+
+  // When boot finishes in main.js — mark boot as ready and dismiss
+  window.__finishPreloader = function() {
+    window.__appBootReady = true;
+    bootFinished = true;
+    targetProgress = 1.0;
+    // Give 1 frame for the bar to visually hit 100%, then dismiss
+    requestAnimationFrame(function() {
+      currentProgress = 1.0;
+      completeAndDismiss();
+    });
+  };
+
+  // Safety fallback: guaranteed auto-entry after full animation
+  setTimeout(function() {
+    window.__appBootReady = true;
+    completeAndDismiss();
+  }, 12000);
+
+  // Clicking / tapping preloader allows user skip if desired
+  var pEl = document.getElementById('preloader');
+  if (pEl) {
+    pEl.addEventListener('click', function() {
+      window.__appBootReady = true;
+      completeAndDismiss();
+    });
+    pEl.addEventListener('touchend', function() {
+      window.__appBootReady = true;
+      completeAndDismiss();
+    }, { passive: true });
+  }
+
+  function render(now) {
+    try {
+      renderFrame(now);
+    } catch (e) {
+      console.error("[preloader] render error:", e);
+    }
+    var p = document.getElementById("preloader");
+    if (p && (!p.classList.contains("is-done") || currentProgress < 1.0)) {
+      requestAnimationFrame(render);
+    }
+  }
+  function renderFrame(now) {
+    var p = document.getElementById('preloader');
+    if (!p) return;
+    if (!now) now = performance.now();
+    var dt = (now - lastNow) / 1000;
+    lastNow = now;
+    var clampedDt = Math.max(0.001, Math.min(0.5, dt));
+    accumAnimationTime += clampedDt;
+    var t = accumAnimationTime;
+
+    // Smooth progress that tracks actual boot milestones (targetProgress)
+    // Lerp towards target so it feels fluid, not jumpy
+    var progressSpeed = 0.8; // how fast bar chases the target
+    currentProgress += (targetProgress - currentProgress) * Math.min(1.0, clampedDt * progressSpeed);
+    // Don't let it reach 1.0 until boot actually finishes
+    if (!bootFinished) currentProgress = Math.min(currentProgress, 0.95);
+
+    var pctDisplay = Math.min(100, Math.round(currentProgress * 100));
+    var pctEl = document.getElementById('preloaderPct');
+    if (pctEl) pctEl.textContent = pctDisplay + '%';
+
+    var barEl = document.getElementById('preloaderBarFill');
+    if (barEl) barEl.style.width = (currentProgress * 100) + '%';
+
+    var wordEl = document.getElementById('preloaderWord');
+    if (wordEl) {
+      if (currentProgress < 0.20) wordEl.textContent = 'Initializing sacred memories & ledger…';
+      else if (currentProgress < 0.50) wordEl.textContent = 'Baking photorealistic PBR materials…';
+      else if (currentProgress < 0.75) wordEl.textContent = 'Building 3D sanctuary valley & biomes…';
+      else if (currentProgress < 0.90) wordEl.textContent = 'Preloading Earth Globe & satellite data…';
+      else if (currentProgress < 0.99) wordEl.textContent = 'Pre-compiling GPU shaders & illumination…';
+      else wordEl.textContent = 'Welcome to Eternity Valley ✦';
+    }
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 1. Deep Atmospheric Storm Twilight Sky (Initial background before reveal)
+        if (cacheW !== w || cacheH !== h) {
+      cacheW = w; cacheH = h;
+      cachedSky = ctx.createLinearGradient(0, 0, 0, h);
+      cachedSky.addColorStop(0.0, '#0c1220');
+      cachedSky.addColorStop(0.35, '#121b2c');
+      cachedSky.addColorStop(0.65, '#1b2a3f');
+      cachedSky.addColorStop(0.85, '#26384d');
+      cachedSky.addColorStop(1.0, '#121a26');
+      
+      cachedPVig = octx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.45, w * 0.5, h * 0.5, Math.max(w, h) * 0.85);
+      cachedPVig.addColorStop(0, 'rgba(10, 16, 28, 0)');
+      cachedPVig.addColorStop(0.75, 'rgba(10, 16, 28, 0.45)');
+      cachedPVig.addColorStop(1.0, 'rgba(8, 12, 22, 0.90)');
+
+      cachedVig = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.40, w * 0.5, h * 0.5, Math.max(w, h) * 0.85);
+      cachedVig.addColorStop(0, 'rgba(10, 15, 26, 0)');
+      cachedVig.addColorStop(0.75, 'rgba(10, 15, 26, 0.35)');
+      cachedVig.addColorStop(1.0, 'rgba(8, 12, 20, 0.80)');
+    }
+
+    ctx.fillStyle = cachedSky;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Corner-to-Corner Diagonal Photo Wavefront Reveal (NO STAR)
+    if (skyImgLoaded && currentProgress > 0.01) {
+      octx.clearRect(0, 0, w, h);
+
+      // Scale & position image to cover canvas
+      var imgAspect = skyImg.width / skyImg.height;
+      var canvasAspect = w / h;
+      var dw, dh, dx, dy;
+      if (canvasAspect > imgAspect) {
+        dw = w;
+        dh = w / imgAspect;
+        dx = 0;
+        dy = (h - dh) * 0.40;
+      } else {
+        dh = h;
+        dw = h * imgAspect;
+        dx = (w - dw) * 0.5;
+        dy = 0;
+      }
+
+      // Draw full reference photo to offscreen canvas
+      octx.drawImage(skyImg, dx, dy, dw, dh);
+
+      // Soft vignette on photo edges
+      octx.save();
+      var pvig = cachedPVig;
+      octx.fillStyle = pvig;
+      octx.fillRect(0, 0, w, h);
+      octx.restore();
+
+      // Diagonal wavefront mask from bottom-left (0, h) to top-right (w, 0)
+      octx.save();
+      octx.globalCompositeOperation = 'destination-in';
+
+      var p1x = 0, p1y = h;
+      var p2x = w, p2y = 0;
+      var vx = p2x - p1x, vy = p2y - p1y;
+      var totalLen = Math.hypot(vx, vy) || 1;
+      var nx = vx / totalLen, ny = vy / totalLen;
+
+      var feather = 240; // Wide soft feather
+      var maxSweep = totalLen + feather * 1.25;
+      var currentPos = maxSweep * currentProgress;
+
+      var g1 = Math.max(0, currentPos - feather);
+      var g2 = currentPos;
+      var mx1 = p1x + nx * g1, my1 = p1y + ny * g1;
+      var mx2 = p1x + nx * g2, my2 = p1y + ny * g2;
+
+      var maskGrad = octx.createLinearGradient(mx1, my1, mx2, my2);
+      maskGrad.addColorStop(0.0, 'rgba(0,0,0,1)');
+      maskGrad.addColorStop(0.75, 'rgba(0,0,0,1)');
+      maskGrad.addColorStop(1.0, 'rgba(0,0,0,0)');
+
+      var big = w + h + 500;
+      var perpX = -ny * big, perpY = nx * big;
+
+      octx.fillStyle = maskGrad;
+      octx.beginPath();
+      octx.moveTo(p1x - nx * big - perpX, p1y - ny * big - perpY);
+      octx.lineTo(p1x - nx * big + perpX, p1y - ny * big + perpY);
+      octx.lineTo(mx2 + perpX, my2 + perpY);
+      octx.lineTo(mx2 - perpX, my2 - perpY);
+      octx.closePath();
+      octx.fill();
+      octx.restore();
+
+      // Composite revealed photographic sky over background
+      ctx.drawImage(off, 0, 0);
+    }
+
+    // 3. Floating spirit motes
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    motes.forEach(function(m) {
+      m.x += m.vx + Math.sin(t + m.phase) * 0.20;
+      m.y += m.vy;
+      if (m.y < -20) { m.y = h + 20; m.x = Math.random() * w; }
+      var flicker = 0.6 + Math.sin(t * 2.2 + m.phase) * 0.4;
+      ctx.globalAlpha = m.alpha * flicker;
+      var r = m.r * 3.2;
+      ctx.drawImage(moteCanvas, m.x - r, m.y - r, r * 2, r * 2);
+    });
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // 4. Soft atmospheric base vignette
+    ctx.save();
+    var vig = cachedVig;
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    // 5. Full Completion Transition: Dismiss ONLY when boot is truly finished
+    if (currentProgress >= 0.99 && bootFinished && !isCompleted) {
+      currentProgress = 1.0;
+      completeAndDismiss();
+      return;
+    }
+
+}
+  requestAnimationFrame(render);
+})();
+</script>
+
+<!-- ============ LIVING SKY ============
+     One canvas, driven by js/atmosphere.js off the same clock and
+     season as the 3D valley. Sits behind everything. -->
+<canvas id="atmosphere" aria-hidden="true"></canvas>
+
+<!-- ============ WELCOME OVERLAY ============ -->
+<div id="welcome" class="welcome">
+  <div class="welcome-inner">
+    <div class="welcome-gate" data-reveal data-reveal-delay="0">
+      <div class="welcome-crest-halo"></div>
+      <svg class="welcome-crest-svg" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="47" fill="none" stroke="url(#wGoldGrad)" stroke-width="1.8" stroke-dasharray="3 3"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="url(#wGoldGrad)" stroke-width="1.2"/>
+        <!-- Radiant spectral arch inside seal -->
+        <path d="M 20 68 A 34 34 0 0 1 80 68" fill="none" stroke="url(#wGoldGrad)" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M 26 68 A 26 26 0 0 1 74 68" fill="none" stroke="url(#wGoldGrad)" stroke-width="1.4" stroke-dasharray="2 3"/>
+        <!-- Radiant center star & serenity dove -->
+        <path d="M 50 24 L 52.5 32 L 60 34.5 L 52.5 37 L 50 45 L 47.5 37 L 40 34.5 L 47.5 32 Z" fill="url(#wGoldGrad)"/>
+        <path d="M 50 44 C 44 53 36 60 30 68 M 50 44 C 56 53 64 60 70 68" fill="none" stroke="url(#wGoldGrad)" stroke-width="2" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="wGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fff8e7"/>
+            <stop offset="45%" stop-color="#e8c04a"/>
+            <stop offset="100%" stop-color="#a67c1e"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    <div class="welcome-header-group" data-reveal data-reveal-delay="120">
+      <span class="welcome-kicker">✦ ETERNITY VALLEY ✦</span>
+      <h1 class="welcome-royal-title">SOMEWHERE OVER THE RAINBOW BRIDGE</h1>
+      <div class="welcome-divider">
+        <span class="wd-line"></span>
+        <span class="wd-star">✦</span>
+        <span class="wd-line"></span>
+      </div>
+    </div>
+    <p class="tagline" data-reveal data-reveal-delay="260">A peaceful eternal sanctuary where sacred memories live forever.<br>The whole Earth is their resting place — your home, their beach, the trails you walked together.</p>
+    
+    <p class="mission" data-reveal data-reveal-delay="320">
+      <span class="mission__mark"><i class="ico-slot" data-icon="heart" data-icon-size="18"></i></span>
+      <b>Compassionate healing through rescue:</b> 100% of campaign donations and a share of every tribute go directly to verified animal charities and hospices you choose.
+      <a href="#ledger" id="welcomeLedger2">Every cent is cryptographically published.</a>
+    </p>
+    <div class="welcome-now" data-reveal data-reveal-delay="380">
+      <span class="now-pulse-gold"></span><span id="welcomeNow">The valley is peaceful ✦</span>
+    </div>
+    <div class="welcome-stats" data-reveal data-reveal-delay="420">
+      <span class="ws-item"><i class="ico-slot" data-icon="paw"></i> <b>1,247</b> companions remembered</span>
+      <span class="ws-sep">✦</span>
+      <span class="ws-item"><i class="ico-slot" data-icon="heart"></i> <b>$48,290</b> raised for rescue</span>
+      <span class="ws-sep">✦</span>
+      <span class="ws-item"><i class="ico-slot" data-icon="crest"></i> <b>6</b> verified charities</span>
+    </div>
+    <div id="welcomeTicker" class="welcome-ticker" data-reveal data-reveal-delay="450" aria-live="polite"></div>
+    <div class="welcome-buttons" data-reveal data-reveal-delay="470">
+      <button id="enterBtn" class="btn btn-gold btn-lg" style="display:inline-flex; align-items:center; justify-content:center; gap:8px;">
+        <i class="ico-slot" data-icon="globe"></i> <span>✦</span> Enter Earth Orbit &amp; Sanctuary <span>✦</span>
+      </button>
+      <div class="welcome-btn-row" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;width:100%">
+        <button id="sanctuaryEntryBtn" class="btn btn-outline" style="flex:1;min-width:200px">
+          <i class="ico-slot" data-icon="crest"></i> 3D Sanctuary Valley
+        </button>
+        <button id="droneTourEntryBtn" class="btn btn-outline" style="flex:1" title="Watch the Cinematic Drone Tour">
+          <i class="ico-slot" data-icon="crest"></i> 🎬 Drone Tour
+        </button>
+        <button id="wizardEntryBtn" class="btn btn-outline" style="flex:1">
+          <i class="ico-slot" data-icon="dove"></i> Create Memorial
+        </button>
+      </div>
+    </div>
+    <p class="welcome-sub" data-reveal data-reveal-delay="600">A free and welcoming sanctuary for all grieving pet families.<br>
+      <a href="#ledger" id="welcomeLedger">✦ Public Ledger</a> ·
+      <a href="partners.html">For Vets &amp; Clinics</a> ·
+      <a href="memorial.html">Pet Memorials</a> ·
+      <a href="terms.html">Terms</a> ·
+      <a href="privacy.html">Privacy</a> ·
+      <a href="credits.html">Photo credits</a></p>
+  </div>
+</div>
+
+<!-- ============ TOP BAR ============ -->
+<header id="topbar" class="topbar hidden">
+  <div class="brand" id="brandLogo">
+    <i class="ico-slot" data-icon="rainbow" data-icon-size="24"></i>
+    <div class="brand-text">
+      <span class="brand-name">ETERNITY VALLEY</span>
+      <span class="brand-sub">Somewhere Over the Rainbow Bridge</span>
+    </div>
+  </div>
+  <button id="menuToggle" class="btn btn-outline" style="display:none;" aria-label="Toggle Menu"><i class="ico-slot" data-icon="menu"></i></button>
+
+  <!-- Primary View Switcher -->
+  <div class="view-toggle">
+    <button id="btnGlobe"><i class="ico-slot" data-icon="globe"></i><span class="vt-full">Earth Globe</span><span class="vt-short">Orbit</span></button>
+    <button id="btn3d"><i class="ico-slot" data-icon="sparkle"></i><span class="vt-full">Sanctuary 3D</span><span class="vt-short">Valley</span></button>
+    <button id="btnDroneTour" class="active" title="Cinematic 9-Stage Sanctuary & Multi-Building Flight"><i class="ico-slot" data-icon="crest"></i><span class="vt-full">🎬 Drone Tour</span><span class="vt-short">Tour</span></button>
+    <button id="btnEarth"><i class="ico-slot" data-icon="pin"></i><span class="vt-full">Earth Spots</span><span class="vt-short">Map</span></button>
+    <button id="btn2d"><i class="ico-slot" data-icon="grave"></i><span class="vt-full">2D Layout</span><span class="vt-short">2D</span></button>
+  </div>
+
+  <!-- Actions & Nav -->
+  <div class="topbar-right">
+    <button id="createMemorialBtn" class="btn btn-gold btn-consecrate" title="Create a Memorial — Guided Journey">
+      <i class="ico-slot" data-icon="dove"></i><span>✦ Consecrate Memorial</span>
+    </button>
+    <button id="soundBtn" class="btn btn-outline" title="Sanctuary Healing Soundscapes">
+      <i class="ico-slot" data-icon="sparkle"></i><span id="soundTxt">Soundscape</span>
+    </button>
+    
+    <!-- Explore Menu Dropdown -->
+    <div class="nav-dropdown" id="navDropdown">
+      <button id="navDropdownToggle" class="btn btn-outline nav-dropdown-btn" title="Explore Eternity Valley features">
+        <i class="ico-slot" data-icon="menu"></i><span>Explore ▾</span>
+      </button>
+      <div class="nav-dropdown-menu hidden" id="navDropdownMenu">
+        <button id="navDroneTourBtn" class="dropdown-item"><i class="ico-slot" data-icon="crest"></i><span>🎬 Drone Tour (Cinematic)</span></button>
+        <button id="comfortBtn" class="dropdown-item"><i class="ico-slot" data-icon="dove"></i><span>Words of Comfort</span></button>
+        <button id="keepsakesBtn" class="dropdown-item"><i class="ico-slot" data-icon="photo"></i><span>Keepsake Studio</span></button>
+        <button id="navBrowseBtn" class="dropdown-item"><i class="ico-slot" data-icon="grave"></i><span>Sanctuary Plots</span></button>
+        <button id="topbarCharityBtn" class="dropdown-item"><i class="ico-slot" data-icon="heart"></i><span id="topbarCharityTxt">Rescue Fund Ledger</span></button>
+        <button id="partnerBtn" class="dropdown-item"><i class="ico-slot" data-icon="crest"></i><span>Care Partners</span></button>
+        <button id="membershipBtn" class="dropdown-item"><i class="ico-slot" data-icon="shield"></i><span>Memberships</span></button>
+      </div>
+    </div>
+
+    <button id="myBtn" class="btn btn-outline"><i class="ico-slot" data-icon="crest"></i><span>My Bridge</span></button>
+    <button id="authBtn" class="btn btn-outline"><span>Sign in</span></button>
+    <div id="userChip" class="user-chip hidden">
+      <span id="userName"></span>
+      <button id="signOutBtn" title="Sign out" aria-label="Sign out"><i class="ico-slot" data-icon="power"></i></button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ VIEWS ============ -->
+<main id="stage" class="stage">
+  <!-- Our own planet, for the view from orbit. Google's tiles take
+       over only once a place has been chosen and the descent starts. -->
+  <div id="viewGlobe" class="view hidden">
+    <canvas id="canvasGlobe" role="img" aria-label="Interactive 3D Earth Globe with NASA satellite imagery and live celestial orbit"></canvas>
+    <!-- The way in. Everything else on this screen is about finding a
+         real place on Earth; this is the door to the valley itself, so
+         it gets its own weight rather than hiding in the view switch. -->
+    <div class="globe-cta is-waiting" id="globeCta">
+      <p class="globe-cta__line">Every companion has a place here</p>
+      <button class="btn btn-gold btn-lg" id="enterValleyBtn">
+        <i class="ico-slot" data-icon="crest"></i>Enter Rainbow Bridge Valley
+      </button>
+      <button class="btn btn-outline" id="globeDroneTourBtn" style="margin-top:8px" title="Glide along the 7 Sanctuary Landmarks">
+        <i class="ico-slot" data-icon="crest"></i>🎬 Cinematic Drone Tour
+      </button>
+      <p class="globe-cta__sub">Or choose a place on Earth they loved · <a href="#campaigns" id="ctaCampaigns">Start a free campaign</a></p>
+    </div>
+    <div class="globe-readout" id="globeReadout" aria-live="polite"></div>
+  </div>
+  <div id="viewEarth" class="view hidden">
+    <div id="earthMap" class="earth-map"></div>
+    <div id="streetPanel" class="street-panel hidden">
+      <button class="btn btn-gold" id="streetClose"><i class="ico-slot" data-icon="close"></i>Back to the map</button>
+      <div id="streetContainer"></div>
+    </div>
+    <div id="placeBanner" class="place-banner hidden">
+      Click a glowing <i class="ico-slot" data-icon="paw"></i> spot — or anywhere on the map — to choose their resting place
+      <button id="placeCenter">Use map center</button>
+      <button id="placeCancel">Cancel</button>
+    </div>
+  </div>
+  <div id="view3d" class="view">
+    <canvas id="canvas3d" role="img" aria-label="3D Sanctuary Valley Virtual Pet Cemetery Experience"></canvas>
+    <!-- 3D Plot Hover Glassmorphic Tooltip -->
+    <div id="plotHoverTooltip" class="plot-hover-tooltip hidden" aria-hidden="true">
+      <div class="pht-header">
+        <span class="pht-icon" id="phtIcon"></span>
+        <div class="pht-titles">
+          <div class="pht-name" id="phtName"></div>
+          <div class="pht-sub" id="phtSub"></div>
+        </div>
+      </div>
+      <div class="pht-epitaph" id="phtEpitaph"></div>
+      <div class="pht-footer">
+        <span class="pht-badge" id="phtBadge"></span>
+        <span class="pht-action" id="phtAction">Click to visit memorial →</span>
+      </div>
+    </div>
+    <!-- 3D Ambience & Lighting Control Pill -->
+    <div class="sanctuary-ambience-pill" id="sanctuaryAmbiencePill">
+      <span class="sap-title"><i class="ico-slot" data-icon="sparkle"></i> Lighting:</span>
+      <button data-phase="dawn" class="sap-btn" title="Morning Dawn · Soft Rose Mist"><i class="ico-slot" data-icon="sparkle"></i> Dawn</button>
+      <button data-phase="day" class="sap-btn" title="Sunlit Day · Golden Sunlight"><i class="ico-slot" data-icon="crest"></i> Sunlit</button>
+      <button data-phase="dusk" class="sap-btn" title="Amber Dusk · Golden Twilight"><i class="ico-slot" data-icon="candle"></i> Dusk</button>
+      <button data-phase="night" class="sap-btn" title="Celestial Night · Starlight & Lanterns"><i class="ico-slot" data-icon="sparkle"></i> Night</button>
+      <button data-mood="blessing" class="sap-btn sap-btn-mood" title="Gentle Rain Blessing · Rainbow Glow"><i class="ico-slot" data-icon="rainbow"></i> Blessing</button>
+    </div>
+    <!-- District Navigation Filter Pills -->
+    <div id="districtNav" class="districts hidden">
+      <button class="district-btn is-active" data-d="all">All Grounds</button>
+      <button class="district-btn" data-d="meadows">Sunlit Meadows</button>
+      <button class="district-btn" data-d="canopy">Cathedral Forest</button>
+      <button class="district-btn" data-d="riverbank">Rainbow Shore</button>
+      <button class="district-btn" data-d="starlight">Kaya Island</button>
+      <button class="district-btn" data-d="highland">Highland Sanctuary</button>
+    </div>
+  </div>
+  <div id="view2d" class="view hidden"><canvas id="canvas2d" role="img" aria-label="2D Sanctuary Valley Map Overview"></canvas></div>
+
+  <!-- The search bar belongs to the whole site, not to one view:
+       the question it asks is the point of the product, so it is
+       reachable from orbit, from the map, from the Sanctuary and
+       from the flat map alike. It fades in after the entrance so
+       it never covers the globe on first sight. -->
+  <div class="earth-toolbar is-waiting hidden" id="earthToolbar">
+      <div class="earth-search-label">Where was their favorite place on Earth?</div>
+      <div class="earth-search-row">
+        <span class="search-icon"><i class="ico-slot" data-icon="search"></i></span>
+        <input id="earthSearch" placeholder="Type any address or place — your backyard, their beach, the park…">
+        <button id="locBtn" class="btn btn-outline" title="Fly to your current location"><i class="ico-slot" data-icon="pin"></i>My location</button>
+        <button id="earthGo" class="btn btn-gold btn-fly">Fly there →</button>
+      </div>
+      <div class="earth-actions">
+        <button id="placeBtn" class="btn btn-outline"><i class="ico-slot" data-icon="paw"></i>Place on Earth</button>
+        <button id="browseBtn" class="btn btn-outline"><i class="ico-slot" data-icon="grave"></i>Sanctuary Plots</button>
+        <button id="droneTourToolbarBtn" class="btn btn-outline" title="Cinematic Drone Tour across the Sanctuary"><i class="ico-slot" data-icon="crest"></i>🎬 Drone Tour</button>
+        <button id="keepsakeToolbarBtn" class="btn btn-outline" title="Physical Keepsakes &amp; Photo Artifacts"><i class="ico-slot" data-icon="photo"></i>Keepsakes</button>
+        <button id="candleVigilBtn" class="btn btn-outline" title="Light a candle vigil in memory"><i class="ico-slot" data-icon="candle"></i>Candle Vigil</button>
+        <button id="lanternBtn" class="btn btn-outline" title="Release a memory lantern on the Rainbow River"><i class="ico-slot" data-icon="candle"></i>River Lanterns</button>
+        <button id="lettersBtn" class="btn btn-outline" title="Letters across the Bridge (Journal)"><i class="ico-slot" data-icon="dove"></i>Letters</button>
+        <button id="treeRibbonBtn" class="btn btn-outline" title="Tie a ribbon on the Tree of Life"><i class="ico-slot" data-icon="flower"></i>Tree of Life</button>
+        <button id="feedBtn" class="btn btn-outline"><i class="ico-slot" data-icon="chat"></i>Community</button>
+        <button id="causeBtn" class="btn btn-outline" title="Memorial fundraising campaigns, and the public ledger"><i class="ico-slot" data-icon="heart"></i>Campaigns</button>
+        <button id="groundBtn" class="btn btn-outline" title="Drop to ground level — walk the actual place"><i class="ico-slot" data-icon="walk"></i>Ground</button>
+        <button id="streetBtn" class="btn btn-outline" title="Real Street View imagery here"><i class="ico-slot" data-icon="eye"></i>Street</button>
+        <button id="orbitBtn" class="btn btn-outline" title="Pull back out to the whole planet"><i class="ico-slot" data-icon="globe"></i>Orbit</button>
+        <button id="homeBtn" class="btn btn-outline" title="Descend to Rainbow Bridge Valley"><i class="ico-slot" data-icon="crest"></i>RBV</button>
+        <button id="key3dBtn" class="btn btn-gold" title="Paste your Google Maps key to unlock photorealistic 3D"><i class="ico-slot" data-icon="key"></i>Enable 3D</button>
+        <button id="tourBtn" class="btn btn-outline" title="Show me around the site again"><i class="ico-slot" data-icon="book"></i>Guide</button>
+      </div>
+    </div>
+
+
+  <aside id="feedPanel" class="feed-panel hidden" role="dialog" aria-modal="true" aria-label="Community Feed">
+    <button class="panel-close" id="feedClose" aria-label="Close"><i class="ico-slot" data-icon="close"></i></button>
+    <h2 class="feed-title"><i class="ico-slot" data-icon="chat"></i>Community</h2>
+    <div id="feedBody"></div>
+  </aside>
+
+  <!-- Campaigns and the public ledger. Free to use, and reachable
+       without an account, a plot or a payment method. -->
+  <aside id="campaignPanel" class="feed-panel hidden" role="dialog" aria-modal="true" aria-label="Rescue Campaigns">
+    <button class="panel-close" id="campaignClose" aria-label="Close"><i class="ico-slot" data-icon="close"></i></button>
+    <h2 class="feed-title"><i class="ico-slot" data-icon="heart"></i>Campaigns</h2>
+    <div id="campaignBody"></div>
+  </aside>
+
+  <aside id="browsePanel" class="feed-panel hidden" role="dialog" aria-modal="true" aria-label="Plots and Memorials Explorer">
+    <button class="panel-close" id="browseClose" aria-label="Close"><i class="ico-slot" data-icon="close"></i></button>
+    <h2 class="feed-title"><i class="ico-slot" data-icon="grave"></i>Plots &amp; Memorials</h2>
+    <div id="browseBody"></div>
+  </aside>
+
+  <div class="legend">
+    <span><i class="dot dot-avail"></i> Available</span>
+    <span><i class="dot dot-occ"></i> Occupied</span>
+    <span class="legend-hint">Click any plot · drag to explore · scroll to zoom</span>
+  </div>
+
+  <!-- ============ PLOT PANEL ============ -->
+  <aside id="plotPanel" class="panel hidden" role="dialog" aria-modal="true" aria-label="Memorial Details">
+    <button class="panel-close" id="panelClose" aria-label="Close"><i class="ico-slot" data-icon="close"></i></button>
+    <div id="plotPanelBody"></div>
+  </aside>
+</main>
+
+<!-- ============ MODALS ============ -->
+<div id="modalRoot" class="modal-root hidden" role="dialog" aria-modal="true">
+  <div class="modal-backdrop"></div>
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+<!-- Watchdog. Deliberately a classic (non-module) inline script: if the
+     module graph fails to load at all — CDN blocked, offline, opened
+     over file:// — nothing in main.js ever runs, and without this the
+     visitor is left staring at the loading screen for good. -->
+<script type="module" src="js/main.js?v=6"></script>
+<script>
+setTimeout(function() {
+  if (!window.__rbvBooted) {
+    console.warn('[watchdog] Safety timeout (20s) reached. App failed to boot.');
+    var wordEl = document.getElementById('preloaderWord');
+    if (wordEl) {
+      wordEl.textContent = 'Connection Timeout / Please Reload';
+      wordEl.style.color = '#ff6b6b';
+    }
+    var pctEl = document.getElementById('preloaderPct');
+    if (pctEl) pctEl.style.display = 'none';
+    var barEl = document.getElementById('preloaderBarFill');
+    if (barEl) barEl.style.backgroundColor = '#ff6b6b';
+  }
+}, 20000);
+</script>
+</body>
+</html>
